@@ -1,0 +1,96 @@
+name: Continuous Integration - Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app/build.gradle.kts'
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      is_prerelease: ${{ steps.version.outputs.IS_PRERELEASE }}
+      skip: ${{ steps.check_release.outputs.skip }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6.0.3
+
+      - name: Read version
+        id: version
+        run: bash .github/scripts/get-version.sh
+
+      - name: Checking for existing release
+        id: check_release
+        env:
+          VERSION: v${{ steps.version.outputs.VERSION }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/check-release.sh
+
+  build-and-publish:
+    runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.skip == 'false'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6.0.3
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4.0.1
+
+      - name: Inject Keystore Configuration properties
+        run: |
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> keystore.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+          echo "storeFile=${{ github.workspace }}/KeyFile.jks" >> keystore.properties
+
+      - name: Decode and Place Keystore File
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/KeyFile.jks
+
+      - name: Grant Execute Permissions to Gradle
+        run: chmod +x gradlew
+
+      - name: Build Production Bundle (assembleRelease)
+        run: ./gradlew clean assembleRelease --no-daemon
+
+      - name: Rename Output APK
+        run: |
+          OLD_PATH="app/build/outputs/apk/release/app-release.apk"
+          NEW_PATH="app/build/outputs/apk/release/sequence-v${{ needs.check.outputs.version }}.apk"
+          if [ -f "$OLD_PATH" ]; then
+            mv "$OLD_PATH" "$NEW_PATH"
+          else
+            mv app/build/outputs/apk/release/*.apk "$NEW_PATH"
+          fi
+
+      - name: Generate Changelog
+        run: bash .github/scripts/generate-changelog.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3.0.0
+        with:
+          tag_name: v${{ needs.check.outputs.version }}
+          name: v${{ needs.check.outputs.version }}
+          body_path: changelog.md
+          prerelease: ${{ needs.check.outputs.is_prerelease == 'true' }}
+          files: app/build/outputs/apk/release/sequence-v${{ needs.check.outputs.version }}.apk
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Clean Sensitive Data
+        if: always()
+        run: rm -f ${{ github.workspace }}/KeyFile.jks
