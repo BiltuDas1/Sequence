@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.ui.utils.LastCharPasswordVisualTransformation
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ServerConfigDialog(
@@ -27,13 +28,15 @@ fun ServerConfigDialog(
     var useWss by remember { mutableStateOf(config.useWss) }
 
     var maskLast by remember { mutableStateOf(true) }
+    var lastPasswordLength by remember { mutableIntStateOf(password.length) }
 
     LaunchedEffect(password) {
-        if (password.isNotEmpty()) {
+        if (password.length > lastPasswordLength) {
             maskLast = false
-            delay(1500) // Delay before masking the last character
+            delay(1500.milliseconds) // Delay before masking the last character
             maskLast = true
         }
+        lastPasswordLength = password.length
     }
 
     AlertDialog(

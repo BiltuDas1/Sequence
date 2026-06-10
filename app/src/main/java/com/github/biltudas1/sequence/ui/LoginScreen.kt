@@ -18,20 +18,26 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.R
+import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.ui.theme.OutlineGhost
 import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val dataStoreManager = remember { DataStoreManager(context) }
+    val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
+    val scope = rememberCoroutineScope()
+
     var isLoading by remember { mutableStateOf(false) }
     var showConfigDialog by remember { mutableStateOf(false) }
-    var serverConfig by remember { mutableStateOf(ServerConfig()) }
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -159,7 +165,9 @@ fun LoginScreen(modifier: Modifier = Modifier) {
             config = serverConfig,
             onDismiss = { showConfigDialog = false },
             onSave = {
-                serverConfig = it
+                scope.launch {
+                    dataStoreManager.saveServerConfig(it)
+                }
                 showConfigDialog = false
             }
         )
