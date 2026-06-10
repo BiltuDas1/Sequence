@@ -7,41 +7,28 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
+import com.github.biltudas1.sequence.ui.theme.SurfaceDim
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SequenceTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
+            // Forces dark mode for the preview to match your original XML design
+            SequenceTheme(darkTheme = true) {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    // Matches the @color/surface_dim from your XML
+                    containerColor = SurfaceDim
+                ) { innerPadding ->
+                    LoginScreen(
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SequenceTheme {
-        Greeting("World")
     }
 }
