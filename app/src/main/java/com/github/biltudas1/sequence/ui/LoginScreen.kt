@@ -1,11 +1,12 @@
 package com.github.biltudas1.sequence.ui
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +21,8 @@ import com.github.biltudas1.sequence.ui.theme.TextSecondary
 
 @Composable
 fun LoginScreen(modifier: Modifier = Modifier) {
+    var isLoading by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -55,7 +58,7 @@ fun LoginScreen(modifier: Modifier = Modifier) {
 
         // Google Sign-In Button
         Button(
-            onClick = { /* UI Only */ },
+            onClick = { isLoading = !isLoading },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp), // Exact height from XML
@@ -68,24 +71,44 @@ fun LoginScreen(modifier: Modifier = Modifier) {
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center, // Centers the content like iconGravity="textStart"
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize() // Smoothly animate the sliding effect
             ) {
-                // NOTE: Copy your ic_google.xml into the drawable folder of this new project
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_google),
-                    contentDescription = "Google Logo",
-                    tint = Color.Unspecified, // Prevents Android from painting the colorful G logo white
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_google),
+                        contentDescription = "Google Logo",
+                        tint = Color.Unspecified, // Prevents Android from painting the colorful G logo white
+                        modifier = Modifier.size(24.dp)
+                    )
 
-                Spacer(modifier = Modifier.width(16.dp))
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp),
+                            color = Color.White,
+                            strokeWidth = 3.dp
+                        )
+                    }
+                }
 
-                Text(
-                    text = "Sign in with Google",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                AnimatedVisibility(
+                    visible = !isLoading,
+                    enter = fadeIn() + expandHorizontally(),
+                    exit = fadeOut() + shrinkHorizontally()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Text(
+                            text = "Sign in with Google",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
         }
     }
