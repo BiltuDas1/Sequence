@@ -115,26 +115,26 @@ fun LoginScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp), // Exact height from XML
-                shape = RoundedCornerShape(16.dp), // Exact corner radius from XML
+                    .height(64.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SurfaceContainerHigh, // Matches @color/surface_container_high
+                    containerColor = SurfaceContainerHigh,
                     contentColor = Color.White
                 ),
-                border = BorderStroke(1.dp, OutlineGhost) // Matches @color/outline_ghost
+                border = BorderStroke(1.dp, OutlineGhost)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize() // Smoothly animate the sliding effect
+                        .animateContentSize()
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_google),
                             contentDescription = "Google Logo",
-                            tint = Color.Unspecified, // Prevents Android from painting the colorful G logo white
+                            tint = Color.Unspecified,
                             modifier = Modifier.size(24.dp)
                         )
 
