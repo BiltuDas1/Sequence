@@ -42,72 +42,78 @@ fun RoomEntryScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        Text(
-            text = "Join a Room",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Enter a room ID to start a call",
-            fontSize = 16.sp,
-            color = TextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        OutlinedTextField(
-            value = roomId,
-            onValueChange = { roomId = it },
-            label = { Text("Room ID") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.White,
-                unfocusedBorderColor = TextSecondary,
-                focusedLabelColor = Color.White,
-                unfocusedLabelColor = TextSecondary,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
-            )
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = {
-                permissionLauncher.launch(
-                    arrayOf(
-                        android.Manifest.permission.RECORD_AUDIO,
-                        android.Manifest.permission.MODIFY_AUDIO_SETTINGS
-                    )
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SurfaceContainerHigh,
-                contentColor = Color.White
-            ),
-            enabled = roomId.isNotBlank()
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Join Call",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                text = "Join a Room",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Enter a room ID to start a call",
+                fontSize = 16.sp,
+                color = TextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            OutlinedTextField(
+                value = roomId,
+                onValueChange = { roomId = it },
+                label = { Text("Room ID") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.White,
+                    unfocusedBorderColor = TextSecondary,
+                    focusedLabelColor = Color.White,
+                    unfocusedLabelColor = TextSecondary,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    permissionLauncher.launch(
+                        arrayOf(
+                            android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.MODIFY_AUDIO_SETTINGS
+                        )
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SurfaceContainerHigh,
+                    contentColor = Color.White
+                ),
+                enabled = roomId.isNotBlank()
+            ) {
+                Text(
+                    text = "Join Call",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

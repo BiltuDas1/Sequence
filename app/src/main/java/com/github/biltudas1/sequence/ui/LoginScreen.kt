@@ -59,8 +59,7 @@ fun LoginScreen(
                     containerColor = Color.Transparent
                 )
             )
-        },
-        containerColor = Color.Transparent
+        }
     ) { innerPadding ->
         Column(
             modifier = modifier
