@@ -6,10 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -17,7 +13,6 @@ import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.RoomEntryScreen
 import com.github.biltudas1.sequence.ui.WebRTCScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
-import com.github.biltudas1.sequence.ui.theme.SurfaceDim
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
