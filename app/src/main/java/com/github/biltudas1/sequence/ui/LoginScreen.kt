@@ -30,7 +30,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(modifier: Modifier = Modifier) {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
@@ -96,7 +99,13 @@ fun LoginScreen(modifier: Modifier = Modifier) {
             Button(
                 onClick = {
                     if (serverConfig.isValid()) {
-                        isLoading = !isLoading
+                        isLoading = true
+                        // Simulate a login process
+                        scope.launch {
+                            kotlinx.coroutines.delay(1000)
+                            isLoading = false
+                            onLoginSuccess()
+                        }
                     } else {
                         Toast.makeText(
                             context,
