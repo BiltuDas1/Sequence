@@ -82,12 +82,17 @@ fun WebRTCScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SurfaceDim),
-        contentAlignment = Alignment.Center
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SurfaceDim)
+                .systemBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -137,4 +142,5 @@ fun WebRTCScreen(
             Icon(Icons.Default.CallEnd, contentDescription = "Stop Call")
         }
     }
+}
 }
