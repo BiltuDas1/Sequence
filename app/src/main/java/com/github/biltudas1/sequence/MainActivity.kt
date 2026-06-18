@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
                 val currentRoute = navBackStackEntry?.destination?.route
 
                 LaunchedEffect(accessToken) {
-                    if (accessToken == null && currentRoute != "login" && accessToken != "UNDEFINED") {
+                    if (accessToken == null && currentRoute != "login") {
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
                             WebRTCScreen(
                                 roomId = roomId,
                                 serverUrl = serverUrl,
-                                accessToken = accessToken as? String,
+                                accessToken = accessToken,
                                 onCallStopped = {
                                     navController.popBackStack()
                                 }

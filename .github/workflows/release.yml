@@ -61,6 +61,9 @@ jobs:
       - name: Decode and Place Keystore File
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/KeyFile.jks
 
+      - name: Decode and Place Google Services JSON
+        run: echo "${{ secrets.GOOGLE_SERVICES }}" | base64 --decode > app/google-services.json
+
       - name: Grant Execute Permissions to Gradle
         run: chmod +x gradlew
 

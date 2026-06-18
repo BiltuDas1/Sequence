@@ -43,7 +43,11 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
     }
 
     suspend fun refreshToken(serverConfig: ServerConfig, refreshToken: String): Result<ApiResponse<JwtTokens>> {
-        return performPost(serverConfig, "users/refresh", null, RefreshRequest(refreshToken))
+        return performPost(serverConfig, "token/refresh", null, RefreshRequest(refreshToken))
+    }
+
+    suspend fun updateFcmToken(serverConfig: ServerConfig, accessToken: String, fcmToken: String?): Result<ApiResponse<Unit>> {
+        return performPost(serverConfig, "users/fcm-token", accessToken, FcmTokenRequest(fcmToken))
     }
 
     private suspend inline fun <reified RES : Any> performGet(
@@ -159,8 +163,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                     return newTokens.access_token
                 }
             } else {
-                // If refresh fails, it might be because the refresh token is also expired.
-                // In this case, we should log the user out.
+                // If refresh fails (e.g., 404 Refresh token expired), clear tokens to trigger logout
                 dataStoreManager.clearTokens()
             }
             null

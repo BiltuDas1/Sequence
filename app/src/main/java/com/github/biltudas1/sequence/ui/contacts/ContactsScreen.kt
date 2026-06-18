@@ -69,7 +69,7 @@ fun ContactsScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Contacts", color = Color.White) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
