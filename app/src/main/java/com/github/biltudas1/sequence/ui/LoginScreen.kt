@@ -41,7 +41,7 @@ fun LoginScreen(
     val dataStoreManager = remember { DataStoreManager(context) }
     val googleAuthManager = remember { GoogleAuthManager(context) }
     val okHttpClient = remember { OkHttpClient() }
-    val authService = remember { AuthService(okHttpClient) }
+    val authService = remember { AuthService(okHttpClient, dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val scope = rememberCoroutineScope()
 
