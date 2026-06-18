@@ -47,3 +47,13 @@ data class JwtTokens(
 data class RefreshRequest(
     val refresh_token: String
 )
+
+@Serializable
+data class AddContactRequest(
+    val email: String
+)
+
+@Serializable
+data class RemoveContactRequest(
+    val email: String
+)
