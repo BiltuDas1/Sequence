@@ -39,7 +39,7 @@ fun ContactsScreen(
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
-    val authService = remember { AuthService(OkHttpClient()) }
+    val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
 
     var contacts by remember { mutableStateOf<List<UserData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }

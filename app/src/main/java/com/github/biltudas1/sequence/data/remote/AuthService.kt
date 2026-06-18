@@ -1,9 +1,14 @@
 package com.github.biltudas1.sequence.data.remote
 
 import android.util.Log
+import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -12,9 +17,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class AuthService(val client: OkHttpClient) {
+class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataStoreManager) {
     val json = Json { ignoreUnknownKeys = true }
-    private val mediaType = "application/json; charset=utf-8".toMediaType()
+    internal val mediaType = "application/json; charset=utf-8".toMediaType()
+    internal val refreshMutex = Mutex()
 
     suspend fun getContacts(serverConfig: ServerConfig, accessToken: String): Result<ApiResponse<List<UserData>>> {
         return performGet(serverConfig, "contacts", accessToken)
@@ -36,6 +42,10 @@ class AuthService(val client: OkHttpClient) {
         return performPost(serverConfig, "contacts/remove", accessToken, RemoveContactRequest(email))
     }
 
+    suspend fun refreshToken(serverConfig: ServerConfig, refreshToken: String): Result<ApiResponse<JwtTokens>> {
+        return performPost(serverConfig, "users/refresh", null, RefreshRequest(refreshToken))
+    }
+
     private suspend inline fun <reified RES : Any> performGet(
         serverConfig: ServerConfig,
         path: String,
@@ -53,7 +63,7 @@ class AuthService(val client: OkHttpClient) {
                     .get()
                     .build()
 
-                executeRequest<RES>(request)
+                executeRequest<RES>(request, serverConfig)
             } catch (e: Exception) {
                 Log.e("AuthService", "GET error", e)
                 Result.failure(e)
@@ -83,7 +93,7 @@ class AuthService(val client: OkHttpClient) {
                     .post(requestBody)
                     .build()
 
-                executeRequest<RES>(request)
+                executeRequest<RES>(request, serverConfig)
             } catch (e: Exception) {
                 Log.e("AuthService", "POST error", e)
                 Result.failure(e)
@@ -92,13 +102,78 @@ class AuthService(val client: OkHttpClient) {
     }
 
     @PublishedApi
-    internal inline fun <reified RES : Any> executeRequest(request: Request): Result<RES> {
+    internal suspend inline fun <reified RES : Any> executeRequest(request: Request, serverConfig: ServerConfig): Result<RES> {
         return try {
-            client.newCall(request).execute().use { response ->
-                val bodyString = response.body.string()
+            val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
+            response.use { resp ->
+                val bodyString = resp.body.string()
                 Log.d("AuthService", "Response: $bodyString")
 
-                if (response.isSuccessful) {
+                if (resp.isSuccessful) {
+                    val parsed = json.decodeFromString<RES>(bodyString)
+                    if (parsed is ApiResponse<*> && !parsed.status) {
+                        Result.failure(Exception(parsed.message))
+                    } else {
+                        Result.success(parsed)
+                    }
+                } else if (resp.code == 401 || (bodyString.contains("expired", true) && bodyString.contains("token", true))) {
+                    // Try to refresh
+                    val newAccessToken = tryRefresh(serverConfig)
+                    if (newAccessToken != null) {
+                        // Retry with new token
+                        val newRequest = request.newBuilder()
+                            .header("Authorization", "Bearer $newAccessToken")
+                            .build()
+                        return executeRequestWithoutRetry(newRequest)
+                    }
+                    
+                    try {
+                        val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)
+                        Result.failure(Exception(errorResponse.message))
+                    } catch (e: Exception) {
+                        Result.failure(Exception("Request failed: ${resp.code}"))
+                    }
+                } else {
+                    try {
+                        val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)
+                        Result.failure(Exception(errorResponse.message))
+                    } catch (e: Exception) {
+                        Result.failure(Exception("Request failed: ${resp.code}"))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    @PublishedApi
+    internal suspend fun tryRefresh(serverConfig: ServerConfig): String? {
+        return refreshMutex.withLock {
+            val currentRefreshToken = dataStoreManager.refreshTokenFlow.firstOrNull() ?: return null
+            val refreshResult = refreshToken(serverConfig, currentRefreshToken)
+            if (refreshResult.isSuccess) {
+                val newTokens = refreshResult.getOrNull()?.data
+                if (newTokens != null) {
+                    dataStoreManager.saveTokens(newTokens.access_token, newTokens.refresh_token)
+                    return newTokens.access_token
+                }
+            } else {
+                // If refresh fails, it might be because the refresh token is also expired.
+                // In this case, we should log the user out.
+                dataStoreManager.clearTokens()
+            }
+            null
+        }
+    }
+
+    @PublishedApi
+    internal suspend inline fun <reified RES : Any> executeRequestWithoutRetry(request: Request): Result<RES> {
+        return try {
+            val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
+            response.use { resp ->
+                val bodyString = resp.body.string()
+                if (resp.isSuccessful) {
                     val parsed = json.decodeFromString<RES>(bodyString)
                     if (parsed is ApiResponse<*> && !parsed.status) {
                         Result.failure(Exception(parsed.message))
@@ -110,7 +185,7 @@ class AuthService(val client: OkHttpClient) {
                         val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)
                         Result.failure(Exception(errorResponse.message))
                     } catch (e: Exception) {
-                        Result.failure(Exception("Request failed: ${response.code}"))
+                        Result.failure(Exception("Request failed: ${resp.code}"))
                     }
                 }
             }

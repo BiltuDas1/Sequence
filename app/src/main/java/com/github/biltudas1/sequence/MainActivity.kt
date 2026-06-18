@@ -10,11 +10,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.ui.LoginScreen
@@ -37,6 +39,16 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val accessTokenState = dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
                 val accessToken = accessTokenState.value
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+
+                LaunchedEffect(accessToken) {
+                    if (accessToken == null && currentRoute != "login" && accessToken != "UNDEFINED") {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
 
                 if (accessToken == "UNDEFINED") {
                     // Prevent flicker by showing a blank screen while loading session
