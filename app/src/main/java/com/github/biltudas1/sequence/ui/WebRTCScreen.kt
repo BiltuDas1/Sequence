@@ -16,6 +16,7 @@ import org.webrtc.*
 fun WebRTCScreen(
     roomId: String,
     serverUrl: String,
+    accessToken: String?,
     onCallStopped: () -> Unit
 ) {
     val context = LocalContext.current
@@ -38,10 +39,13 @@ fun WebRTCScreen(
     }
 
     LaunchedEffect(serverUrl) {
-        signalingClient = SignalingClient(serverUrl, object : SignalingClient.SignalingListener {
-            override fun onPeerJoined() {
-                webRTCClient.createOffer()
-            }
+        signalingClient = SignalingClient(
+            serverUrl = serverUrl,
+            accessToken = accessToken,
+            listener = object : SignalingClient.SignalingListener {
+                override fun onPeerJoined() {
+                    webRTCClient.createOffer()
+                }
 
             override fun onPeerLeft() {
                 onCallStopped()

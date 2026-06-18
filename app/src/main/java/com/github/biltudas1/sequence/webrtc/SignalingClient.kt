@@ -6,6 +6,7 @@ import org.json.JSONObject
 
 class SignalingClient(
     private val serverUrl: String,
+    private val accessToken: String?,
     private val listener: SignalingListener
 ) {
     private val client = OkHttpClient()
@@ -20,7 +21,14 @@ class SignalingClient(
     }
 
     fun start() {
-        val request = Request.Builder().url(serverUrl).build()
+        val request = Request.Builder()
+            .url(serverUrl)
+            .apply {
+                accessToken?.let {
+                    addHeader("Authorization", "Bearer $it")
+                }
+            }
+            .build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("SignalingClient", "Connected to signaling server")

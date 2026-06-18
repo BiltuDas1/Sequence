@@ -7,7 +7,19 @@ data class ServerConfig(
     val useHttps: Boolean = true,
     val useWss: Boolean = true
 ) {
+    /**
+     * Strips protocols (http://, https://, ws://, wss://) and trailing slashes
+     */
+    val cleanEndpoint: String
+        get() = endpoint
+            .trim()
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .removePrefix("wss://")
+            .removePrefix("ws://")
+            .removeSuffix("/")
+
     fun isValid(): Boolean {
-        return endpoint.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+        return endpoint.isNotBlank()
     }
 }

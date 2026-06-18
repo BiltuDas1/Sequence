@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,18 +16,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.auth.GoogleAuthManager
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 @Composable
 fun RoomEntryScreen(
     onJoinRoom: (String, String) -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
+    val googleAuthManager = remember { GoogleAuthManager(context) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+    val scope = rememberCoroutineScope()
     
     var roomId by remember { mutableStateOf("") }
 
@@ -35,7 +42,7 @@ fun RoomEntryScreen(
         if (permissions.all { it.value }) {
             if (roomId.isNotBlank() && serverConfig != null) {
                 val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                val baseUrl = serverConfig!!.endpoint.removePrefix("http://").removePrefix("https://")
+                val baseUrl = serverConfig!!.cleanEndpoint
                 val fullUrl = "$protocol://$baseUrl/room/$roomId"
                 onJoinRoom(roomId, fullUrl)
             }
@@ -46,14 +53,34 @@ fun RoomEntryScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            IconButton(
+                onClick = {
+                    scope.launch {
+                        dataStoreManager.clearTokens()
+                        googleAuthManager.signOut()
+                        onLogout()
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = "Logout",
+                    tint = Color.White
+                )
+            }
+
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
             Text(
                 text = "Join a Room",
                 fontSize = 32.sp,
@@ -116,4 +143,5 @@ fun RoomEntryScreen(
             }
         }
     }
+}
 }

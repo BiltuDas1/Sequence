@@ -20,13 +20,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.R
+import com.github.biltudas1.sequence.auth.GoogleAuthManager
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
+import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.ui.theme.OutlineGhost
 import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +39,9 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
+    val googleAuthManager = remember { GoogleAuthManager(context) }
+    val okHttpClient = remember { OkHttpClient() }
+    val authService = remember { AuthService(okHttpClient) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val scope = rememberCoroutineScope()
 
@@ -99,11 +105,46 @@ fun LoginScreen(
                 onClick = {
                     if (serverConfig.isValid()) {
                         isLoading = true
-                        // Simulate a login process
                         scope.launch {
-                            kotlinx.coroutines.delay(1000)
+                            val credential = googleAuthManager.signIn()
+                            if (credential != null) {
+                                // 1. Try Login
+                                var loginResult = authService.loginUser(serverConfig, credential.idToken)
+                                
+                                if (loginResult.isFailure && loginResult.exceptionOrNull()?.message?.contains("User doesn't exist", ignoreCase = true) == true) {
+                                    // 2. User doesn't exist, try Register
+                                    val regResult = authService.registerUser(serverConfig, credential.idToken)
+                                    if (regResult.isSuccess) {
+                                        // 3. Register success, now Login to get JWT
+                                        loginResult = authService.loginUser(serverConfig, credential.idToken)
+                                    } else {
+                                        val error = regResult.exceptionOrNull()?.message ?: "Registration failed"
+                                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                                        googleAuthManager.signOut()
+                                        isLoading = false
+                                        return@launch
+                                    }
+                                }
+
+                                if (loginResult.isSuccess) {
+                                    val loginData = loginResult.getOrNull()?.data
+                                    if (loginData != null) {
+                                        dataStoreManager.saveTokens(
+                                            accessToken = loginData.jwt.access_token,
+                                            refreshToken = loginData.jwt.refresh_token
+                                        )
+                                        Toast.makeText(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT).show()
+                                        onLoginSuccess()
+                                    }
+                                } else {
+                                    val error = loginResult.exceptionOrNull()?.message ?: "Login failed"
+                                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                                    googleAuthManager.signOut()
+                                }
+                            } else {
+                                Toast.makeText(context, "Google Sign-In failed", Toast.LENGTH_SHORT).show()
+                            }
                             isLoading = false
-                            onLoginSuccess()
                         }
                     } else {
                         Toast.makeText(
