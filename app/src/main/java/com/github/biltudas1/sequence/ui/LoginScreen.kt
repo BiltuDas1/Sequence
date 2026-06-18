@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.ui
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
@@ -28,7 +29,9 @@ import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.ui.theme.OutlineGhost
 import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,6 +136,15 @@ fun LoginScreen(
                                             accessToken = loginData.jwt.access_token,
                                             refreshToken = loginData.jwt.refresh_token
                                         )
+
+                                        // Fetch and send FCM Token
+                                        try {
+                                            val fcmToken = FirebaseMessaging.getInstance().token.await()
+                                            authService.updateFcmToken(serverConfig, loginData.jwt.access_token, fcmToken)
+                                        } catch (e: Exception) {
+                                            Log.e("LoginScreen", "Failed to update FCM token", e)
+                                        }
+
                                         Toast.makeText(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT).show()
                                         onLoginSuccess()
                                     }

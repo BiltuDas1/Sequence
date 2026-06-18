@@ -57,3 +57,8 @@ data class AddContactRequest(
 data class RemoveContactRequest(
     val email: String
 )
+
+@Serializable
+data class FcmTokenRequest(
+    val fcmToken: String?
+)
