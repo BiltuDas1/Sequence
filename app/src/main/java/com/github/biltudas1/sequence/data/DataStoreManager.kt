@@ -21,6 +21,8 @@ class DataStoreManager(private val context: Context) {
         private val PASSWORD = stringPreferencesKey("password")
         private val USE_HTTPS = booleanPreferencesKey("use_https")
         private val USE_WSS = booleanPreferencesKey("use_wss")
+        private val ACCESS_TOKEN = stringPreferencesKey("access_token")
+        private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -33,6 +35,9 @@ class DataStoreManager(private val context: Context) {
         )
     }
 
+    val accessTokenFlow: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN]?.decrypt() }
+    val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN]?.decrypt() }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
@@ -40,6 +45,20 @@ class DataStoreManager(private val context: Context) {
             preferences[PASSWORD] = config.password.encrypt()
             preferences[USE_HTTPS] = config.useHttps
             preferences[USE_WSS] = config.useWss
+        }
+    }
+
+    suspend fun saveTokens(accessToken: String, refreshToken: String) {
+        context.dataStore.edit { preferences ->
+            preferences[ACCESS_TOKEN] = accessToken.encrypt()
+            preferences[REFRESH_TOKEN] = refreshToken.encrypt()
+        }
+    }
+
+    suspend fun clearTokens() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(ACCESS_TOKEN)
+            preferences.remove(REFRESH_TOKEN)
         }
     }
 
