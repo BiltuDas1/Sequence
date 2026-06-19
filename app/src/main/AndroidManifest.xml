@@ -38,6 +38,15 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name=".fcm.CallActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.github.biltudas1.sequence.ACCEPT_CALL" />
+                <action android:name="com.github.biltudas1.sequence.REJECT_CALL" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

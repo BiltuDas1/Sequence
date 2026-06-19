@@ -28,6 +28,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         const val CHANNEL_ID = "voice_call"
+        const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
+        const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
     }
 
     override fun onCreate() {
@@ -64,8 +66,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 Log.d("FCM", "Updating token on server...")
                 val result = authService.updateFcmToken(serverConfig, accessToken, token)
                 Log.d("FCM", "Token update result: ${result.isSuccess}")
-            } else {
-                Log.d("FCM", "Token update skipped: serverConfig=$serverConfig, loggedIn=${accessToken != null}")
             }
         }
     }
@@ -73,27 +73,45 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         Log.d("FCM", "Message received from: ${message.from}")
-        Log.d("FCM", "Data: ${message.data}")
-        Log.d("FCM", "Notification: ${message.notification?.body}")
         
         val roomId = message.data["roomId"]
         val callerName = message.data["callerName"] ?: message.notification?.title ?: "Unknown"
         
         if (roomId != null) {
             showNotification(roomId, callerName)
-        } else {
-            Log.w("FCM", "No roomId found in message data")
         }
     }
 
     private fun showNotification(roomId: String, callerName: String) {
         Log.d("FCM", "Showing notification for room: $roomId from: $callerName")
-        val intent = Intent(this, MainActivity::class.java).apply {
+        
+        // Main intent (clicking the notification body)
+        val mainIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("roomId", roomId)
         }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
+        val mainPendingIntent = PendingIntent.getActivity(
+            this, 0, mainIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Accept Action
+        val acceptIntent = Intent(this, CallActionReceiver::class.java).apply {
+            action = ACTION_ACCEPT
+            putExtra("roomId", roomId)
+        }
+        val acceptPendingIntent = PendingIntent.getBroadcast(
+            this, 1, acceptIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Reject Action
+        val rejectIntent = Intent(this, CallActionReceiver::class.java).apply {
+            action = ACTION_REJECT
+            putExtra("roomId", roomId)
+        }
+        val rejectPendingIntent = PendingIntent.getBroadcast(
+            this, 2, rejectIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -103,9 +121,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText("Call from $callerName")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setFullScreenIntent(pendingIntent, true)
-            .setContentIntent(pendingIntent)
+            .setFullScreenIntent(mainPendingIntent, true)
+            .setContentIntent(mainPendingIntent)
             .setAutoCancel(true)
+            .addAction(R.drawable.ic_logo, "Accept", acceptPendingIntent) // Replace ic_logo with a proper icon if available
+            .addAction(R.drawable.ic_logo, "Reject", rejectPendingIntent)
             .build()
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
