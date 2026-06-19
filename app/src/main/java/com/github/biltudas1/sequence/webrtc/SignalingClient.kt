@@ -21,6 +21,7 @@ class SignalingClient(
     }
 
     fun start() {
+        Log.d("SignalingClient", "Connecting to: $serverUrl")
         val request = Request.Builder()
             .url(serverUrl)
             .apply {
@@ -29,25 +30,44 @@ class SignalingClient(
                 }
             }
             .build()
+            
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("SignalingClient", "Connected to signaling server")
+                Log.d("SignalingClient", "WebSocket Connected")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d("SignalingClient", "Received message: $text")
+                Log.d("SignalingClient", "Received: $text")
                 try {
                     val json = JSONObject(text)
                     when (json.optString("type")) {
-                        "peer-joined" -> listener.onPeerJoined()
-                        "peer-left" -> listener.onPeerLeft()
-                        "offer" -> listener.onOfferReceived(json.getString("sdp"))
-                        "answer" -> listener.onAnswerReceived(json.getString("sdp"))
-                        "candidate" -> listener.onIceCandidateReceived(
-                            json.getString("sdpMid"),
-                            json.getInt("sdpMLineIndex"),
-                            json.getString("candidate")
-                        )
+                        "peer-joined" -> {
+                            Log.d("SignalingClient", "Peer joined event")
+                            listener.onPeerJoined()
+                        }
+                        "peer-left" -> {
+                            Log.d("SignalingClient", "Peer left event")
+                            listener.onPeerLeft()
+                        }
+                        "offer" -> {
+                            Log.d("SignalingClient", "Offer received")
+                            listener.onOfferReceived(json.getString("sdp"))
+                        }
+                        "answer" -> {
+                            Log.d("SignalingClient", "Answer received")
+                            listener.onAnswerReceived(json.getString("sdp"))
+                        }
+                        "candidate" -> {
+                            Log.d("SignalingClient", "Candidate received")
+                            listener.onIceCandidateReceived(
+                                json.getString("sdpMid"),
+                                json.getInt("sdpMLineIndex"),
+                                json.getString("candidate")
+                            )
+                        }
+                        else -> {
+                            Log.d("SignalingClient", "Unknown message type: ${json.optString("type")}")
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("SignalingClient", "Error parsing message", e)
@@ -55,11 +75,11 @@ class SignalingClient(
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d("SignalingClient", "Closing: $code / $reason")
+                Log.d("SignalingClient", "WebSocket Closing: $code / $reason")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("SignalingClient", "Error: ${t.message}")
+                Log.e("SignalingClient", "WebSocket Error: ${t.message}")
             }
         })
     }
@@ -68,6 +88,7 @@ class SignalingClient(
         val json = JSONObject()
         json.put("type", "offer")
         json.put("sdp", sdp)
+        Log.d("SignalingClient", "Sending Offer")
         webSocket?.send(json.toString())
     }
 
@@ -75,6 +96,7 @@ class SignalingClient(
         val json = JSONObject()
         json.put("type", "answer")
         json.put("sdp", sdp)
+        Log.d("SignalingClient", "Sending Answer")
         webSocket?.send(json.toString())
     }
 
@@ -84,6 +106,7 @@ class SignalingClient(
         json.put("sdpMid", sdpMid)
         json.put("sdpMLineIndex", sdpMLineIndex)
         json.put("candidate", candidate)
+        // Log.d("SignalingClient", "Sending Candidate")
         webSocket?.send(json.toString())
     }
 

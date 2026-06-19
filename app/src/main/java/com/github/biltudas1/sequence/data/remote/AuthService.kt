@@ -50,6 +50,10 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
         return performPost(serverConfig, "users/fcm-token", accessToken, FcmTokenRequest(fcmToken))
     }
 
+    suspend fun sendVoiceCall(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<VoiceCallResponse>> {
+        return performPost(serverConfig, "voicecall/send", accessToken, VoiceCallRequest(email))
+    }
+
     private suspend inline fun <reified RES : Any> performGet(
         serverConfig: ServerConfig,
         path: String,

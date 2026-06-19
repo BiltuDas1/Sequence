@@ -62,3 +62,22 @@ data class RemoveContactRequest(
 data class FcmTokenRequest(
     val fcmToken: String?
 )
+
+@Serializable
+data class VoiceCallRequest(
+    val email: String
+)
+
+@Serializable
+data class VoiceCallResponse(
+    val roomId: String,
+    val callee: CalleeData
+)
+
+@Serializable
+data class CalleeData(
+    val id: String,
+    val email: String,
+    val first_name: String? = null,
+    val last_name: String? = null
+)
