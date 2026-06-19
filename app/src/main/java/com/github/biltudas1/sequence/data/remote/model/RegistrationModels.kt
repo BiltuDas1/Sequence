@@ -75,6 +75,11 @@ data class VoiceCallResponse(
 )
 
 @Serializable
+data class EndCallRequest(
+    val roomId: String
+)
+
+@Serializable
 data class CalleeData(
     val id: String,
     val email: String,
