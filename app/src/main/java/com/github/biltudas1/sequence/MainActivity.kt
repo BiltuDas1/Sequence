@@ -117,18 +117,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                LaunchedEffect(accessToken, serverConfig) {
-                    if (accessToken != null && accessToken != "UNDEFINED" && serverConfig != null && serverConfig!!.isValid()) {
-                        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                scope.launch {
-                                    authService.updateFcmToken(serverConfig!!, accessToken, task.result)
-                                }
-                            }
-                        }
-                    }
-                }
-
                 val roomId by incomingRoomId
                 LaunchedEffect(roomId, accessToken, serverConfig) {
                     if (roomId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
