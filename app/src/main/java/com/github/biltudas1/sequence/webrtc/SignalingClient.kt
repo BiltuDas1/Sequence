@@ -76,10 +76,12 @@ class SignalingClient(
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d("SignalingClient", "WebSocket Closing: $code / $reason")
+                listener.onPeerLeft()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("SignalingClient", "WebSocket Error: ${t.message}")
+                listener.onPeerLeft()
             }
         })
     }
@@ -111,7 +113,11 @@ class SignalingClient(
     }
 
     fun stop() {
-        webSocket?.close(1000, "Normal closure")
+        try {
+            webSocket?.close(1000, "Normal closure")
+        } catch (e: Exception) {
+            Log.e("SignalingClient", "Error closing WebSocket", e)
+        }
         webSocket = null
     }
 }

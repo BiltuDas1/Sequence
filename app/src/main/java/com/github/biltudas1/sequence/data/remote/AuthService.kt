@@ -54,6 +54,10 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
         return performPost(serverConfig, "voicecall/send", accessToken, VoiceCallRequest(email))
     }
 
+    suspend fun endVoiceCall(serverConfig: ServerConfig, accessToken: String, roomId: String): Result<ApiResponse<Unit>> {
+        return performPost(serverConfig, "voicecall/end", accessToken, EndCallRequest(roomId))
+    }
+
     private suspend inline fun <reified RES : Any> performGet(
         serverConfig: ServerConfig,
         path: String,

@@ -6,10 +6,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.CallScreenContent
 import com.github.biltudas1.sequence.webrtc.SignalingClient
 import com.github.biltudas1.sequence.webrtc.WebRTCClient
 import com.github.biltudas1.sequence.ui.theme.SurfaceDim
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import org.webrtc.*
 
 @Composable
@@ -20,7 +26,22 @@ fun WebRTCScreen(
     onCallStopped: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val dataStoreManager = remember { DataStoreManager(context) }
+    val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
+    val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+
     var signalingClient by remember { mutableStateOf<SignalingClient?>(null) }
+    var isLeaving by remember { mutableStateOf(false) }
+
+    val safeOnCallStopped = {
+        if (!isLeaving) {
+            isLeaving = true
+            scope.launch(Dispatchers.Main) {
+                onCallStopped()
+            }
+        }
+    }
 
     val webRTCClient = remember(context) {
         WebRTCClient(context, object : WebRTCClient.WebRTCListener {
@@ -47,23 +68,24 @@ fun WebRTCScreen(
                     webRTCClient.createOffer()
                 }
 
-            override fun onPeerLeft() {
-                onCallStopped()
-            }
+                override fun onPeerLeft() {
+                    safeOnCallStopped()
+                }
 
-            override fun onOfferReceived(description: String) {
-                webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
-                webRTCClient.createAnswer()
-            }
+                override fun onOfferReceived(description: String) {
+                    webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
+                    webRTCClient.createAnswer()
+                }
 
-            override fun onAnswerReceived(description: String) {
-                webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, description))
-            }
+                override fun onAnswerReceived(description: String) {
+                    webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, description))
+                }
 
-            override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String) {
-                webRTCClient.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, sdp))
+                override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String) {
+                    webRTCClient.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, sdp))
+                }
             }
-        })
+        )
         
         webRTCClient.initPeerConnection()
         signalingClient?.start()
@@ -82,7 +104,14 @@ fun WebRTCScreen(
     ) {
         CallScreenContent(
             roomId = roomId,
-            onCallStopped = onCallStopped,
+            onCallStopped = {
+                scope.launch {
+                    if (accessToken != null && serverConfig != null) {
+                        authService.endVoiceCall(serverConfig!!, accessToken, roomId)
+                    }
+                    safeOnCallStopped()
+                }
+            },
             modifier = Modifier
                 .background(SurfaceDim)
                 .systemBarsPadding()
