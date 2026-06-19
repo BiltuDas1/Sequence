@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -54,7 +55,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Initial check for intent
         intent.getStringExtra("roomId")?.let {
             incomingRoomId.value = it
         }
@@ -77,13 +77,37 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val context = LocalContext.current
 
+                // --- Permission Launchers ---
+                
                 val notificationPermissionLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission()
                 ) { isGranted ->
-                    if (!isGranted) {
-                        Log.w("MainActivity", "Notification permission denied")
+                    if (!isGranted) Log.w("MainActivity", "Notification permission denied")
+                }
+
+                var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
+                val audioPermissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    if (isGranted && pendingNavigationUrl != null) {
+                        val (rId, url) = pendingNavigationUrl!!
+                        navController.navigate("webrtc_call/$rId?serverUrl=$url")
+                        pendingNavigationUrl = null
+                    } else {
+                        Toast.makeText(context, "Microphone permission is required for calls", Toast.LENGTH_LONG).show()
                     }
                 }
+
+                fun navigateToCallWithPermission(rId: String, url: String) {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        navController.navigate("webrtc_call/$rId?serverUrl=$url")
+                    } else {
+                        pendingNavigationUrl = rId to url
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+
+                // --- Effects ---
 
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -97,25 +121,14 @@ class MainActivity : ComponentActivity() {
                     if (accessToken != null && accessToken != "UNDEFINED" && serverConfig != null && serverConfig!!.isValid()) {
                         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                val token = task.result
-                                Log.d("MainActivity", "FCM Token: $token")
                                 scope.launch {
-                                    authService.updateFcmToken(serverConfig!!, accessToken, token)
+                                    authService.updateFcmToken(serverConfig!!, accessToken, task.result)
                                 }
                             }
                         }
                     }
                 }
 
-                LaunchedEffect(accessToken) {
-                    if (accessToken == null && currentRoute != "login") {
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                }
-
-                // Handle incoming call room navigation
                 val roomId by incomingRoomId
                 LaunchedEffect(roomId, accessToken, serverConfig) {
                     if (roomId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
@@ -123,24 +136,15 @@ class MainActivity : ComponentActivity() {
                         val baseUrl = serverConfig!!.cleanEndpoint
                         val fullUrl = "$protocol://$baseUrl/room/$roomId"
                         
-                        Log.d("MainActivity", "Navigating to call: $fullUrl")
-                        // Avoid redundant navigation if already in the call
                         if (currentRoute?.contains("webrtc_call") != true) {
-                            navController.navigate("webrtc_call/$roomId?serverUrl=$fullUrl")
+                            navigateToCallWithPermission(roomId!!, fullUrl)
                         }
-                        
-                        // Reset the state after handling
                         incomingRoomId.value = null
                     }
                 }
 
                 if (accessToken == "UNDEFINED") {
-                    // Prevent flicker by showing a blank screen while loading session
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background)
-                    )
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
                 } else {
                     NavHost(
                         navController = navController,
@@ -148,9 +152,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("login") {
                             LoginScreen(onLoginSuccess = {
-                                navController.navigate("contacts") {
-                                    popUpTo("login") { inclusive = true }
-                                }
+                                navController.navigate("contacts") { popUpTo("login") { inclusive = true } }
                             })
                         }
                         composable("contacts") {
@@ -158,14 +160,10 @@ class MainActivity : ComponentActivity() {
                                 scope.launch {
                                     if (accessToken != null && serverConfig != null) {
                                         val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
-                                        if (result.isSuccess) {
-                                            val callRoomId = result.getOrNull()?.data?.roomId
-                                            if (callRoomId != null) {
-                                                val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                                val baseUrl = serverConfig!!.cleanEndpoint
-                                                val fullUrl = "$protocol://$baseUrl/room/$callRoomId"
-                                                navController.navigate("webrtc_call/$callRoomId?serverUrl=$fullUrl")
-                                            }
+                                        result.getOrNull()?.data?.roomId?.let { rId ->
+                                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                            val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                            navigateToCallWithPermission(rId, fullUrl)
                                         }
                                     }
                                 }
@@ -173,21 +171,15 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("room_entry") {
                             RoomEntryScreen(
-                                onJoinRoom = { rId, serverUrl ->
-                                    navController.navigate("webrtc_call/$rId?serverUrl=$serverUrl")
-                                }
+                                onJoinRoom = { rId, url -> navigateToCallWithPermission(rId, url) }
                             )
                         }
                         composable("webrtc_call/{roomId}?serverUrl={serverUrl}") { backStackEntry ->
-                            val rId = backStackEntry.arguments?.getString("roomId") ?: ""
-                            val sUrl = backStackEntry.arguments?.getString("serverUrl") ?: ""
                             WebRTCScreen(
-                                roomId = rId,
-                                serverUrl = sUrl,
+                                roomId = backStackEntry.arguments?.getString("roomId") ?: "",
+                                serverUrl = backStackEntry.arguments?.getString("serverUrl") ?: "",
                                 accessToken = accessToken,
-                                onCallStopped = {
-                                    navController.popBackStack()
-                                }
+                                onCallStopped = { navController.popBackStack() }
                             )
                         }
                     }
