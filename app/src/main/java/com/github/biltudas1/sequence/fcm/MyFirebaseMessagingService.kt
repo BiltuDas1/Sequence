@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.fcm
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -8,7 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
-import android.util.Log
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.R
@@ -29,7 +30,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
     companion object {
-        const val CHANNEL_ID = "voice_call"
+        const val CHANNEL_ID = "voice_call_v2" // Updated ID to force fresh channel settings
         const val MISSED_CALL_CHANNEL_ID = "missed_call"
         const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
         const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
@@ -45,55 +46,59 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             
-            // 1. Voice Call Channel (High Priority, Ringtone)
-            val name = "Voice Calls"
-            val importance = NotificationManager.IMPORTANCE_HIGH
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            val callChannel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = "Notifications for incoming voice calls"
-                setSound(soundUri, AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build())
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            // 1. Voice Call Channel (Max Priority)
+            val callChannel = NotificationChannel(CHANNEL_ID, "Voice Calls", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Incoming voice calls"
+                setSound(soundUri, attributes)
                 enableVibration(true)
-                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+                vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(callChannel)
 
-            // 2. Missed Call Channel (Normal Priority, Default notification sound)
-            val missedName = "Missed Calls"
-            val missedChannel = NotificationChannel(MISSED_CALL_CHANNEL_ID, missedName, NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Notifications for missed voice calls"
+            // 2. Missed Call Channel
+            val missedChannel = NotificationChannel(MISSED_CALL_CHANNEL_ID, "Missed Calls", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Missed call alerts"
             }
             notificationManager.createNotificationChannel(missedChannel)
         }
     }
 
-    override fun onNewToken(token: String) {
-        super.onNewToken(token)
-        val dataStoreManager = DataStoreManager(applicationContext)
-        val authService = AuthService(OkHttpClient(), dataStoreManager)
-        scope.launch {
-            val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
-            val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
-            if (serverConfig != null && serverConfig.isValid() && accessToken != null) {
-                authService.updateFcmToken(serverConfig, accessToken, token)
-            }
-        }
-    }
-
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        
+        // IMPORTANT: Server must send 'data' messages ONLY. 
+        // If 'notification' block exists, this method is skipped when app is closed.
         val roomId = message.data["roomId"]
-        val action = message.data["action"] // Expected from server: "cancel" or null
+        val action = message.data["action"]
         val callerName = message.data["callerName"] ?: "Unknown"
         
         if (roomId != null) {
+            wakeUpScreen()
             if (action == "cancel") {
                 handleCallCancelled(callerName)
             } else {
                 showIncomingCallNotification(roomId, callerName)
             }
+        }
+    }
+
+    private fun wakeUpScreen() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wakeLock = powerManager.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                "Sequence:CallWakeLock"
+            )
+            wakeLock.acquire(5000)
+        } catch (e: Exception) {
+            // Ignore if permission or hardware fails
         }
     }
 
@@ -121,14 +126,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Incoming Voice Call")
-            .setContentText("Call from $callerName")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentText("Incoming call from $callerName")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setFullScreenIntent(mainPendingIntent, true)
+            .setFullScreenIntent(mainPendingIntent, true) // Crucial for waking screen and showing UI
             .setContentIntent(mainPendingIntent)
             .setAutoCancel(true)
             .setOngoing(true)
             .setSound(soundUri)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(R.drawable.ic_logo, "Accept", acceptPendingIntent)
             .addAction(R.drawable.ic_logo, "Reject", rejectPendingIntent)
             .build()
@@ -139,15 +145,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun handleCallCancelled(callerName: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        // 1. Remove the active ringing notification
         notificationManager.cancel(CALL_NOTIFICATION_ID)
-
-        // 2. Show missed call notification
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(this, 3, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val missedCallNotification = NotificationCompat.Builder(this, MISSED_CALL_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -155,10 +153,22 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText("You missed a call from $callerName")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
             .build()
 
         notificationManager.notify(System.currentTimeMillis().toInt(), missedCallNotification)
+    }
+
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        val dataStoreManager = DataStoreManager(applicationContext)
+        val authService = AuthService(OkHttpClient(), dataStoreManager)
+        scope.launch {
+            val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
+            val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
+            if (serverConfig != null && serverConfig.isValid() && accessToken != null) {
+                authService.updateFcmToken(serverConfig, accessToken, token)
+            }
+        }
     }
 
     override fun onDestroy() {

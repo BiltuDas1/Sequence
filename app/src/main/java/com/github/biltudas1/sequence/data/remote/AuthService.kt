@@ -6,7 +6,6 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -119,7 +118,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
             val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
             response.use { resp ->
                 val bodyString = resp.body.string()
-                Log.d("AuthService", "Response: $bodyString")
+                Log.d("AuthService", "Response [${resp.code}] from ${request.url}: $bodyString")
 
                 if (resp.isSuccessful) {
                     val parsed = json.decodeFromString<RES>(bodyString)
@@ -129,10 +128,8 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                         Result.success(parsed)
                     }
                 } else if (resp.code == 401 || (bodyString.contains("expired", true) && bodyString.contains("token", true))) {
-                    // Try to refresh
                     val newAccessToken = tryRefresh(serverConfig)
                     if (newAccessToken != null) {
-                        // Retry with new token
                         val newRequest = request.newBuilder()
                             .header("Authorization", "Bearer $newAccessToken")
                             .build()
@@ -171,7 +168,6 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                     return newTokens.access_token
                 }
             } else {
-                // If refresh fails (e.g., 404 Refresh token expired), clear tokens to trigger logout
                 dataStoreManager.clearTokens()
             }
             null

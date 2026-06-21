@@ -50,6 +50,7 @@ fun ContactsScreen(
 
     var isLoading by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var contactToDelete by remember { mutableStateOf<UserData?>(null) }
     var emailToAdd by remember { mutableStateOf("") }
 
     val refreshContacts = {
@@ -58,7 +59,11 @@ fun ContactsScreen(
                 isLoading = true
                 val result = repository.refreshContacts(serverConfig, accessToken!!)
                 if (result.isFailure) {
-                    Toast.makeText(context, result.exceptionOrNull()?.message ?: "Sync failed", Toast.LENGTH_SHORT).show()
+                    val msg = result.exceptionOrNull()?.message ?: "Sync failed"
+                    // Only show toast for real errors, not configuration issues
+                    if (!msg.contains("resolve host", ignoreCase = true)) {
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
                 }
                 isLoading = false
             }
@@ -100,14 +105,36 @@ fun ContactsScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (isLoading && contacts.isEmpty()) {
+            if (!serverConfig.isValid()) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Server not configured",
+                        color = TextSecondary,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onSettingsClick) {
+                        Text("Go to Settings")
+                    }
+                }
+            } else if (isLoading && contacts.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (contacts.isEmpty()) {
-                Text(
-                    text = "No contacts yet",
+                Column(
                     modifier = Modifier.align(Alignment.Center),
-                    color = TextSecondary
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No contacts yet",
+                        color = TextSecondary
+                    )
+                    TextButton(onClick = { refreshContacts() }) {
+                        Text("Refresh")
+                    }
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -119,14 +146,7 @@ fun ContactsScreen(
                             contact = contact,
                             onClick = { onContactClick(contact) },
                             onDelete = {
-                                scope.launch {
-                                    if (accessToken != null) {
-                                        val result = repository.removeContact(serverConfig, accessToken!!, contact.email)
-                                        if (result.isFailure) {
-                                            Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to remove", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
+                                contactToDelete = contact
                             }
                         )
                     }
@@ -173,6 +193,38 @@ fun ContactsScreen(
             }
         )
     }
+
+    if (contactToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { contactToDelete = null },
+            title = { Text("Remove Contact") },
+            text = { Text("Are you sure you want to remove ${contactToDelete?.email} from your contacts?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val contact = contactToDelete!!
+                        contactToDelete = null
+                        scope.launch {
+                            if (accessToken != null) {
+                                val result = repository.removeContact(serverConfig, accessToken!!, contact.email)
+                                if (result.isFailure) {
+                                    Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to remove", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { contactToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -209,7 +261,7 @@ fun ContactItem(
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.7f))
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White.copy(alpha = 0.8f))
             }
         }
     }
