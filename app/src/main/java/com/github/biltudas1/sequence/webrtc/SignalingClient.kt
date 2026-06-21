@@ -13,6 +13,7 @@ class SignalingClient(
     private var webSocket: WebSocket? = null
 
     interface SignalingListener {
+        fun onConnected()
         fun onPeerJoined()
         fun onPeerLeft()
         fun onOfferReceived(description: String)
@@ -34,6 +35,7 @@ class SignalingClient(
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("SignalingClient", "WebSocket Connected")
+                listener.onConnected()
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -108,7 +110,6 @@ class SignalingClient(
         json.put("sdpMid", sdpMid)
         json.put("sdpMLineIndex", sdpMLineIndex)
         json.put("candidate", candidate)
-        // Log.d("SignalingClient", "Sending Candidate")
         webSocket?.send(json.toString())
     }
 

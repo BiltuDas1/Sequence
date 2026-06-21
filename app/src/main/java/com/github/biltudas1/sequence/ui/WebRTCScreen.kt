@@ -13,7 +13,9 @@ import com.github.biltudas1.sequence.ui.components.CallScreenContent
 import com.github.biltudas1.sequence.webrtc.SignalingClient
 import com.github.biltudas1.sequence.webrtc.WebRTCClient
 import com.github.biltudas1.sequence.ui.theme.SurfaceDim
+import com.github.biltudas1.sequence.ui.utils.CallAudioManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.webrtc.*
@@ -33,10 +35,15 @@ fun WebRTCScreen(
 
     var signalingClient by remember { mutableStateOf<SignalingClient?>(null) }
     var isLeaving by remember { mutableStateOf(false) }
+    var isSignalingConnected by remember { mutableStateOf(false) }
+    var hasPeerJoined by remember { mutableStateOf(false) }
+    
+    val audioManager = remember { CallAudioManager(context) }
 
     val safeOnCallStopped = {
         if (!isLeaving) {
             isLeaving = true
+            audioManager.stopAny()
             scope.launch(Dispatchers.Main) {
                 onCallStopped()
             }
@@ -59,12 +66,36 @@ fun WebRTCScreen(
         })
     }
 
+    // Logic for Ring Waiting (after 2s) and Ringback
+    LaunchedEffect(isSignalingConnected, hasPeerJoined) {
+        if (hasPeerJoined) {
+            audioManager.stopAny()
+            return@LaunchedEffect
+        }
+
+        if (!isSignalingConnected) {
+            // Initial phase: Wait 2 seconds before starting ringwaiting
+            delay(2000)
+            if (!isSignalingConnected && !hasPeerJoined && !isLeaving) {
+                audioManager.startWaiting()
+            }
+        } else {
+            // Connected phase: Stop waiting and start ringback
+            audioManager.startRingback()
+        }
+    }
+
     LaunchedEffect(serverUrl) {
         signalingClient = SignalingClient(
             serverUrl = serverUrl,
             accessToken = accessToken,
             listener = object : SignalingClient.SignalingListener {
+                override fun onConnected() {
+                    isSignalingConnected = true
+                }
+
                 override fun onPeerJoined() {
+                    hasPeerJoined = true
                     webRTCClient.createOffer()
                 }
 
@@ -73,6 +104,7 @@ fun WebRTCScreen(
                 }
 
                 override fun onOfferReceived(description: String) {
+                    hasPeerJoined = true // Receiver side considers peer joined when offer arrives
                     webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
                     webRTCClient.createAnswer()
                 }
@@ -93,6 +125,7 @@ fun WebRTCScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            audioManager.stopAny()
             webRTCClient.close()
             signalingClient?.stop()
         }
