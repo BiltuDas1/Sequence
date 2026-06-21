@@ -20,7 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.R
+import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.remote.VersionService
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,11 +38,20 @@ fun AboutScreen(
     val haptic = LocalHapticFeedback.current
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     val versionName = packageInfo.versionName
+    
+    val dataStoreManager = remember { DataStoreManager(context) }
+    val versionService = remember { VersionService(OkHttpClient(), dataStoreManager) }
+    var latestVersion by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            latestVersion = versionService.getLatestVersion()
+        }
+    }
 
     val sourceTooltipState = rememberTooltipState()
     val licenseTooltipState = rememberTooltipState()
 
-    // Trigger haptic feedback when tooltip becomes visible
     LaunchedEffect(sourceTooltipState.isVisible) {
         if (sourceTooltipState.isVisible) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -176,6 +190,14 @@ fun AboutScreen(
                     fontSize = 18.sp,
                     color = TextSecondary
                 )
+                if (latestVersion != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (latestVersion == "v$versionName") "You are on the latest version" else "Latest version: $latestVersion",
+                        fontSize = 14.sp,
+                        color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else Color.Yellow.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }

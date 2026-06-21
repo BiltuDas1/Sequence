@@ -28,6 +28,8 @@ class DataStoreManager(private val context: Context) {
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         private val WEBRTC_CONFIG = stringPreferencesKey("webrtc_config")
+        private val LATEST_VERSION = stringPreferencesKey("latest_version")
+        private val LAST_VERSION_CHECK = longPreferencesKey("last_version_check")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -56,6 +58,10 @@ class DataStoreManager(private val context: Context) {
     val accessTokenFlow: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN]?.decrypt() }
     val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN]?.decrypt() }
 
+    val versionCacheFlow: Flow<Pair<String?, Long>> = context.dataStore.data.map { preferences ->
+        preferences[LATEST_VERSION] to (preferences[LAST_VERSION_CHECK] ?: 0L)
+    }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
@@ -69,6 +75,13 @@ class DataStoreManager(private val context: Context) {
     suspend fun saveWebRTCConfig(config: WebRTCConfig) {
         context.dataStore.edit { preferences ->
             preferences[WEBRTC_CONFIG] = json.encodeToString(config).encrypt()
+        }
+    }
+
+    suspend fun saveVersionCache(tag: String, timestamp: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[LATEST_VERSION] = tag
+            preferences[LAST_VERSION_CHECK] = timestamp
         }
     }
 
