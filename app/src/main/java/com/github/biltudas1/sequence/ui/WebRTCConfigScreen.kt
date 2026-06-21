@@ -59,7 +59,7 @@ fun WebRTCConfigScreen(
                         containerColor = MaterialTheme.colorScheme.background
                     )
                 )
-                TabRow(
+                PrimaryTabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = MaterialTheme.colorScheme.background,
                     contentColor = Color.White,

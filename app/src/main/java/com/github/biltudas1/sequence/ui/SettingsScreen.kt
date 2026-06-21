@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.QueryStats
@@ -34,6 +35,7 @@ fun SettingsScreen(
     onWebRTCConfigClick: () -> Unit,
     onDataUsageClick: () -> Unit,
     onAudioQualityClick: () -> Unit,
+    onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -115,6 +117,14 @@ fun SettingsScreen(
                     description = "About Sequence",
                     icon = Icons.Default.Info,
                     onClick = onAboutClick
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    title = "Logout",
+                    description = "Clear session and local data",
+                    icon = Icons.AutoMirrored.Filled.Logout,
+                    onClick = onLogoutClick
                 )
             }
         }

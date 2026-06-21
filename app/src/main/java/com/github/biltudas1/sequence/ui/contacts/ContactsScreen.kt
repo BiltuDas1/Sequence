@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
@@ -38,13 +39,16 @@ fun ContactsScreen(
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
+    val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
+    val repository = remember { ContactRepository(context, authService) }
+    
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = null)
+    val contacts by repository.contactsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    
     val scope = rememberCoroutineScope()
-    val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
 
-    var contacts by remember { mutableStateOf<List<UserData>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var emailToAdd by remember { mutableStateOf("") }
 
@@ -52,11 +56,9 @@ fun ContactsScreen(
         scope.launch {
             if (accessToken != null && serverConfig.isValid()) {
                 isLoading = true
-                val result = authService.getContacts(serverConfig, accessToken!!)
-                if (result.isSuccess) {
-                    contacts = result.getOrNull()?.data ?: emptyList()
-                } else {
-                    Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to load contacts", Toast.LENGTH_SHORT).show()
+                val result = repository.refreshContacts(serverConfig, accessToken!!)
+                if (result.isFailure) {
+                    Toast.makeText(context, result.exceptionOrNull()?.message ?: "Sync failed", Toast.LENGTH_SHORT).show()
                 }
                 isLoading = false
             }
@@ -64,7 +66,9 @@ fun ContactsScreen(
     }
 
     LaunchedEffect(accessToken, serverConfig) {
-        refreshContacts()
+        if (contacts.isEmpty()) {
+            refreshContacts()
+        }
     }
 
     Scaffold(
@@ -117,10 +121,8 @@ fun ContactsScreen(
                             onDelete = {
                                 scope.launch {
                                     if (accessToken != null) {
-                                        val result = authService.removeContact(serverConfig, accessToken!!, contact.email)
-                                        if (result.isSuccess) {
-                                            refreshContacts()
-                                        } else {
+                                        val result = repository.removeContact(serverConfig, accessToken!!, contact.email)
+                                        if (result.isFailure) {
                                             Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to remove", Toast.LENGTH_SHORT).show()
                                         }
                                     }
@@ -150,11 +152,10 @@ fun ContactsScreen(
                     onClick = {
                         scope.launch {
                             if (accessToken != null && emailToAdd.isNotBlank()) {
-                                val result = authService.addContact(serverConfig, accessToken!!, emailToAdd)
+                                val result = repository.addContact(serverConfig, accessToken!!, emailToAdd)
                                 if (result.isSuccess) {
                                     showAddDialog = false
                                     emailToAdd = ""
-                                    refreshContacts()
                                 } else {
                                     Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to add", Toast.LENGTH_SHORT).show()
                                 }
