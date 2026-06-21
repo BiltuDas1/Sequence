@@ -40,6 +40,9 @@ fun WebRTCScreen(
     var isSignalingConnected by remember { mutableStateOf(false) }
     var hasPeerJoined by remember { mutableStateOf(false) }
     
+    var isMuted by remember { mutableStateOf(false) }
+    var isSpeakerOn by remember { mutableStateOf(false) }
+    
     val audioManager = remember { CallAudioManager(context) }
 
     val safeOnCallStopped = {
@@ -76,13 +79,11 @@ fun WebRTCScreen(
         }
 
         if (!isSignalingConnected) {
-            // Initial phase: Wait 2 seconds before starting ringwaiting
             delay(2000)
             if (!isSignalingConnected && !hasPeerJoined && !isLeaving) {
                 audioManager.startWaiting()
             }
         } else {
-            // Connected phase: Stop waiting and start ringback
             audioManager.startRingback()
         }
     }
@@ -102,7 +103,6 @@ fun WebRTCScreen(
         }
 
         if (iceServers.isEmpty()) {
-            // Fallback to default if everything is deleted
             iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         }
 
@@ -157,6 +157,16 @@ fun WebRTCScreen(
     ) {
         CallScreenContent(
             roomId = roomId,
+            isMuted = isMuted,
+            isSpeakerOn = isSpeakerOn,
+            onMuteToggle = {
+                isMuted = !isMuted
+                webRTCClient.setMute(isMuted)
+            },
+            onSpeakerToggle = {
+                isSpeakerOn = !isSpeakerOn
+                webRTCClient.setSpeakerphoneOn(isSpeakerOn)
+            },
             onCallStopped = {
                 scope.launch {
                     if (accessToken != null && serverConfig != null) {

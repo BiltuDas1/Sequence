@@ -19,18 +19,18 @@ class CallActionReceiver : BroadcastReceiver() {
         val action = intent.action
         val roomId = intent.getStringExtra("roomId") ?: return
         
-        // Dismiss notification
+        // Dismiss notification using the consistent ID
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(1)
+        notificationManager.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
 
-        if (action == "com.github.biltudas1.sequence.ACCEPT_CALL") {
+        if (action == MyFirebaseMessagingService.ACTION_ACCEPT) {
             Log.d("CallActionReceiver", "Call Accepted: $roomId")
             val launchIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra("roomId", roomId)
             }
             context.startActivity(launchIntent)
-        } else if (action == "com.github.biltudas1.sequence.REJECT_CALL") {
+        } else if (action == MyFirebaseMessagingService.ACTION_REJECT) {
             Log.d("CallActionReceiver", "Call Rejected: $roomId")
             
             val dataStoreManager = DataStoreManager(context)

@@ -1,16 +1,19 @@
 package com.github.biltudas1.sequence.webrtc
 
 import android.content.Context
+import android.media.AudioManager
 import android.util.Log
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
 
 class WebRTCClient(
-    context: Context,
+    private val context: Context,
     private val listener: WebRTCListener
 ) {
     private val peerConnectionFactory: PeerConnectionFactory
     private var peerConnection: PeerConnection? = null
+    private var localAudioTrack: AudioTrack? = null
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
@@ -63,8 +66,17 @@ class WebRTCClient(
         })
 
         val audioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
-        val audioTrack = peerConnectionFactory.createAudioTrack("AUDIO_TRACK", audioSource)
-        peerConnection?.addTrack(audioTrack, listOf("STREAM"))
+        localAudioTrack = peerConnectionFactory.createAudioTrack("AUDIO_TRACK", audioSource)
+        peerConnection?.addTrack(localAudioTrack, listOf("STREAM"))
+    }
+
+    fun setSpeakerphoneOn(isEnabled: Boolean) {
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        audioManager.isSpeakerphoneOn = isEnabled
+    }
+
+    fun setMute(isMuted: Boolean) {
+        localAudioTrack?.setEnabled(!isMuted)
     }
 
     fun createOffer() {
@@ -121,6 +133,8 @@ class WebRTCClient(
     fun close() {
         peerConnection?.close()
         peerConnection = null
+        audioManager.mode = AudioManager.MODE_NORMAL
+        audioManager.isSpeakerphoneOn = false
     }
 
     open class SimpleSdpObserver : SdpObserver {
