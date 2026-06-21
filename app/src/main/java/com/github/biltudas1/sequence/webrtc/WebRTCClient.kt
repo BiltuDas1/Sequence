@@ -3,6 +3,7 @@ package com.github.biltudas1.sequence.webrtc
 import android.content.Context
 import android.media.AudioManager
 import android.util.Log
+import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
 
@@ -14,6 +15,7 @@ class WebRTCClient(
     private var peerConnection: PeerConnection? = null
     private var localAudioTrack: AudioTrack? = null
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var qualityLevel: AudioQualityLevel = AudioQualityLevel.STANDARD
 
     private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
@@ -35,7 +37,8 @@ class WebRTCClient(
             .createPeerConnectionFactory()
     }
 
-    fun initPeerConnection(iceServers: List<PeerConnection.IceServer>) {
+    fun initPeerConnection(iceServers: List<PeerConnection.IceServer>, quality: AudioQualityLevel) {
+        this.qualityLevel = quality
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
 
@@ -66,7 +69,15 @@ class WebRTCClient(
             }
         })
 
-        val audioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
+        val audioConstraints = MediaConstraints().apply {
+            val processing = quality.useProcessing.toString()
+            mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", processing))
+            mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", processing))
+            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", processing))
+            mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", processing))
+        }
+
+        val audioSource = peerConnectionFactory.createAudioSource(audioConstraints)
         localAudioTrack = peerConnectionFactory.createAudioTrack("AUDIO_TRACK", audioSource)
         peerConnection?.addTrack(localAudioTrack, listOf("STREAM"))
     }
@@ -80,15 +91,40 @@ class WebRTCClient(
         localAudioTrack?.setEnabled(!isMuted)
     }
 
+    private fun modifySdpForQuality(description: SessionDescription): SessionDescription {
+        var sdp = description.description
+        val bitrateBps = qualityLevel.bitrateKbps * 1000
+        val isStereo = if (qualityLevel.stereo) "1" else "0"
+        val isCbr = if (qualityLevel.cbr) "1" else "0"
+        
+        if (sdp.contains("opus/48000")) {
+            val fmtpParams = StringBuilder("useinbandfec=1")
+            fmtpParams.append(";maxaveragebitrate=$bitrateBps")
+            fmtpParams.append(";stereo=$isStereo")
+            fmtpParams.append(";sprop-stereo=$isStereo")
+            fmtpParams.append(";cbr=$isCbr")
+            
+            if (qualityLevel.opusModeAudio) {
+                // To prefer 'audio' mode (higher fidelity), we can suggest lower complexity or higher ptime
+                // But generally, bitrate and stereo signal this to the encoder.
+                fmtpParams.append(";maxptime=20;minptime=10")
+            }
+
+            sdp = sdp.replace("useinbandfec=1", fmtpParams.toString())
+        }
+        return SessionDescription(description.type, sdp)
+    }
+
     fun createOffer() {
         peerConnection?.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(description: SessionDescription?) {
                 if (description == null) return
+                val mungedDescription = modifySdpForQuality(description)
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
-                        listener.onSdpCreated(description)
+                        listener.onSdpCreated(mungedDescription)
                     }
-                }, description)
+                }, mungedDescription)
             }
         }, MediaConstraints())
     }
@@ -97,11 +133,12 @@ class WebRTCClient(
         peerConnection?.createAnswer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(description: SessionDescription?) {
                 if (description == null) return
+                val mungedDescription = modifySdpForQuality(description)
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
-                        listener.onSdpCreated(description)
+                        listener.onSdpCreated(mungedDescription)
                     }
-                }, description)
+                }, mungedDescription)
             }
         }, MediaConstraints())
     }
@@ -132,9 +169,8 @@ class WebRTCClient(
 
     fun close() {
         val pc = peerConnection ?: return
-        peerConnection = null // Clear reference early
+        peerConnection = null
         
-        // Fetch stats before closing the native connection
         pc.getStats { report ->
             var stunSent = 0L
             var stunRecv = 0L
@@ -142,7 +178,6 @@ class WebRTCClient(
             var turnRecv = 0L
 
             report.statsMap.values.forEach { stats ->
-                // Check for the active candidate pair
                 if (stats.type == "candidate-pair" && stats.members["state"] == "succeeded") {
                     val sent = (stats.members["bytesSent"] as? Number)?.toLong() ?: 0L
                     val recv = (stats.members["bytesReceived"] as? Number)?.toLong() ?: 0L
@@ -160,7 +195,6 @@ class WebRTCClient(
                     }
                 }
             }
-            // Notify listener and THEN close native resources
             listener.onDataUsageCollected(stunSent, stunRecv, turnSent, turnRecv)
             pc.close()
             pc.dispose()
