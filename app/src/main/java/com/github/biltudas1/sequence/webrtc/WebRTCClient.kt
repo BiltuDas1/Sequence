@@ -11,9 +11,6 @@ class WebRTCClient(
 ) {
     private val peerConnectionFactory: PeerConnectionFactory
     private var peerConnection: PeerConnection? = null
-    private val iceServers = listOf(
-        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
-    )
 
     private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
@@ -34,7 +31,7 @@ class WebRTCClient(
             .createPeerConnectionFactory()
     }
 
-    fun initPeerConnection() {
+    fun initPeerConnection(iceServers: List<PeerConnection.IceServer>) {
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
 

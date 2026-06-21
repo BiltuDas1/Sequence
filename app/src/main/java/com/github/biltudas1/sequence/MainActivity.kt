@@ -35,6 +35,7 @@ import com.github.biltudas1.sequence.ui.AboutScreen
 import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.RoomEntryScreen
 import com.github.biltudas1.sequence.ui.SettingsScreen
+import com.github.biltudas1.sequence.ui.WebRTCConfigScreen
 import com.github.biltudas1.sequence.ui.WebRTCScreen
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
@@ -198,8 +199,16 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onAboutClick = {
                                     navController.navigate("about")
+                                },
+                                onWebRTCConfigClick = {
+                                    navController.navigate("webrtc_config")
                                 }
                             )
+                        }
+                        composable("webrtc_config") {
+                            WebRTCConfigScreen(onBackClick = {
+                                navController.popBackStack()
+                            })
                         }
                         composable("about") {
                             AboutScreen(onBackClick = {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onBackClick: () -> Unit,
     onAboutClick: () -> Unit,
+    onWebRTCConfigClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -77,6 +79,14 @@ fun SettingsScreen(
                     description = "Change backend server settings",
                     icon = Icons.Default.Storage,
                     onClick = { showConfigDialog = true }
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    title = "WebRTC Configuration",
+                    description = "Configure STUN/TURN servers",
+                    icon = Icons.Default.SettingsInputComponent,
+                    onClick = onWebRTCConfigClick
                 )
             }
             item {

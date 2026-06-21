@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.CallScreenContent
 import com.github.biltudas1.sequence.webrtc.SignalingClient
@@ -32,6 +33,7 @@ fun WebRTCScreen(
     val dataStoreManager = remember { DataStoreManager(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+    val webrtcConfig by dataStoreManager.webrtcConfigFlow.collectAsStateWithLifecycle(initialValue = WebRTCConfig())
 
     var signalingClient by remember { mutableStateOf<SignalingClient?>(null) }
     var isLeaving by remember { mutableStateOf(false) }
@@ -85,7 +87,25 @@ fun WebRTCScreen(
         }
     }
 
-    LaunchedEffect(serverUrl) {
+    LaunchedEffect(serverUrl, webrtcConfig) {
+        val iceServers = mutableListOf<PeerConnection.IceServer>()
+        
+        webrtcConfig.stunServers.forEach { 
+            iceServers.add(PeerConnection.IceServer.builder(it.url).createIceServer())
+        }
+        
+        webrtcConfig.turnServers.forEach { 
+            val builder = PeerConnection.IceServer.builder(it.url)
+            if (it.username != null) builder.setUsername(it.username)
+            if (it.credential != null) builder.setPassword(it.credential)
+            iceServers.add(builder.createIceServer())
+        }
+
+        if (iceServers.isEmpty()) {
+            // Fallback to default if everything is deleted
+            iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
+        }
+
         signalingClient = SignalingClient(
             serverUrl = serverUrl,
             accessToken = accessToken,
@@ -104,7 +124,7 @@ fun WebRTCScreen(
                 }
 
                 override fun onOfferReceived(description: String) {
-                    hasPeerJoined = true // Receiver side considers peer joined when offer arrives
+                    hasPeerJoined = true
                     webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
                     webRTCClient.createAnswer()
                 }
@@ -119,7 +139,7 @@ fun WebRTCScreen(
             }
         )
         
-        webRTCClient.initPeerConnection()
+        webRTCClient.initPeerConnection(iceServers)
         signalingClient?.start()
     }
 
