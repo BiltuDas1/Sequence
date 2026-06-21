@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.model.DataUsage
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.model.WebRTCConfig
@@ -36,6 +37,7 @@ class DataStoreManager(private val context: Context) {
         private val STUN_BYTES_RECEIVED = longPreferencesKey("stun_bytes_received")
         private val TURN_BYTES_SENT = longPreferencesKey("turn_bytes_sent")
         private val TURN_BYTES_RECEIVED = longPreferencesKey("turn_bytes_received")
+        private val AUDIO_QUALITY_LEVEL = stringPreferencesKey("audio_quality_level")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -75,6 +77,19 @@ class DataStoreManager(private val context: Context) {
             turnSent = preferences[TURN_BYTES_SENT] ?: 0L,
             turnReceived = preferences[TURN_BYTES_RECEIVED] ?: 0L
         )
+    }
+
+    val audioQualityFlow: Flow<AudioQualityLevel> = context.dataStore.data.map { preferences ->
+        val name = preferences[AUDIO_QUALITY_LEVEL]
+        if (name != null) {
+            try {
+                AudioQualityLevel.valueOf(name)
+            } catch (e: Exception) {
+                AudioQualityLevel.STANDARD
+            }
+        } else {
+            AudioQualityLevel.STANDARD
+        }
     }
 
     suspend fun saveServerConfig(config: ServerConfig) {
@@ -120,6 +135,12 @@ class DataStoreManager(private val context: Context) {
             preferences[STUN_BYTES_RECEIVED] = 0L
             preferences[TURN_BYTES_SENT] = 0L
             preferences[TURN_BYTES_RECEIVED] = 0L
+        }
+    }
+
+    suspend fun saveAudioQuality(level: AudioQualityLevel) {
+        context.dataStore.edit { preferences ->
+            preferences[AUDIO_QUALITY_LEVEL] = level.name
         }
     }
 

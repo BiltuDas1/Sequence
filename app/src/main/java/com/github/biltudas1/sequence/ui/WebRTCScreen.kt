@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.CallScreenContent
@@ -16,6 +17,7 @@ import com.github.biltudas1.sequence.webrtc.WebRTCClient
 import com.github.biltudas1.sequence.ui.theme.SurfaceDim
 import com.github.biltudas1.sequence.ui.utils.CallAudioManager
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import org.webrtc.*
 
@@ -28,13 +30,11 @@ fun WebRTCScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // Define a scope that won't be cancelled when the composable is disposed
     val applicationScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
     
     val dataStoreManager = remember { DataStoreManager(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
-    val webrtcConfig by dataStoreManager.webrtcConfigFlow.collectAsStateWithLifecycle(initialValue = WebRTCConfig())
 
     var signalingClient by remember { mutableStateOf<SignalingClient?>(null) }
     var isLeaving by remember { mutableStateOf(false) }
@@ -71,10 +71,8 @@ fun WebRTCScreen(
             }
 
             override fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long) {
-                // Use applicationScope to ensure data is saved even after this screen is destroyed
                 applicationScope.launch {
                     dataStoreManager.addDataUsage(stunSent, stunRecv, turnSent, turnRecv)
-                    // Cancel application scope after work is done
                     delay(1000)
                     applicationScope.cancel()
                 }
@@ -99,13 +97,15 @@ fun WebRTCScreen(
         }
     }
 
-    LaunchedEffect(serverUrl, webrtcConfig) {
+    // Single initialization effect
+    LaunchedEffect(Unit) {
+        val webrtcConfig = dataStoreManager.webrtcConfigFlow.first()
+        val audioQuality = dataStoreManager.audioQualityFlow.first()
+
         val iceServers = mutableListOf<PeerConnection.IceServer>()
-        
         webrtcConfig.stunServers.forEach { 
             iceServers.add(PeerConnection.IceServer.builder(it.url).createIceServer())
         }
-        
         webrtcConfig.turnServers.forEach { 
             val builder = PeerConnection.IceServer.builder(it.url)
             if (it.username != null) builder.setUsername(it.username)
@@ -150,7 +150,7 @@ fun WebRTCScreen(
             }
         )
         
-        webRTCClient.initPeerConnection(iceServers)
+        webRTCClient.initPeerConnection(iceServers, audioQuality)
         signalingClient?.start()
     }
 

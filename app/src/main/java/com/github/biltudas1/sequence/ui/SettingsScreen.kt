@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.Storage
@@ -32,6 +33,7 @@ fun SettingsScreen(
     onAboutClick: () -> Unit,
     onWebRTCConfigClick: () -> Unit,
     onDataUsageClick: () -> Unit,
+    onAudioQualityClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -89,6 +91,14 @@ fun SettingsScreen(
                     description = "Configure STUN/TURN servers",
                     icon = Icons.Default.SettingsInputComponent,
                     onClick = onWebRTCConfigClick
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    title = "Audio Quality",
+                    description = "Choose your preferred bitrate",
+                    icon = Icons.Default.GraphicEq,
+                    onClick = onAudioQualityClick
                 )
             }
             item {

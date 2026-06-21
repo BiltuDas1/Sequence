@@ -32,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.AboutScreen
+import com.github.biltudas1.sequence.ui.AudioQualityScreen
 import com.github.biltudas1.sequence.ui.DataUsageScreen
 import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.RoomEntryScreen
@@ -206,8 +207,16 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onDataUsageClick = {
                                     navController.navigate("data_usage")
+                                },
+                                onAudioQualityClick = {
+                                    navController.navigate("audio_quality")
                                 }
                             )
+                        }
+                        composable("audio_quality") {
+                            AudioQualityScreen(onBackClick = {
+                                navController.popBackStack()
+                            })
                         }
                         composable("data_usage") {
                             DataUsageScreen(onBackClick = {
