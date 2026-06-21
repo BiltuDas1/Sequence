@@ -15,9 +15,7 @@ import com.github.biltudas1.sequence.webrtc.SignalingClient
 import com.github.biltudas1.sequence.webrtc.WebRTCClient
 import com.github.biltudas1.sequence.ui.theme.SurfaceDim
 import com.github.biltudas1.sequence.ui.utils.CallAudioManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import org.webrtc.*
 
@@ -30,6 +28,9 @@ fun WebRTCScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Define a scope that won't be cancelled when the composable is disposed
+    val applicationScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
+    
     val dataStoreManager = remember { DataStoreManager(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
@@ -66,6 +67,16 @@ fun WebRTCScreen(
                     signalingClient?.sendOffer(description.description)
                 } else if (description.type == SessionDescription.Type.ANSWER) {
                     signalingClient?.sendAnswer(description.description)
+                }
+            }
+
+            override fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long) {
+                // Use applicationScope to ensure data is saved even after this screen is destroyed
+                applicationScope.launch {
+                    dataStoreManager.addDataUsage(stunSent, stunRecv, turnSent, turnRecv)
+                    // Cancel application scope after work is done
+                    delay(1000)
+                    applicationScope.cancel()
                 }
             }
         })
@@ -145,7 +156,6 @@ fun WebRTCScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            audioManager.stopAny()
             webRTCClient.close()
             signalingClient?.stop()
         }

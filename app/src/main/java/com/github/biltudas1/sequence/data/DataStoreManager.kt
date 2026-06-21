@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.github.biltudas1.sequence.data.model.DataUsage
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +31,11 @@ class DataStoreManager(private val context: Context) {
         private val WEBRTC_CONFIG = stringPreferencesKey("webrtc_config")
         private val LATEST_VERSION = stringPreferencesKey("latest_version")
         private val LAST_VERSION_CHECK = longPreferencesKey("last_version_check")
+        
+        private val STUN_BYTES_SENT = longPreferencesKey("stun_bytes_sent")
+        private val STUN_BYTES_RECEIVED = longPreferencesKey("stun_bytes_received")
+        private val TURN_BYTES_SENT = longPreferencesKey("turn_bytes_sent")
+        private val TURN_BYTES_RECEIVED = longPreferencesKey("turn_bytes_received")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -62,6 +68,15 @@ class DataStoreManager(private val context: Context) {
         preferences[LATEST_VERSION] to (preferences[LAST_VERSION_CHECK] ?: 0L)
     }
 
+    val dataUsageFlow: Flow<DataUsage> = context.dataStore.data.map { preferences ->
+        DataUsage(
+            stunSent = preferences[STUN_BYTES_SENT] ?: 0L,
+            stunReceived = preferences[STUN_BYTES_RECEIVED] ?: 0L,
+            turnSent = preferences[TURN_BYTES_SENT] ?: 0L,
+            turnReceived = preferences[TURN_BYTES_RECEIVED] ?: 0L
+        )
+    }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
@@ -82,6 +97,29 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[LATEST_VERSION] = tag
             preferences[LAST_VERSION_CHECK] = timestamp
+        }
+    }
+
+    suspend fun addDataUsage(stunSent: Long, stunReceived: Long, turnSent: Long, turnReceived: Long) {
+        context.dataStore.edit { preferences ->
+            val currentStunSent = preferences[STUN_BYTES_SENT] ?: 0L
+            val currentStunRecv = preferences[STUN_BYTES_RECEIVED] ?: 0L
+            val currentTurnSent = preferences[TURN_BYTES_SENT] ?: 0L
+            val currentTurnRecv = preferences[TURN_BYTES_RECEIVED] ?: 0L
+            
+            preferences[STUN_BYTES_SENT] = currentStunSent + stunSent
+            preferences[STUN_BYTES_RECEIVED] = currentStunRecv + stunReceived
+            preferences[TURN_BYTES_SENT] = currentTurnSent + turnSent
+            preferences[TURN_BYTES_RECEIVED] = currentTurnRecv + turnReceived
+        }
+    }
+
+    suspend fun resetDataUsage() {
+        context.dataStore.edit { preferences ->
+            preferences[STUN_BYTES_SENT] = 0L
+            preferences[STUN_BYTES_RECEIVED] = 0L
+            preferences[TURN_BYTES_SENT] = 0L
+            preferences[TURN_BYTES_RECEIVED] = 0L
         }
     }
 
