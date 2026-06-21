@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onAboutClick: () -> Unit,
     onWebRTCConfigClick: () -> Unit,
+    onDataUsageClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -87,6 +89,14 @@ fun SettingsScreen(
                     description = "Configure STUN/TURN servers",
                     icon = Icons.Default.SettingsInputComponent,
                     onClick = onWebRTCConfigClick
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    title = "Data Usage",
+                    description = "View network statistics",
+                    icon = Icons.Default.QueryStats,
+                    onClick = onDataUsageClick
                 )
             }
             item {

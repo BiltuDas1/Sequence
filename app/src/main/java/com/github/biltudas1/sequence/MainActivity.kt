@@ -32,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.AboutScreen
+import com.github.biltudas1.sequence.ui.DataUsageScreen
 import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.RoomEntryScreen
 import com.github.biltudas1.sequence.ui.SettingsScreen
@@ -202,8 +203,16 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onWebRTCConfigClick = {
                                     navController.navigate("webrtc_config")
+                                },
+                                onDataUsageClick = {
+                                    navController.navigate("data_usage")
                                 }
                             )
+                        }
+                        composable("data_usage") {
+                            DataUsageScreen(onBackClick = {
+                                navController.popBackStack()
+                            })
                         }
                         composable("webrtc_config") {
                             WebRTCConfigScreen(onBackClick = {

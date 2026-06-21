@@ -20,6 +20,7 @@ class WebRTCClient(
     interface WebRTCListener {
         fun onIceCandidate(candidate: IceCandidate)
         fun onSdpCreated(description: SessionDescription)
+        fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long)
     }
 
     init {
@@ -109,7 +110,6 @@ class WebRTCClient(
         peerConnection?.setRemoteDescription(object : SimpleSdpObserver() {
             override fun onSetSuccess() {
                 Log.d("WebRTCClient", "setRemoteDescription Success")
-                // Add pending candidates if any
                 synchronized(pendingIceCandidates) {
                     for (candidate in pendingIceCandidates) {
                         peerConnection?.addIceCandidate(candidate)
@@ -131,8 +131,41 @@ class WebRTCClient(
     }
 
     fun close() {
-        peerConnection?.close()
-        peerConnection = null
+        val pc = peerConnection ?: return
+        peerConnection = null // Clear reference early
+        
+        // Fetch stats before closing the native connection
+        pc.getStats { report ->
+            var stunSent = 0L
+            var stunRecv = 0L
+            var turnSent = 0L
+            var turnRecv = 0L
+
+            report.statsMap.values.forEach { stats ->
+                // Check for the active candidate pair
+                if (stats.type == "candidate-pair" && stats.members["state"] == "succeeded") {
+                    val sent = (stats.members["bytesSent"] as? Number)?.toLong() ?: 0L
+                    val recv = (stats.members["bytesReceived"] as? Number)?.toLong() ?: 0L
+                    
+                    val localId = stats.members["localCandidateId"] as? String
+                    val localCandidate = report.statsMap[localId]
+                    val isRelay = localCandidate?.members?.get("candidateType") == "relay"
+                    
+                    if (isRelay) {
+                        turnSent += sent
+                        turnRecv += recv
+                    } else {
+                        stunSent += sent
+                        stunRecv += recv
+                    }
+                }
+            }
+            // Notify listener and THEN close native resources
+            listener.onDataUsageCollected(stunSent, stunRecv, turnSent, turnRecv)
+            pc.close()
+            pc.dispose()
+        }
+
         audioManager.mode = AudioManager.MODE_NORMAL
         audioManager.isSpeakerphoneOn = false
     }
