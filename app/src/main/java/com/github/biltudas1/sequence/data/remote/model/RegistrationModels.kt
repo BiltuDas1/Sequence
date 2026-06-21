@@ -64,6 +64,11 @@ data class FcmTokenRequest(
 )
 
 @Serializable
+data class GitHubRelease(
+    val tag_name: String
+)
+
+@Serializable
 data class VoiceCallRequest(
     val email: String
 )
