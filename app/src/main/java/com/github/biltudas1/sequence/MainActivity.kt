@@ -24,6 +24,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -34,6 +37,7 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.AboutScreen
 import com.github.biltudas1.sequence.ui.AudioQualityScreen
+import com.github.biltudas1.sequence.ui.BatteryOptimizationScreen
 import com.github.biltudas1.sequence.ui.DataUsageScreen
 import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.RoomEntryScreen
@@ -41,6 +45,7 @@ import com.github.biltudas1.sequence.ui.SettingsScreen
 import com.github.biltudas1.sequence.ui.WebRTCConfigScreen
 import com.github.biltudas1.sequence.ui.WebRTCScreen
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
+import com.github.biltudas1.sequence.ui.isBatteryOptimized
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
@@ -77,182 +82,206 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             SequenceTheme(darkTheme = true) {
-                val navController = rememberNavController()
-                val accessTokenState = dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
-                val accessToken = accessTokenState.value
-                val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route
-                val scope = rememberCoroutineScope()
                 val context = LocalContext.current
+                var isOptimized by remember { mutableStateOf(isBatteryOptimized(context)) }
+                val lifecycleOwner = LocalLifecycleOwner.current
 
-                // --- Permission Launchers ---
-                
-                val notificationPermissionLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestPermission()
-                ) { isGranted ->
-                    if (!isGranted) Log.w("MainActivity", "Notification permission denied")
-                }
-
-                var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
-                val audioPermissionLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestPermission()
-                ) { isGranted ->
-                    if (isGranted && pendingNavigationUrl != null) {
-                        val (rId, url) = pendingNavigationUrl!!
-                        navController.navigate("webrtc_call/$rId?serverUrl=$url")
-                        pendingNavigationUrl = null
-                    } else {
-                        Toast.makeText(context, "Microphone permission is required for calls", Toast.LENGTH_LONG).show()
-                    }
-                }
-
-                fun navigateToCallWithPermission(rId: String, url: String) {
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        navController.navigate("webrtc_call/$rId?serverUrl=$url")
-                    } else {
-                        pendingNavigationUrl = rId to url
-                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    }
-                }
-
-                // --- Effects ---
-
-                LaunchedEffect(Unit) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                // Re-check battery optimization when app returns to foreground
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            isOptimized = isBatteryOptimized(context)
                         }
                     }
-                }
-
-                val roomId by incomingRoomId
-                LaunchedEffect(roomId, accessToken, serverConfig) {
-                    if (roomId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
-                        val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                        val baseUrl = serverConfig!!.cleanEndpoint
-                        val fullUrl = "$protocol://$baseUrl/room/$roomId"
-                        
-                        if (currentRoute?.contains("webrtc_call") != true) {
-                            navigateToCallWithPermission(roomId!!, fullUrl)
-                        }
-                        incomingRoomId.value = null
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
                     }
                 }
 
-                if (accessToken == "UNDEFINED") {
-                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                if (isOptimized) {
+                    BatteryOptimizationScreen(
+                        onCheckAgain = {
+                            isOptimized = isBatteryOptimized(context)
+                        }
+                    )
                 } else {
-                    NavHost(
-                        navController = navController,
-                        startDestination = if (accessToken == null) "login" else "contacts",
-                        enterTransition = {
-                            slideIntoContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Left,
-                                animationSpec = tween(400)
-                            )
-                        },
-                        exitTransition = {
-                            slideOutOfContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Left,
-                                animationSpec = tween(400)
-                            )
-                        },
-                        popEnterTransition = {
-                            slideIntoContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(400)
-                            )
-                        },
-                        popExitTransition = {
-                            slideOutOfContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(400)
-                            )
-                        },
-                        modifier = Modifier.background(MaterialTheme.colorScheme.background)
-                    ) {
-                        composable("login") {
-                            LoginScreen(onLoginSuccess = {
-                                navController.navigate("contacts") { popUpTo("login") { inclusive = true } }
-                            })
+                    val navController = rememberNavController()
+                    val accessTokenState = dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
+                    val accessToken = accessTokenState.value
+                    val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = navBackStackEntry?.destination?.route
+                    val scope = rememberCoroutineScope()
+
+                    // --- Permission Launchers ---
+                    
+                    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestPermission()
+                    ) { isGranted ->
+                        if (!isGranted) Log.w("MainActivity", "Notification permission denied")
+                    }
+
+                    var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
+                    val audioPermissionLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestPermission()
+                    ) { isGranted ->
+                        if (isGranted && pendingNavigationUrl != null) {
+                            val (rId, url) = pendingNavigationUrl!!
+                            navController.navigate("webrtc_call/$rId?serverUrl=$url")
+                            pendingNavigationUrl = null
+                        } else {
+                            Toast.makeText(context, "Microphone permission is required for calls", Toast.LENGTH_LONG).show()
                         }
-                        composable("contacts") {
-                            ContactsScreen(
-                                onContactClick = { contact ->
-                                    scope.launch {
-                                        if (accessToken != null && serverConfig != null) {
-                                            val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
-                                            result.getOrNull()?.data?.roomId?.let { rId ->
-                                                val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                                val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                                navigateToCallWithPermission(rId, fullUrl)
+                    }
+
+                    fun navigateToCallWithPermission(rId: String, url: String) {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            navController.navigate("webrtc_call/$rId?serverUrl=$url")
+                        } else {
+                            pendingNavigationUrl = rId to url
+                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }
+
+                    // --- Effects ---
+
+                    LaunchedEffect(Unit) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }
+                    }
+
+                    val roomId by incomingRoomId
+                    LaunchedEffect(roomId, accessToken, serverConfig) {
+                        if (roomId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
+                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                            val baseUrl = serverConfig!!.cleanEndpoint
+                            val fullUrl = "$protocol://$baseUrl/room/$roomId"
+                            
+                            if (currentRoute?.contains("webrtc_call") != true) {
+                                navigateToCallWithPermission(roomId!!, fullUrl)
+                            }
+                            incomingRoomId.value = null
+                        }
+                    }
+
+                    if (accessToken == "UNDEFINED") {
+                        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                    } else {
+                        NavHost(
+                            navController = navController,
+                            startDestination = if (accessToken == null) "login" else "contacts",
+                            enterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    animationSpec = tween(400)
+                                )
+                            },
+                            exitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    animationSpec = tween(400)
+                                )
+                            },
+                            popEnterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    animationSpec = tween(400)
+                                )
+                            },
+                            popExitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    animationSpec = tween(400)
+                                )
+                            },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                        ) {
+                            composable("login") {
+                                LoginScreen(onLoginSuccess = {
+                                    navController.navigate("contacts") { popUpTo("login") { inclusive = true } }
+                                })
+                            }
+                            composable("contacts") {
+                                ContactsScreen(
+                                    onContactClick = { contact ->
+                                        scope.launch {
+                                            if (accessToken != null && serverConfig != null) {
+                                                val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
+                                                result.getOrNull()?.data?.roomId?.let { rId ->
+                                                    val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                    val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                    navigateToCallWithPermission(rId, fullUrl)
+                                                }
                                             }
                                         }
+                                    },
+                                    onSettingsClick = {
+                                        navController.navigate("settings")
                                     }
-                                },
-                                onSettingsClick = {
-                                    navController.navigate("settings")
-                                }
-                            )
-                        }
-                        composable("settings") {
-                            SettingsScreen(
-                                onBackClick = {
+                                )
+                            }
+                            composable("settings") {
+                                SettingsScreen(
+                                    onBackClick = {
+                                        navController.popBackStack()
+                                    },
+                                    onAboutClick = {
+                                        navController.navigate("about")
+                                    },
+                                    onWebRTCConfigClick = {
+                                        navController.navigate("webrtc_config")
+                                    },
+                                    onDataUsageClick = {
+                                        navController.navigate("data_usage")
+                                    },
+                                    onAudioQualityClick = {
+                                        navController.navigate("audio_quality")
+                                    },
+                                    onLogoutClick = {
+                                        scope.launch {
+                                            dataStoreManager.clearTokens()
+                                            contactRepository.clearLocalData()
+                                        }
+                                    }
+                                )
+                            }
+                            composable("audio_quality") {
+                                AudioQualityScreen(onBackClick = {
                                     navController.popBackStack()
-                                },
-                                onAboutClick = {
-                                    navController.navigate("about")
-                                },
-                                onWebRTCConfigClick = {
-                                    navController.navigate("webrtc_config")
-                                },
-                                onDataUsageClick = {
-                                    navController.navigate("data_usage")
-                                },
-                                onAudioQualityClick = {
-                                    navController.navigate("audio_quality")
-                                },
-                                onLogoutClick = {
-                                    scope.launch {
-                                        dataStoreManager.clearTokens()
-                                        contactRepository.clearLocalData()
-                                    }
-                                }
-                            )
-                        }
-                        composable("audio_quality") {
-                            AudioQualityScreen(onBackClick = {
-                                navController.popBackStack()
-                            })
-                        }
-                        composable("data_usage") {
-                            DataUsageScreen(onBackClick = {
-                                navController.popBackStack()
-                            })
-                        }
-                        composable("webrtc_config") {
-                            WebRTCConfigScreen(onBackClick = {
-                                navController.popBackStack()
-                            })
-                        }
-                        composable("about") {
-                            AboutScreen(onBackClick = {
-                                navController.popBackStack()
-                            })
-                        }
-                        composable("room_entry") {
-                            RoomEntryScreen(
-                                onJoinRoom = { rId, url -> navigateToCallWithPermission(rId, url) }
-                            )
-                        }
-                        composable("webrtc_call/{roomId}?serverUrl={serverUrl}") { backStackEntry ->
-                            WebRTCScreen(
-                                roomId = backStackEntry.arguments?.getString("roomId") ?: "",
-                                serverUrl = backStackEntry.arguments?.getString("serverUrl") ?: "",
-                                accessToken = accessToken,
-                                onCallStopped = { navController.popBackStack() }
-                            )
+                                })
+                            }
+                            composable("data_usage") {
+                                DataUsageScreen(onBackClick = {
+                                    navController.popBackStack()
+                                })
+                            }
+                            composable("webrtc_config") {
+                                WebRTCConfigScreen(onBackClick = {
+                                    navController.popBackStack()
+                                })
+                            }
+                            composable("about") {
+                                AboutScreen(onBackClick = {
+                                    navController.popBackStack()
+                                })
+                            }
+                            composable("room_entry") {
+                                RoomEntryScreen(
+                                    onJoinRoom = { rId, url -> navigateToCallWithPermission(rId, url) }
+                                )
+                            }
+                            composable("webrtc_call/{roomId}?serverUrl={serverUrl}") { backStackEntry ->
+                                WebRTCScreen(
+                                    roomId = backStackEntry.arguments?.getString("roomId") ?: "",
+                                    serverUrl = backStackEntry.arguments?.getString("serverUrl") ?: "",
+                                    accessToken = accessToken,
+                                    onCallStopped = { navController.popBackStack() }
+                                )
+                            }
                         }
                     }
                 }

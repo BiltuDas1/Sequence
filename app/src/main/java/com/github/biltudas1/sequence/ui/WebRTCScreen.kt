@@ -8,7 +8,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
-import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.CallScreenContent
@@ -30,6 +29,7 @@ fun WebRTCScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Define a scope that won't be cancelled when the composable is disposed
     val applicationScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
     
     val dataStoreManager = remember { DataStoreManager(context) }
@@ -178,11 +178,14 @@ fun WebRTCScreen(
                 webRTCClient.setSpeakerphoneOn(isSpeakerOn)
             },
             onCallStopped = {
-                scope.launch {
-                    if (accessToken != null && serverConfig != null) {
+                // Navigate back immediately for a responsive feel
+                safeOnCallStopped()
+                
+                // Perform network cleanup in background application scope
+                if (accessToken != null && serverConfig != null) {
+                    applicationScope.launch {
                         authService.endVoiceCall(serverConfig!!, accessToken, roomId)
                     }
-                    safeOnCallStopped()
                 }
             },
             modifier = Modifier
