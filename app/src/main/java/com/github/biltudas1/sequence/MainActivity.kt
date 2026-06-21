@@ -14,6 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,8 +31,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
+import com.github.biltudas1.sequence.ui.AboutScreen
 import com.github.biltudas1.sequence.ui.LoginScreen
 import com.github.biltudas1.sequence.ui.RoomEntryScreen
+import com.github.biltudas1.sequence.ui.SettingsScreen
 import com.github.biltudas1.sequence.ui.WebRTCScreen
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
@@ -136,7 +140,32 @@ class MainActivity : ComponentActivity() {
                 } else {
                     NavHost(
                         navController = navController,
-                        startDestination = if (accessToken == null) "login" else "contacts"
+                        startDestination = if (accessToken == null) "login" else "contacts",
+                        enterTransition = {
+                            slideIntoContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Left,
+                                animationSpec = tween(400)
+                            )
+                        },
+                        exitTransition = {
+                            slideOutOfContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Left,
+                                animationSpec = tween(400)
+                            )
+                        },
+                        popEnterTransition = {
+                            slideIntoContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(400)
+                            )
+                        },
+                        popExitTransition = {
+                            slideOutOfContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(400)
+                            )
+                        },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.background)
                     ) {
                         composable("login") {
                             LoginScreen(onLoginSuccess = {
@@ -144,17 +173,37 @@ class MainActivity : ComponentActivity() {
                             })
                         }
                         composable("contacts") {
-                            ContactsScreen(onContactClick = { contact ->
-                                scope.launch {
-                                    if (accessToken != null && serverConfig != null) {
-                                        val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
-                                        result.getOrNull()?.data?.roomId?.let { rId ->
-                                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                            val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                            navigateToCallWithPermission(rId, fullUrl)
+                            ContactsScreen(
+                                onContactClick = { contact ->
+                                    scope.launch {
+                                        if (accessToken != null && serverConfig != null) {
+                                            val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
+                                            result.getOrNull()?.data?.roomId?.let { rId ->
+                                                val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                navigateToCallWithPermission(rId, fullUrl)
+                                            }
                                         }
                                     }
+                                },
+                                onSettingsClick = {
+                                    navController.navigate("settings")
                                 }
+                            )
+                        }
+                        composable("settings") {
+                            SettingsScreen(
+                                onBackClick = {
+                                    navController.popBackStack()
+                                },
+                                onAboutClick = {
+                                    navController.navigate("about")
+                                }
+                            )
+                        }
+                        composable("about") {
+                            AboutScreen(onBackClick = {
+                                navController.popBackStack()
                             })
                         }
                         composable("room_entry") {
