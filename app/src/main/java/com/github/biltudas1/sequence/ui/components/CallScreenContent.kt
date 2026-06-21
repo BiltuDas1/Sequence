@@ -3,8 +3,12 @@ package com.github.biltudas1.sequence.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,6 +22,10 @@ import com.github.biltudas1.sequence.ui.theme.TextSecondary
 @Composable
 fun CallScreenContent(
     roomId: String,
+    isMuted: Boolean,
+    isSpeakerOn: Boolean,
+    onMuteToggle: () -> Unit,
+    onSpeakerToggle: () -> Unit,
     onCallStopped: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -61,17 +69,54 @@ fun CallScreenContent(
             )
         }
 
-        // Stop Button
-        FloatingActionButton(
-            onClick = { onCallStopped() },
+        // Controls
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 64.dp),
-            containerColor = Color.Red,
-            contentColor = Color.White,
-            shape = CircleShape
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.CallEnd, contentDescription = "Stop Call")
+            // Mute Button
+            IconButton(
+                onClick = onMuteToggle,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Icon(
+                    imageVector = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                    contentDescription = if (isMuted) "Unmute" else "Mute",
+                    tint = if (isMuted) Color.Red else Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            // Stop Call Button
+            FloatingActionButton(
+                onClick = { onCallStopped() },
+                containerColor = Color.Red,
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.size(72.dp)
+            ) {
+                Icon(
+                    Icons.Default.CallEnd,
+                    contentDescription = "Stop Call",
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            // Speaker Button
+            IconButton(
+                onClick = onSpeakerToggle,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Icon(
+                    imageVector = if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                    contentDescription = if (isSpeakerOn) "Speaker Off" else "Speaker On",
+                    tint = if (isSpeakerOn) Color.Green else Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
     }
 }
