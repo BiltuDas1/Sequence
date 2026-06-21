@@ -29,6 +29,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.AboutScreen
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
         )
         val dataStoreManager = DataStoreManager(this)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
+        val contactRepository = ContactRepository(this, authService)
         
         setContent {
             SequenceTheme(darkTheme = true) {
@@ -210,6 +212,12 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onAudioQualityClick = {
                                     navController.navigate("audio_quality")
+                                },
+                                onLogoutClick = {
+                                    scope.launch {
+                                        dataStoreManager.clearTokens()
+                                        contactRepository.clearLocalData()
+                                    }
                                 }
                             )
                         }

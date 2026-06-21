@@ -1,14 +1,16 @@
 package com.github.biltudas1.sequence.webrtc
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.util.Log
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
 
 class WebRTCClient(
-    private val context: Context,
+    context: Context,
     private val listener: WebRTCListener
 ) {
     private val peerConnectionFactory: PeerConnectionFactory
@@ -84,7 +86,19 @@ class WebRTCClient(
 
     fun setSpeakerphoneOn(isEnabled: Boolean) {
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        audioManager.isSpeakerphoneOn = isEnabled
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val speakerDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+            }
+            if (isEnabled) {
+                speakerDevice?.let { audioManager.setCommunicationDevice(it) }
+            } else {
+                audioManager.clearCommunicationDevice()
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = isEnabled
+        }
     }
 
     fun setMute(isMuted: Boolean) {
@@ -105,8 +119,6 @@ class WebRTCClient(
             fmtpParams.append(";cbr=$isCbr")
             
             if (qualityLevel.opusModeAudio) {
-                // To prefer 'audio' mode (higher fidelity), we can suggest lower complexity or higher ptime
-                // But generally, bitrate and stereo signal this to the encoder.
                 fmtpParams.append(";maxptime=20;minptime=10")
             }
 
@@ -117,9 +129,9 @@ class WebRTCClient(
 
     fun createOffer() {
         peerConnection?.createOffer(object : SimpleSdpObserver() {
-            override fun onCreateSuccess(description: SessionDescription?) {
-                if (description == null) return
-                val mungedDescription = modifySdpForQuality(description)
+            override fun onCreateSuccess(p0: SessionDescription?) {
+                if (p0 == null) return
+                val mungedDescription = modifySdpForQuality(p0)
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
                         listener.onSdpCreated(mungedDescription)
@@ -131,9 +143,9 @@ class WebRTCClient(
 
     fun createAnswer() {
         peerConnection?.createAnswer(object : SimpleSdpObserver() {
-            override fun onCreateSuccess(description: SessionDescription?) {
-                if (description == null) return
-                val mungedDescription = modifySdpForQuality(description)
+            override fun onCreateSuccess(p0: SessionDescription?) {
+                if (p0 == null) return
+                val mungedDescription = modifySdpForQuality(p0)
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
                         listener.onSdpCreated(mungedDescription)
@@ -201,7 +213,12 @@ class WebRTCClient(
         }
 
         audioManager.mode = AudioManager.MODE_NORMAL
-        audioManager.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.clearCommunicationDevice()
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = false
+        }
     }
 
     open class SimpleSdpObserver : SdpObserver {
