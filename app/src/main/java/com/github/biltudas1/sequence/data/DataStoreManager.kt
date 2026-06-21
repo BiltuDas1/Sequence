@@ -6,14 +6,18 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.github.biltudas1.sequence.data.model.ServerConfig
+import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "server_config")
 
 class DataStoreManager(private val context: Context) {
 
     private val cryptoManager = CryptoManager()
+    private val json = Json { ignoreUnknownKeys = true }
 
     companion object {
         private val ENDPOINT = stringPreferencesKey("endpoint")
@@ -23,6 +27,7 @@ class DataStoreManager(private val context: Context) {
         private val USE_WSS = booleanPreferencesKey("use_wss")
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        private val WEBRTC_CONFIG = stringPreferencesKey("webrtc_config")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -35,6 +40,19 @@ class DataStoreManager(private val context: Context) {
         )
     }
 
+    val webrtcConfigFlow: Flow<WebRTCConfig> = context.dataStore.data.map { preferences ->
+        val jsonStr = preferences[WEBRTC_CONFIG]?.decrypt()
+        if (jsonStr != null) {
+            try {
+                json.decodeFromString<WebRTCConfig>(jsonStr)
+            } catch (e: Exception) {
+                WebRTCConfig()
+            }
+        } else {
+            WebRTCConfig()
+        }
+    }
+
     val accessTokenFlow: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN]?.decrypt() }
     val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN]?.decrypt() }
 
@@ -45,6 +63,12 @@ class DataStoreManager(private val context: Context) {
             preferences[PASSWORD] = config.password.encrypt()
             preferences[USE_HTTPS] = config.useHttps
             preferences[USE_WSS] = config.useWss
+        }
+    }
+
+    suspend fun saveWebRTCConfig(config: WebRTCConfig) {
+        context.dataStore.edit { preferences ->
+            preferences[WEBRTC_CONFIG] = json.encodeToString(config).encrypt()
         }
     }
 
