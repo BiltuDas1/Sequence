@@ -71,20 +71,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Allow this activity to show over the lock screen for ongoing calls
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
-
         intent.getStringExtra("roomId")?.let {
             isCallExternal = true
             incomingRoomId.value = it
@@ -131,6 +117,21 @@ class MainActivity : ComponentActivity() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()
+
+                    // Dynamic security: Only allow lockscreen visibility during a call
+                    LaunchedEffect(currentRoute) {
+                        val isCallScreen = currentRoute?.contains("webrtc_call") == true
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                            setShowWhenLocked(isCallScreen)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            if (isCallScreen) {
+                                window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+                            } else {
+                                window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+                            }
+                        }
+                    }
 
                     // --- Permission Launchers ---
                     
