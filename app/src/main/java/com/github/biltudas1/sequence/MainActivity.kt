@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -54,6 +55,7 @@ import okhttp3.OkHttpClient
 class MainActivity : ComponentActivity() {
 
     private val incomingRoomId = mutableStateOf<String?>(null)
+    private var isCallExternal = false
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -61,6 +63,7 @@ class MainActivity : ComponentActivity() {
         val roomId = intent.getStringExtra("roomId")
         Log.d("MainActivity", "onNewIntent: roomId=$roomId")
         if (roomId != null) {
+            isCallExternal = true
             incomingRoomId.value = roomId
         }
     }
@@ -68,7 +71,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Allow this activity to show over the lock screen for ongoing calls
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
         intent.getStringExtra("roomId")?.let {
+            isCallExternal = true
             incomingRoomId.value = it
         }
 
@@ -208,6 +226,7 @@ class MainActivity : ComponentActivity() {
                             composable("contacts") {
                                 ContactsScreen(
                                     onContactClick = { contact ->
+                                        isCallExternal = false // Outgoing call
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
                                                 val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
@@ -279,7 +298,13 @@ class MainActivity : ComponentActivity() {
                                     roomId = backStackEntry.arguments?.getString("roomId") ?: "",
                                     serverUrl = backStackEntry.arguments?.getString("serverUrl") ?: "",
                                     accessToken = accessToken,
-                                    onCallStopped = { navController.popBackStack() }
+                                    onCallStopped = {
+                                        if (isCallExternal) {
+                                            finishAndRemoveTask()
+                                        } else {
+                                            navController.popBackStack()
+                                        }
+                                    }
                                 )
                             }
                         }
