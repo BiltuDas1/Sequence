@@ -44,6 +44,7 @@ import com.github.biltudas1.sequence.ui.*
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
+import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
@@ -85,32 +86,17 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
         )
-        val dataStoreManager = DataStoreManager(this)
-        val authService = AuthService(OkHttpClient(), dataStoreManager)
-        val contactRepository = ContactRepository(this, authService)
         
         setContent {
             SequenceTheme(darkTheme = true) {
                 val context = LocalContext.current
-                var isOptimized by remember { mutableStateOf(isBatteryOptimized(context)) }
-                val lifecycleOwner = LocalLifecycleOwner.current
+                val dataStoreManager = remember { DataStoreManager(context) }
+                val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
+                val contactRepository = remember { ContactRepository(context, authService) }
 
                 val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
                 LaunchedEffect(updateInterval) {
                     UpdateWorker.schedule(context, updateInterval)
-                }
-
-                // Re-check battery optimization when app returns to foreground
-                DisposableEffect(lifecycleOwner) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) {
-                            isOptimized = isBatteryOptimized(context)
-                        }
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose {
-                        lifecycleOwner.lifecycle.removeObserver(observer)
-                    }
                 }
 
                 Surface(
@@ -153,29 +139,6 @@ class MainActivity : ComponentActivity() {
 
                     // --- Permission Launchers ---
                     
-                    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestPermission()
-                    ) { isGranted ->
-                        if (!isGranted) Log.w("MainActivity", "Notification permission denied")
-                    }
-
-                    val requiredPermissions = mutableListOf<String>().apply {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            add(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        add(Manifest.permission.READ_PHONE_STATE)
-                    }
-
-                    val initialPermissionsLauncher = rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestMultiplePermissions()
-                    ) { permissions ->
-                        // Handle result
-                    }
-
-                    LaunchedEffect(Unit) {
-                        initialPermissionsLauncher.launch(requiredPermissions.toTypedArray())
-                    }
-
                     var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
                     val audioPermissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission()
@@ -245,9 +208,15 @@ class MainActivity : ComponentActivity() {
                     if (accessToken == "UNDEFINED") {
                         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
                     } else {
+                        val startDest = remember(accessToken) {
+                            if (accessToken == null) "login"
+                            else if (!PermissionUtils.hasAllPermissions(context)) "permissions"
+                            else "contacts"
+                        }
+
                         NavHost(
                             navController = navController,
-                            startDestination = if (accessToken == null) "login" else "contacts",
+                            startDestination = startDest,
                             enterTransition = {
                                 slideIntoContainer(
                                     AnimatedContentTransitionScope.SlideDirection.Left,
@@ -276,8 +245,16 @@ class MainActivity : ComponentActivity() {
                         ) {
                             composable("login") {
                                 LoginScreen(onLoginSuccess = {
-                                    navController.navigate("contacts") {
+                                    navController.navigate("permissions") {
                                         popUpTo("login") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                })
+                            }
+                            composable("permissions") {
+                                PermissionGatewayScreen(onAllPermissionsGranted = {
+                                    navController.navigate("contacts") {
+                                        popUpTo("permissions") { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 })
