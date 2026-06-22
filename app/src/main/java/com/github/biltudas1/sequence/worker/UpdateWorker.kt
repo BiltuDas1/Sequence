@@ -57,6 +57,23 @@ class UpdateWorker(context: Context, workerParams: WorkerParameters) :
 
     companion object {
         private const val WORK_NAME = "UpdateCheckWork"
+        private const val ONE_TIME_WORK_NAME = "UpdateCheckWorkOneTime"
+
+        fun checkNow(context: Context) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val workRequest = OneTimeWorkRequestBuilder<UpdateWorker>()
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                ONE_TIME_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                workRequest
+            )
+        }
 
         fun schedule(context: Context, interval: String) {
             val workManager = WorkManager.getInstance(context)

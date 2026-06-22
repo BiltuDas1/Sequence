@@ -3,6 +3,7 @@ package com.github.biltudas1.sequence.ui.contacts
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,11 +12,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +55,12 @@ fun ContactsScreen(
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = null)
     val contacts by repository.contactsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-    
+    val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
+
+    val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
+    val currentVersion = packageInfo.versionName ?: ""
+    val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
+
     val scope = rememberCoroutineScope()
 
     var isLoading by remember { mutableStateOf(false) }
@@ -90,11 +98,22 @@ fun ContactsScreen(
                 title = { Text("Contacts", color = Color.White) },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = Color.White
-                        )
+                        Box {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = Color.White
+                            )
+                            if (hasUpdate) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color.Yellow, CircleShape)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 1.dp, y = 1.dp)
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
