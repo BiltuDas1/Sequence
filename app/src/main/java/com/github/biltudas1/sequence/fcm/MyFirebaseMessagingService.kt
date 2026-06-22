@@ -10,11 +10,12 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
+import com.github.biltudas1.sequence.ui.IncomingCallActivity
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +31,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
     companion object {
-        const val CHANNEL_ID = "voice_call_v2" // Updated ID to force fresh channel settings
+        const val CHANNEL_ID = "voice_call_v3"
         const val MISSED_CALL_CHANNEL_ID = "missed_call"
         const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
         const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
@@ -52,7 +53,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
 
-            // 1. Voice Call Channel (Max Priority)
             val callChannel = NotificationChannel(CHANNEL_ID, "Voice Calls", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Incoming voice calls"
                 setSound(soundUri, attributes)
@@ -62,7 +62,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             }
             notificationManager.createNotificationChannel(callChannel)
 
-            // 2. Missed Call Channel
             val missedChannel = NotificationChannel(MISSED_CALL_CHANNEL_ID, "Missed Calls", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Missed call alerts"
             }
@@ -72,19 +71,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        Log.d("FCM", "Message received. Data: ${message.data}")
         
-        // IMPORTANT: Server must send 'data' messages ONLY. 
-        // If 'notification' block exists, this method is skipped when app is closed.
         val roomId = message.data["roomId"]
         val action = message.data["action"]
-        val callerName = message.data["callerName"] ?: "Unknown"
+        val callerName = message.data["callerName"] ?: "Someone"
         
         if (roomId != null) {
-            wakeUpScreen()
-            if (action == "cancel") {
-                handleCallCancelled(callerName)
-            } else {
-                showIncomingCallNotification(roomId, callerName)
+            when (action) {
+                "cancel" -> {
+                    // Only show missed call if the other person cancelled
+                    handleCallCancelled(callerName)
+                }
+                null, "start" -> {
+                    // Only show incoming call if there's no action (new call)
+                    wakeUpScreen()
+                    showIncomingCallNotification(roomId, callerName)
+                }
+                else -> {
+                    // Ignore other actions like 'reject' or 'end' to prevent ghost notifications
+                    Log.d("FCM", "Ignoring action: $action")
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.cancel(CALL_NOTIFICATION_ID)
+                }
             }
         }
     }
@@ -98,16 +107,20 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             )
             wakeLock.acquire(5000)
         } catch (e: Exception) {
-            // Ignore if permission or hardware fails
+            Log.e("FCM", "Error waking screen", e)
         }
     }
 
     private fun showIncomingCallNotification(roomId: String, callerName: String) {
-        val mainIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
+            putExtra("callerName", callerName)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }
-        val mainPendingIntent = PendingIntent.getActivity(this, 0, mainIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            this, 0, fullScreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val acceptIntent = Intent(this, CallActionReceiver::class.java).apply {
             action = ACTION_ACCEPT
@@ -129,8 +142,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText("Incoming call from $callerName")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setFullScreenIntent(mainPendingIntent, true) // Crucial for waking screen and showing UI
-            .setContentIntent(mainPendingIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setContentIntent(fullScreenPendingIntent)
             .setAutoCancel(true)
             .setOngoing(true)
             .setSound(soundUri)
@@ -146,6 +159,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private fun handleCallCancelled(callerName: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(CALL_NOTIFICATION_ID)
+
+        val cancelIntent = Intent(this, IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("cancel", true)
+        }
+        startActivity(cancelIntent)
 
         val missedCallNotification = NotificationCompat.Builder(this, MISSED_CALL_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
