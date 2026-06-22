@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -41,10 +42,12 @@ fun SettingsScreen(
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
+    val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
     val scope = rememberCoroutineScope()
 
     var showConfigDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showUpdateIntervalDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -106,6 +109,14 @@ fun SettingsScreen(
             }
             item {
                 SettingsCategoryItem(
+                    title = "App Updates",
+                    description = "Check for updates: $updateInterval",
+                    icon = Icons.Default.SystemUpdate,
+                    onClick = { showUpdateIntervalDialog = true }
+                )
+            }
+            item {
+                SettingsCategoryItem(
                     title = "Data Usage",
                     description = "View network statistics",
                     icon = Icons.Default.QueryStats,
@@ -163,6 +174,49 @@ fun SettingsScreen(
                     dataStoreManager.saveServerConfig(it)
                 }
                 showConfigDialog = false
+            }
+        )
+    }
+
+    if (showUpdateIntervalDialog) {
+        val options = listOf("Daily", "Weekly", "Never")
+        AlertDialog(
+            onDismissRequest = { showUpdateIntervalDialog = false },
+            title = { Text("App Updates") },
+            text = {
+                Column {
+                    options.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch {
+                                        dataStoreManager.saveUpdateInterval(option)
+                                        showUpdateIntervalDialog = false
+                                    }
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = updateInterval == option,
+                                onClick = {
+                                    scope.launch {
+                                        dataStoreManager.saveUpdateInterval(option)
+                                        showUpdateIntervalDialog = false
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = option, color = Color.White)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showUpdateIntervalDialog = false }) {
+                    Text("Close")
+                }
             }
         )
     }

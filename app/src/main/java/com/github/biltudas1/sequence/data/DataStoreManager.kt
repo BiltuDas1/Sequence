@@ -31,6 +31,7 @@ class DataStoreManager(private val context: Context) {
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         private val WEBRTC_CONFIG = stringPreferencesKey("webrtc_config")
         private val LATEST_VERSION = stringPreferencesKey("latest_version")
+        private val LATEST_RELEASE_URL = stringPreferencesKey("latest_release_url")
         private val LAST_VERSION_CHECK = longPreferencesKey("last_version_check")
         
         private val STUN_BYTES_SENT = longPreferencesKey("stun_bytes_sent")
@@ -38,6 +39,7 @@ class DataStoreManager(private val context: Context) {
         private val TURN_BYTES_SENT = longPreferencesKey("turn_bytes_sent")
         private val TURN_BYTES_RECEIVED = longPreferencesKey("turn_bytes_received")
         private val AUDIO_QUALITY_LEVEL = stringPreferencesKey("audio_quality_level")
+        private val UPDATE_CHECK_INTERVAL = stringPreferencesKey("update_check_interval")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -66,8 +68,12 @@ class DataStoreManager(private val context: Context) {
     val accessTokenFlow: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN]?.decrypt() }
     val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN]?.decrypt() }
 
-    val versionCacheFlow: Flow<Pair<String?, Long>> = context.dataStore.data.map { preferences ->
-        preferences[LATEST_VERSION] to (preferences[LAST_VERSION_CHECK] ?: 0L)
+    val versionCacheFlow: Flow<Triple<String?, String?, Long>> = context.dataStore.data.map { preferences ->
+        Triple(
+            preferences[LATEST_VERSION],
+            preferences[LATEST_RELEASE_URL],
+            preferences[LAST_VERSION_CHECK] ?: 0L
+        )
     }
 
     val dataUsageFlow: Flow<DataUsage> = context.dataStore.data.map { preferences ->
@@ -92,6 +98,8 @@ class DataStoreManager(private val context: Context) {
         }
     }
 
+    val updateIntervalFlow: Flow<String> = context.dataStore.data.map { it[UPDATE_CHECK_INTERVAL] ?: "Daily" }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
@@ -108,9 +116,10 @@ class DataStoreManager(private val context: Context) {
         }
     }
 
-    suspend fun saveVersionCache(tag: String, timestamp: Long) {
+    suspend fun saveVersionCache(tag: String, url: String, timestamp: Long) {
         context.dataStore.edit { preferences ->
             preferences[LATEST_VERSION] = tag
+            preferences[LATEST_RELEASE_URL] = url
             preferences[LAST_VERSION_CHECK] = timestamp
         }
     }
@@ -141,6 +150,12 @@ class DataStoreManager(private val context: Context) {
     suspend fun saveAudioQuality(level: AudioQualityLevel) {
         context.dataStore.edit { preferences ->
             preferences[AUDIO_QUALITY_LEVEL] = level.name
+        }
+    }
+
+    suspend fun saveUpdateInterval(interval: String) {
+        context.dataStore.edit { preferences ->
+            preferences[UPDATE_CHECK_INTERVAL] = interval
         }
     }
 

@@ -44,6 +44,7 @@ import com.github.biltudas1.sequence.ui.*
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
+import com.github.biltudas1.sequence.worker.UpdateWorker
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,20 +74,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Allow this activity to show over the lock screen for ongoing calls
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
-
         intent.getStringExtra("roomId")?.let {
             Log.i("MainActivity", "onCreate intent: roomId=$it")
             incomingRoomId.value = it
@@ -107,6 +94,11 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 var isOptimized by remember { mutableStateOf(isBatteryOptimized(context)) }
                 val lifecycleOwner = LocalLifecycleOwner.current
+
+                val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
+                LaunchedEffect(updateInterval) {
+                    UpdateWorker.schedule(context, updateInterval)
+                }
 
                 // Re-check battery optimization when app returns to foreground
                 DisposableEffect(lifecycleOwner) {
@@ -129,6 +121,32 @@ class MainActivity : ComponentActivity() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()
+
+                    // Dynamically show over lock screen only for calls
+                    LaunchedEffect(currentRoute) {
+                        val isCallScreen = currentRoute?.contains("webrtc_call") == true
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                            setShowWhenLocked(isCallScreen)
+                            setTurnScreenOn(isCallScreen)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            if (isCallScreen) {
+                                window.addFlags(
+                                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                                            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+                                )
+                            } else {
+                                window.clearFlags(
+                                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                                            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+                                )
+                            }
+                        }
+                    }
 
                     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
                     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)

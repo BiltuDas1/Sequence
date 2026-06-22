@@ -12,38 +12,41 @@ class VersionService(private val client: OkHttpClient, private val dataStoreMana
     private val json = Json { ignoreUnknownKeys = true }
     private val releasesUrl = "https://api.github.com/repos/BiltuDas1/Sequence/releases"
 
-    suspend fun getLatestVersion(): String? {
-        val (cachedTag, lastCheck) = dataStoreManager.versionCacheFlow.first()
+    suspend fun getLatestRelease(ignoreCache: Boolean = false): GitHubRelease? {
+        val (cachedTag, cachedUrl, lastCheck) = dataStoreManager.versionCacheFlow.first()
         val currentTime = System.currentTimeMillis()
-        
-        // 15 minutes = 15 * 60 * 1000 = 900,000 ms
-        if (cachedTag != null && (currentTime - lastCheck) < 900_000L) {
+
+        if (!ignoreCache && cachedTag != null && cachedUrl != null && (currentTime - lastCheck) < 900_000L) {
             Log.d("VersionService", "Returning cached version: $cachedTag")
-            return cachedTag
+            return GitHubRelease(cachedTag, cachedUrl)
         }
 
         return try {
             Log.d("VersionService", "Fetching latest version from GitHub...")
             val request = Request.Builder().url(releasesUrl).build()
             val response = client.newCall(request).execute()
-            
+
             if (response.isSuccessful) {
-                val body = response.body?.string() ?: return cachedTag
+                val body = response.body?.string() ?: return null
                 val releases = json.decodeFromString<List<GitHubRelease>>(body)
-                val latestTag = releases.firstOrNull()?.tag_name
-                
-                if (latestTag != null) {
-                    dataStoreManager.saveVersionCache(latestTag, currentTime)
-                    latestTag
+                val latest = releases.firstOrNull()
+
+                if (latest != null) {
+                    dataStoreManager.saveVersionCache(latest.tag_name, latest.html_url, currentTime)
+                    latest
                 } else {
-                    cachedTag
+                    null
                 }
             } else {
-                cachedTag
+                if (cachedTag != null && cachedUrl != null) GitHubRelease(cachedTag, cachedUrl) else null
             }
         } catch (e: Exception) {
             Log.e("VersionService", "Error fetching version", e)
-            cachedTag
+            if (cachedTag != null && cachedUrl != null) GitHubRelease(cachedTag, cachedUrl) else null
         }
+    }
+
+    suspend fun getLatestVersion(): String? {
+        return getLatestRelease()?.tag_name
     }
 }
