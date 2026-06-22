@@ -25,11 +25,25 @@ class CallActionReceiver : BroadcastReceiver() {
 
         if (action == MyFirebaseMessagingService.ACTION_ACCEPT) {
             Log.d("CallActionReceiver", "Call Accepted: $roomId")
+            
+            // Mark room as accepted to stop background busy signals
+            MyFirebaseMessagingService.markRoomAccepted(roomId)
+            
+            // 1. Create intent to launch MainActivity
             val launchIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra("roomId", roomId)
+                putExtra("callerName", intent.getStringExtra("callerName"))
+                putExtra("callerEmail", intent.getStringExtra("callerEmail"))
             }
-            context.startActivity(launchIntent)
+            
+            // 2. Wrap it in a PendingIntent to let the system handle the transition better
+            // especially if the user is currently in another app (like the Phone app)
+            try {
+                context.startActivity(launchIntent)
+            } catch (e: Exception) {
+                Log.e("CallActionReceiver", "Failed to start activity", e)
+            }
         } else if (action == MyFirebaseMessagingService.ACTION_REJECT) {
             Log.d("CallActionReceiver", "Call Rejected: $roomId")
             

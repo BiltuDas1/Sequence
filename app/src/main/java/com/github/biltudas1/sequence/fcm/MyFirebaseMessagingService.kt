@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.fcm
 
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,6 +13,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
@@ -19,19 +21,14 @@ import com.github.biltudas1.sequence.ui.IncomingCallActivity
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import java.util.concurrent.ConcurrentHashMap
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
-    // Use a scope that isn't tied to the Service lifecycle to ensure 
-    // background tasks (like sending busy signals) complete even if the service is destroyed.
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
@@ -40,6 +37,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
         const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
         const val CALL_NOTIFICATION_ID = 1
+        
+        private val acceptedRooms = ConcurrentHashMap.newKeySet<String>()
+        
+        fun markRoomAccepted(roomId: String) {
+            acceptedRooms.add(roomId)
+        }
     }
 
     override fun onCreate() {
@@ -90,7 +93,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
                 null, "start" -> {
                     val callStatusManager = CallStatusManager(this)
-                    val isBusy = callStatusManager.isUserOnAnotherCall()
+                    val isBusy = try { 
+                        callStatusManager.isUserOnAnotherCall() 
+                    } catch (e: Exception) { 
+                        Log.e("FCM", "Error checking busy status", e)
+                        false 
+                    }
                     Log.i("FCM", "Incoming call request. RoomId: $roomId, IsBusy: $isBusy")
                     
                     if (isBusy) {
@@ -109,6 +117,34 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
+    private fun reportBusyStatus(roomId: String) {
+        val dataStoreManager = DataStoreManager(this)
+        val authService = AuthService(OkHttpClient(), dataStoreManager)
+        serviceScope.launch {
+            try {
+                val config = dataStoreManager.serverConfigFlow.first()
+                val token = dataStoreManager.accessTokenFlow.first()
+                
+                if (config.isValid() && token != null) {
+                    repeat(4) { i ->
+                        val delayMs = if (i == 0) 800L else 2000L
+                        delay(delayMs)
+                        
+                        if (acceptedRooms.contains(roomId)) {
+                            Log.i("FCM", "Stopping busy signals for $roomId as it was accepted")
+                            return@launch
+                        }
+
+                        Log.i("FCM", "Sending busy signal attempt ${i + 1} for room $roomId")
+                        authService.sendBusySignal(config, token, roomId)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("FCM", "Error in reportBusyStatus", e)
+            }
+        }
+    }
+
     private fun wakeUpScreen() {
         try {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -123,6 +159,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String) {
+        // Full screen intent for the heads-up display
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
             putExtra("callerName", callerName)
@@ -134,15 +171,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val acceptIntent = Intent(this, CallActionReceiver::class.java).apply {
-            action = ACTION_ACCEPT
+        // Accept action: Launch MainActivity DIRECTLY to avoid BAL blocks
+        val acceptIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("roomId", roomId)
+            putExtra("callerName", callerName)
+            putExtra("callerEmail", callerEmail)
+            putExtra("action", ACTION_ACCEPT)
         }
-        val acceptPendingIntent = PendingIntent.getBroadcast(
+        
+        val acceptPendingIntent = PendingIntent.getActivity(
             this, 1, acceptIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Reject action: Use receiver for background logic
         val rejectIntent = Intent(this, CallActionReceiver::class.java).apply {
             action = ACTION_REJECT
             putExtra("roomId", roomId)
@@ -178,11 +221,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(CALL_NOTIFICATION_ID)
 
-        val cancelIntent = Intent(this, IncomingCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra("cancel", true)
-        }
-        startActivity(cancelIntent)
+        // Don't try to start an activity from background when cancelled (it's blocked)
+        // Just show a missed call notification.
 
         val missedCallNotification = NotificationCompat.Builder(this, MISSED_CALL_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -193,32 +233,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .build()
 
         notificationManager.notify(System.currentTimeMillis().toInt(), missedCallNotification)
-    }
-
-    private fun reportBusyStatus(roomId: String) {
-        val dataStoreManager = DataStoreManager(this)
-        val authService = AuthService(OkHttpClient(), dataStoreManager)
-        serviceScope.launch {
-            try {
-                val config = dataStoreManager.serverConfigFlow.first()
-                val token = dataStoreManager.accessTokenFlow.first()
-                
-                if (config.isValid() && token != null) {
-                    // Send multiple times to ensure caller receives it while they are connecting
-                    repeat(4) { i ->
-                        val delayMs = if (i == 0) 800L else 2000L
-                        delay(delayMs)
-                        Log.i("FCM", "Sending busy signal attempt ${i + 1} for room $roomId")
-                        val result = authService.sendBusySignal(config, token, roomId)
-                        Log.i("FCM", "Busy signal attempt ${i + 1} result: ${result.isSuccess}")
-                    }
-                } else {
-                    Log.e("FCM", "Cannot report busy: Config valid=${config.isValid()}, Token present=${token != null}")
-                }
-            } catch (e: Exception) {
-                Log.e("FCM", "Error in reportBusyStatus", e)
-            }
-        }
     }
 
     override fun onNewToken(token: String) {
@@ -232,10 +246,5 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 authService.updateFcmToken(serverConfig, accessToken, token)
             }
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        // We don't cancel the serviceScope here to allow reportBusyStatus retries to finish
     }
 }

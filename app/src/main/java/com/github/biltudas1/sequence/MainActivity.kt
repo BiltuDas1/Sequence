@@ -1,6 +1,8 @@
 package com.github.biltudas1.sequence
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -21,6 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +39,7 @@ import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
+import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.*
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
@@ -47,16 +51,19 @@ import okhttp3.OkHttpClient
 class MainActivity : ComponentActivity() {
 
     private val incomingRoomId = mutableStateOf<String?>(null)
-    private var isCallExternal = false
+    private val incomingCallerName = mutableStateOf("")
+    private val incomingCallerEmail = mutableStateOf("")
+    private var lastHandledRoomId: String? = null
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         val roomId = intent.getStringExtra("roomId")
-        Log.d("MainActivity", "onNewIntent: roomId=$roomId")
+        Log.i("MainActivity", "onNewIntent: roomId=$roomId")
         if (roomId != null) {
-            isCallExternal = true
             incomingRoomId.value = roomId
+            incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
+            incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
         }
     }
 
@@ -78,8 +85,10 @@ class MainActivity : ComponentActivity() {
         }
 
         intent.getStringExtra("roomId")?.let {
-            isCallExternal = true
+            Log.i("MainActivity", "onCreate intent: roomId=$it")
             incomingRoomId.value = it
+            incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
+            incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
         }
 
         enableEdgeToEdge(
@@ -109,35 +118,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                if (isOptimized) {
-                    BatteryOptimizationScreen(
-                        onCheckAgain = {
-                            isOptimized = isBatteryOptimized(context)
-                        }
-                    )
-                } else {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     val navController = rememberNavController()
-                    val accessTokenState = dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
-                    val accessToken = accessTokenState.value
-                    val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()
 
-                    // Dynamic security: Only allow lockscreen visibility during a call
-                    LaunchedEffect(currentRoute) {
-                        val isCallScreen = currentRoute?.contains("webrtc_call") == true
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                            setShowWhenLocked(isCallScreen)
-                        } else {
-                            @Suppress("DEPRECATION")
-                            if (isCallScreen) {
-                                window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-                            } else {
-                                window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-                            }
-                        }
-                    }
+                    val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
+                    val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
 
                     // --- Permission Launchers ---
                     
@@ -177,9 +168,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    fun navigateToCallWithPermission(rId: String, url: String) {
+                    fun navigateToCallWithPermission(rId: String, url: String, name: String = "", email: String = "", isExternal: Boolean = false) {
                         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                            navController.navigate("webrtc_call/$rId?serverUrl=$url")
+                            val encodedName = java.net.URLEncoder.encode(name, "UTF-8")
+                            val encodedEmail = java.net.URLEncoder.encode(email, "UTF-8")
+                            val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
+                            Log.i("MainActivity", "Navigating to webrtc_call. Room: $rId, External: $isExternal")
+                            navController.navigate("webrtc_call/$rId?serverUrl=$encodedUrl&name=$encodedName&email=$encodedEmail&isExternal=$isExternal")
                         } else {
                             pendingNavigationUrl = rId to url
                             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -187,16 +182,42 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val roomId by incomingRoomId
-                    LaunchedEffect(roomId, accessToken, serverConfig) {
-                        if (roomId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
+                    
+                    LaunchedEffect(roomId, accessToken, serverConfig, currentRoute) {
+                        val rId = roomId
+                        if (rId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
+                            Log.i("MainActivity", "Incoming call effect check. Room: $rId, CurrentRoute: $currentRoute")
+                            
+                            // If coming from the Accept notification button, stop busy loop
+                            if (intent.getStringExtra("action") == MyFirebaseMessagingService.ACTION_ACCEPT) {
+                                MyFirebaseMessagingService.markRoomAccepted(rId)
+                                // Dismiss notification manually since we bypassed the receiver
+                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                                nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
+                            }
+
+                            if (rId == lastHandledRoomId) {
+                                Log.i("MainActivity", "Skipping duplicate incoming call navigation for Room: $rId")
+                                incomingRoomId.value = null
+                                return@LaunchedEffect
+                            }
+
                             val protocol = if (serverConfig!!.useWss) "wss" else "ws"
                             val baseUrl = serverConfig!!.cleanEndpoint
-                            val fullUrl = "$protocol://$baseUrl/room/$roomId"
+                            val fullUrl = "$protocol://$baseUrl/room/$rId"
                             
+                            Log.i("MainActivity", "Incoming call effect triggered for Room: $rId")
                             if (currentRoute?.contains("webrtc_call") != true) {
-                                navigateToCallWithPermission(roomId!!, fullUrl)
+                                lastHandledRoomId = rId
+                                val name = incomingCallerName.value
+                                val email = incomingCallerEmail.value
+                                // Use a local copy to navigate and clear the state immediately
+                                incomingRoomId.value = null
+                                navigateToCallWithPermission(rId, fullUrl, name, email, isExternal = true)
+                            } else {
+                                Log.i("MainActivity", "Already in a call, clearing incomingRoomId")
+                                incomingRoomId.value = null
                             }
-                            incomingRoomId.value = null
                         }
                     }
 
@@ -245,14 +266,15 @@ class MainActivity : ComponentActivity() {
                                             Toast.makeText(context, "Cannot place a call while on another call", Toast.LENGTH_SHORT).show()
                                             return@ContactsScreen
                                         }
-                                        isCallExternal = false // Outgoing call
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
-                                                val result = authService.sendVoiceCall(serverConfig!!, accessToken, contact.email)
-                                                result.getOrNull()?.data?.roomId?.let { rId ->
+                                                val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, contact.email)
+                                                result.getOrNull()?.data?.let { data ->
+                                                    val rId = data.roomId
                                                     val protocol = if (serverConfig!!.useWss) "wss" else "ws"
                                                     val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                                    navigateToCallWithPermission(rId, fullUrl)
+                                                    val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
+                                                    navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false)
                                                 }
                                             }
                                         }
@@ -309,16 +331,32 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("room_entry") {
                                 RoomEntryScreen(
-                                    onJoinRoom = { rId, url -> navigateToCallWithPermission(rId, url) }
+                                    onJoinRoom = { rId, url -> navigateToCallWithPermission(rId, url, "Room Call", "") }
                                 )
                             }
-                            composable("webrtc_call/{roomId}?serverUrl={serverUrl}") { backStackEntry ->
+                            composable("webrtc_call/{roomId}?serverUrl={serverUrl}&name={name}&email={email}&isExternal={isExternal}") { backStackEntry ->
+                                val rId = backStackEntry.arguments?.getString("roomId") ?: ""
+                                val rawUrl = backStackEntry.arguments?.getString("serverUrl") ?: ""
+                                val rawName = backStackEntry.arguments?.getString("name") ?: ""
+                                val rawEmail = backStackEntry.arguments?.getString("email") ?: ""
+                                val isExternal = backStackEntry.arguments?.getString("isExternal")?.toBoolean() ?: false
+
+                                val sUrl = try { java.net.URLDecoder.decode(rawUrl, "UTF-8") } catch (e: Exception) { rawUrl }
+                                val decodedName = try { java.net.URLDecoder.decode(rawName, "UTF-8") } catch (e: Exception) { rawName }
+                                val decodedEmail = try { java.net.URLDecoder.decode(rawEmail, "UTF-8") } catch (e: Exception) { rawEmail }
+
+                                Log.i("MainActivity", "Entering WebRTCScreen. Room: $rId, External: $isExternal")
+
                                 WebRTCScreen(
-                                    roomId = backStackEntry.arguments?.getString("roomId") ?: "",
-                                    serverUrl = backStackEntry.arguments?.getString("serverUrl") ?: "",
+                                    roomId = rId,
+                                    serverUrl = sUrl,
+                                    callerName = decodedName,
+                                    callerEmail = decodedEmail,
+                                    isExternal = isExternal,
                                     accessToken = accessToken,
                                     onCallStopped = {
-                                        if (isCallExternal) {
+                                        Log.i("MainActivity", "onCallStopped triggered. isExternal: $isExternal")
+                                        if (isExternal) {
                                             finishAndRemoveTask()
                                         } else {
                                             navController.popBackStack()
