@@ -27,7 +27,8 @@ fun CallScreenContent(
     onMuteToggle: () -> Unit,
     onSpeakerToggle: () -> Unit,
     onCallStopped: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    statusMessage: String? = null
 ) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -55,7 +56,7 @@ fun CallScreenContent(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "In Call",
+                text = statusMessage ?: "In Call",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White

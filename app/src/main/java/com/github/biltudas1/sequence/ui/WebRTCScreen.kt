@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.CallScreenContent
@@ -15,6 +17,7 @@ import com.github.biltudas1.sequence.webrtc.SignalingClient
 import com.github.biltudas1.sequence.webrtc.WebRTCClient
 import com.github.biltudas1.sequence.ui.theme.SurfaceDim
 import com.github.biltudas1.sequence.ui.utils.CallAudioManager
+import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
@@ -29,12 +32,14 @@ fun WebRTCScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // Define a scope that won't be cancelled when the composable is disposed
     val applicationScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
     
     val dataStoreManager = remember { DataStoreManager(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+    
+    val callStatusManager = remember { CallStatusManager(context) }
+    var isRemoteBusy by remember { mutableStateOf(false) }
 
     var signalingClient by remember { mutableStateOf<SignalingClient?>(null) }
     var isLeaving by remember { mutableStateOf(false) }
@@ -80,10 +85,21 @@ fun WebRTCScreen(
         })
     }
 
+    // Busy detection and focus management
+    LaunchedEffect(isRemoteBusy) {
+        if (isRemoteBusy && !hasPeerJoined) {
+            audioManager.startBusy()
+        }
+    }
+
     // Logic for Ring Waiting (after 2s) and Ringback
-    LaunchedEffect(isSignalingConnected, hasPeerJoined) {
-        if (hasPeerJoined) {
-            audioManager.stopAny()
+    LaunchedEffect(isSignalingConnected, hasPeerJoined, isRemoteBusy) {
+        if (hasPeerJoined || isRemoteBusy) {
+            if (hasPeerJoined) {
+                audioManager.stopAny()
+                // Gain audio focus when call starts
+                callStatusManager.requestCallAudioFocus()
+            }
             return@LaunchedEffect
         }
 
@@ -127,6 +143,7 @@ fun WebRTCScreen(
 
                 override fun onPeerJoined() {
                     hasPeerJoined = true
+                    isRemoteBusy = false // Reset busy status when they join
                     webRTCClient.createOffer()
                 }
 
@@ -134,8 +151,17 @@ fun WebRTCScreen(
                     safeOnCallStopped()
                 }
 
+                override fun onUserBusy() {
+                    Log.i("WebRTCScreen", "Received onUserBusy from signaling")
+                    isRemoteBusy = true
+                    if (!hasPeerJoined) {
+                        audioManager.startBusy()
+                    }
+                }
+
                 override fun onOfferReceived(description: String) {
                     hasPeerJoined = true
+                    isRemoteBusy = false // Reset busy status when they join
                     webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
                     webRTCClient.createAnswer()
                 }
@@ -178,19 +204,22 @@ fun WebRTCScreen(
                 webRTCClient.setSpeakerphoneOn(isSpeakerOn)
             },
             onCallStopped = {
-                // Navigate back immediately for a responsive feel
-                safeOnCallStopped()
-                
-                // Perform network cleanup in background application scope
-                if (accessToken != null && serverConfig != null) {
-                    applicationScope.launch {
+                scope.launch {
+                    if (accessToken != null && serverConfig != null) {
                         authService.endVoiceCall(serverConfig!!, accessToken, roomId)
                     }
+                    safeOnCallStopped()
                 }
             },
             modifier = Modifier
                 .background(SurfaceDim)
-                .systemBarsPadding()
+                .systemBarsPadding(),
+            statusMessage = when {
+                hasPeerJoined -> "Connected"
+                isRemoteBusy -> "Receiver is talking with somebody"
+                isSignalingConnected -> "Ringing..."
+                else -> "Connecting..."
+            }
         )
     }
 }

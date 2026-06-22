@@ -16,19 +16,23 @@ import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.IncomingCallActivity
+import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
-    private val job = SupervisorJob()
-    private val scope = CoroutineScope(Dispatchers.IO + job)
+    // Use a scope that isn't tied to the Service lifecycle to ensure 
+    // background tasks (like sending busy signals) complete even if the service is destroyed.
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         const val CHANNEL_ID = "voice_call_v3"
@@ -71,7 +75,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        Log.d("FCM", "Message received. Data: ${message.data}")
+        Log.i("FCM", "Message received. Data: ${message.data}")
         
         val roomId = message.data["roomId"]
         val action = message.data["action"]
@@ -81,14 +85,23 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (roomId != null) {
             when (action) {
                 "cancel" -> {
+                    Log.i("FCM", "Call cancelled by sender: $roomId")
                     handleCallCancelled(callerName)
                 }
                 null, "start" -> {
+                    val callStatusManager = CallStatusManager(this)
+                    val isBusy = callStatusManager.isUserOnAnotherCall()
+                    Log.i("FCM", "Incoming call request. RoomId: $roomId, IsBusy: $isBusy")
+                    
+                    if (isBusy) {
+                        reportBusyStatus(roomId)
+                    }
+                    
                     wakeUpScreen()
                     showIncomingCallNotification(roomId, callerName, callerEmail)
                 }
                 else -> {
-                    Log.d("FCM", "Ignoring action: $action")
+                    Log.i("FCM", "Received unknown action: $action")
                     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     notificationManager.cancel(CALL_NOTIFICATION_ID)
                 }
@@ -182,11 +195,37 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notificationManager.notify(System.currentTimeMillis().toInt(), missedCallNotification)
     }
 
+    private fun reportBusyStatus(roomId: String) {
+        val dataStoreManager = DataStoreManager(this)
+        val authService = AuthService(OkHttpClient(), dataStoreManager)
+        serviceScope.launch {
+            try {
+                val config = dataStoreManager.serverConfigFlow.first()
+                val token = dataStoreManager.accessTokenFlow.first()
+                
+                if (config.isValid() && token != null) {
+                    // Send multiple times to ensure caller receives it while they are connecting
+                    repeat(4) { i ->
+                        val delayMs = if (i == 0) 800L else 2000L
+                        delay(delayMs)
+                        Log.i("FCM", "Sending busy signal attempt ${i + 1} for room $roomId")
+                        val result = authService.sendBusySignal(config, token, roomId)
+                        Log.i("FCM", "Busy signal attempt ${i + 1} result: ${result.isSuccess}")
+                    }
+                } else {
+                    Log.e("FCM", "Cannot report busy: Config valid=${config.isValid()}, Token present=${token != null}")
+                }
+            } catch (e: Exception) {
+                Log.e("FCM", "Error in reportBusyStatus", e)
+            }
+        }
+    }
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         val dataStoreManager = DataStoreManager(applicationContext)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
-        scope.launch {
+        serviceScope.launch {
             val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
             val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
             if (serverConfig != null && serverConfig.isValid() && accessToken != null) {
@@ -197,6 +236,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        job.cancel()
+        // We don't cancel the serviceScope here to allow reportBusyStatus retries to finish
     }
 }

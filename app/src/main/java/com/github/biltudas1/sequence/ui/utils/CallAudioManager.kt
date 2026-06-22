@@ -16,6 +16,10 @@ class CallAudioManager(private val context: Context) {
         play(R.raw.ringback, loop = true)
     }
 
+    fun startBusy() {
+        play(R.raw.ringbusy, loop = true)
+    }
+
     private fun play(resId: Int, loop: Boolean) {
         stopAny()
         try {
