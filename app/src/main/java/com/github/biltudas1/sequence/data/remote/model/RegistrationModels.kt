@@ -65,7 +65,8 @@ data class FcmTokenRequest(
 
 @Serializable
 data class GitHubRelease(
-    val tag_name: String
+    val tag_name: String,
+    val html_url: String
 )
 
 @Serializable
