@@ -90,8 +90,10 @@ class IncomingCallActivity : ComponentActivity() {
                         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                         nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
                         val launchIntent = Intent(this, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                             putExtra("roomId", roomId)
+                            putExtra("callerName", callerName)
+                            putExtra("callerEmail", callerEmail)
                         }
                         startActivity(launchIntent)
                         finishAndRemoveTask()

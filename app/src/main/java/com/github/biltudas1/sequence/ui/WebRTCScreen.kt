@@ -27,6 +27,9 @@ import org.webrtc.*
 fun WebRTCScreen(
     roomId: String,
     serverUrl: String,
+    callerName: String,
+    callerEmail: String,
+    isExternal: Boolean,
     accessToken: String?,
     onCallStopped: () -> Unit
 ) {
@@ -54,6 +57,7 @@ fun WebRTCScreen(
     val safeOnCallStopped = {
         if (!isLeaving) {
             isLeaving = true
+            Log.i("WebRTCScreen", "Closing call screen (safeOnCallStopped). Room: $roomId")
             audioManager.stopAny()
             scope.launch(Dispatchers.Main) {
                 onCallStopped()
@@ -114,7 +118,8 @@ fun WebRTCScreen(
     }
 
     // Single initialization effect
-    LaunchedEffect(Unit) {
+    LaunchedEffect(roomId) {
+        Log.i("WebRTCScreen", "LaunchedEffect(roomId) started for Room: $roomId")
         val webrtcConfig = dataStoreManager.webrtcConfigFlow.first()
         val audioQuality = dataStoreManager.audioQualityFlow.first()
 
@@ -143,16 +148,17 @@ fun WebRTCScreen(
 
                 override fun onPeerJoined() {
                     hasPeerJoined = true
-                    isRemoteBusy = false // Reset busy status when they join
+                    isRemoteBusy = false
                     webRTCClient.createOffer()
                 }
 
                 override fun onPeerLeft() {
+                    Log.i("WebRTCScreen", "Signaling reported peer left or connection closed")
                     safeOnCallStopped()
                 }
 
                 override fun onUserBusy() {
-                    Log.i("WebRTCScreen", "Received onUserBusy from signaling")
+                    Log.i("WebRTCScreen", "Signaling reported user busy")
                     isRemoteBusy = true
                     if (!hasPeerJoined) {
                         audioManager.startBusy()
@@ -161,7 +167,7 @@ fun WebRTCScreen(
 
                 override fun onOfferReceived(description: String) {
                     hasPeerJoined = true
-                    isRemoteBusy = false // Reset busy status when they join
+                    isRemoteBusy = false
                     webRTCClient.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
                     webRTCClient.createAnswer()
                 }
@@ -182,6 +188,7 @@ fun WebRTCScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            Log.i("WebRTCScreen", "WebRTCScreen Disposed")
             webRTCClient.close()
             signalingClient?.stop()
         }
@@ -193,6 +200,8 @@ fun WebRTCScreen(
     ) {
         CallScreenContent(
             roomId = roomId,
+            callerName = callerName,
+            callerEmail = callerEmail,
             isMuted = isMuted,
             isSpeakerOn = isSpeakerOn,
             onMuteToggle = {
@@ -216,7 +225,7 @@ fun WebRTCScreen(
                 .systemBarsPadding(),
             statusMessage = when {
                 hasPeerJoined -> "Connected"
-                isRemoteBusy -> "Receiver is talking with somebody"
+                isRemoteBusy -> "On another call"
                 isSignalingConnected -> "Ringing..."
                 else -> "Connecting..."
             }

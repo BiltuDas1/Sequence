@@ -23,19 +23,25 @@ class SignalingClient(
     }
 
     fun start() {
-        Log.d("SignalingClient", "Connecting to: $serverUrl")
-        val request = Request.Builder()
-            .url(serverUrl)
-            .apply {
-                accessToken?.let {
-                    addHeader("Authorization", "Bearer $it")
+        Log.i("SignalingClient", "Starting connection to: $serverUrl")
+        val request = try {
+            Request.Builder()
+                .url(serverUrl)
+                .apply {
+                    accessToken?.let {
+                        addHeader("Authorization", "Bearer $it")
+                    }
                 }
-            }
-            .build()
+                .build()
+        } catch (e: Exception) {
+            Log.e("SignalingClient", "Invalid URL: $serverUrl", e)
+            listener.onPeerLeft()
+            return
+        }
             
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("SignalingClient", "WebSocket Connected")
+                Log.i("SignalingClient", "WebSocket Connected Successfully")
                 listener.onConnected()
             }
 
@@ -45,27 +51,24 @@ class SignalingClient(
                     val json = JSONObject(text)
                     when (json.optString("type")) {
                         "peer-joined" -> {
-                            Log.d("SignalingClient", "Peer joined event")
+                            Log.i("SignalingClient", "Remote peer joined")
                             listener.onPeerJoined()
                         }
                         "peer-left" -> {
-                            Log.d("SignalingClient", "Peer left event")
+                            Log.i("SignalingClient", "Remote peer left the room")
                             listener.onPeerLeft()
                         }
                         "user-busy" -> {
-                            Log.d("SignalingClient", "User busy event")
+                            Log.i("SignalingClient", "Remote user reported busy")
                             listener.onUserBusy()
                         }
                         "offer" -> {
-                            Log.d("SignalingClient", "Offer received")
                             listener.onOfferReceived(json.getString("sdp"))
                         }
                         "answer" -> {
-                            Log.d("SignalingClient", "Answer received")
                             listener.onAnswerReceived(json.getString("sdp"))
                         }
                         "candidate" -> {
-                            Log.d("SignalingClient", "Candidate received")
                             listener.onIceCandidateReceived(
                                 json.getString("sdpMid"),
                                 json.getInt("sdpMLineIndex"),
@@ -73,7 +76,7 @@ class SignalingClient(
                             )
                         }
                         else -> {
-                            Log.d("SignalingClient", "Unknown message type: ${json.optString("type")}")
+                            Log.d("SignalingClient", "Unhandled message: ${json.optString("type")}")
                         }
                     }
                 } catch (e: Exception) {
@@ -82,12 +85,12 @@ class SignalingClient(
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.i("SignalingClient", "WebSocket Closing: $code / $reason")
+                Log.i("SignalingClient", "WebSocket Closing from remote. Code: $code, Reason: $reason")
                 listener.onPeerLeft()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("SignalingClient", "WebSocket Error: ${t.message}", t)
+                Log.e("SignalingClient", "WebSocket Connection Failed. Code: ${response?.code}, Message: ${t.message}", t)
                 listener.onPeerLeft()
             }
         })
@@ -97,7 +100,6 @@ class SignalingClient(
         val json = JSONObject()
         json.put("type", "offer")
         json.put("sdp", sdp)
-        Log.d("SignalingClient", "Sending Offer")
         webSocket?.send(json.toString())
     }
 
@@ -105,7 +107,6 @@ class SignalingClient(
         val json = JSONObject()
         json.put("type", "answer")
         json.put("sdp", sdp)
-        Log.d("SignalingClient", "Sending Answer")
         webSocket?.send(json.toString())
     }
 
@@ -119,10 +120,11 @@ class SignalingClient(
     }
 
     fun stop() {
+        Log.i("SignalingClient", "Stopping signaling client")
         try {
             webSocket?.close(1000, "Normal closure")
         } catch (e: Exception) {
-            Log.e("SignalingClient", "Error closing WebSocket", e)
+            Log.e("SignalingClient", "Error during stop", e)
         }
         webSocket = null
     }

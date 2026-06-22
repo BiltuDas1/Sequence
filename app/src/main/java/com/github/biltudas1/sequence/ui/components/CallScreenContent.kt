@@ -7,14 +7,17 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
@@ -22,6 +25,8 @@ import com.github.biltudas1.sequence.ui.theme.TextSecondary
 @Composable
 fun CallScreenContent(
     roomId: String,
+    callerName: String,
+    callerEmail: String,
     isMuted: Boolean,
     isSpeakerOn: Boolean,
     onMuteToggle: () -> Unit,
@@ -30,43 +35,78 @@ fun CallScreenContent(
     modifier: Modifier = Modifier,
     statusMessage: String? = null
 ) {
+    var showInfoDialog by remember { mutableStateOf(false) }
+
     Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = modifier.fillMaxSize()
     ) {
+        // Top Right Info Button
+        IconButton(
+            onClick = { showInfoDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "Call Info",
+                tint = Color.White.copy(alpha = 0.6f)
+            )
+        }
+
+        // Center Content -> Moved to Top Center
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 80.dp), // Position it in the top center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
-                modifier = Modifier.size(120.dp),
+                modifier = Modifier.size(140.dp),
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.1f)
+                color = Color.White.copy(alpha = 0.05f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.Call,
-                        contentDescription = "Voice Call",
-                        modifier = Modifier.size(64.dp),
-                        tint = Color.White
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp),
+                        tint = Color.White.copy(alpha = 0.6f)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = statusMessage ?: "In Call",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+                text = callerName.ifEmpty { "Unknown" },
+                fontSize = 28.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                textAlign = TextAlign.Center
             )
 
             Text(
-                text = "Room: $roomId",
+                text = callerEmail,
                 fontSize = 16.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(top = 8.dp)
+                color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.padding(top = 4.dp),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            val displayStatus = when (statusMessage) {
+                "Receiver is talking with somebody" -> "On another call"
+                else -> statusMessage ?: "Connecting"
+            }
+
+            Text(
+                text = displayStatus,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (displayStatus == "On another call") Color.Yellow.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
             )
         }
 
@@ -118,6 +158,23 @@ fun CallScreenContent(
                     modifier = Modifier.size(32.dp)
                 )
             }
+        }
+
+        if (showInfoDialog) {
+            AlertDialog(
+                onDismissRequest = { showInfoDialog = false },
+                title = { Text("Call Details") },
+                text = {
+                    Column {
+                        Text("ID: $roomId")
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showInfoDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
         }
     }
 }
