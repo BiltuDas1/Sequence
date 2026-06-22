@@ -76,20 +76,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val roomId = message.data["roomId"]
         val action = message.data["action"]
         val callerName = message.data["callerName"] ?: "Someone"
+        val callerEmail = message.data["callerEmail"] ?: ""
         
         if (roomId != null) {
             when (action) {
                 "cancel" -> {
-                    // Only show missed call if the other person cancelled
                     handleCallCancelled(callerName)
                 }
                 null, "start" -> {
-                    // Only show incoming call if there's no action (new call)
                     wakeUpScreen()
-                    showIncomingCallNotification(roomId, callerName)
+                    showIncomingCallNotification(roomId, callerName, callerEmail)
                 }
                 else -> {
-                    // Ignore other actions like 'reject' or 'end' to prevent ghost notifications
                     Log.d("FCM", "Ignoring action: $action")
                     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     notificationManager.cancel(CALL_NOTIFICATION_ID)
@@ -111,10 +109,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
-    private fun showIncomingCallNotification(roomId: String, callerName: String) {
+    private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String) {
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
             putExtra("callerName", callerName)
+            putExtra("callerEmail", callerEmail)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -126,13 +125,19 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             action = ACTION_ACCEPT
             putExtra("roomId", roomId)
         }
-        val acceptPendingIntent = PendingIntent.getBroadcast(this, 1, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val acceptPendingIntent = PendingIntent.getBroadcast(
+            this, 1, acceptIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val rejectIntent = Intent(this, CallActionReceiver::class.java).apply {
             action = ACTION_REJECT
             putExtra("roomId", roomId)
         }
-        val rejectPendingIntent = PendingIntent.getBroadcast(this, 2, rejectIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val rejectPendingIntent = PendingIntent.getBroadcast(
+            this, 2, rejectIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
