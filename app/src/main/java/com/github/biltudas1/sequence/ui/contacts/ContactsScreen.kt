@@ -1,19 +1,26 @@
 package com.github.biltudas1.sequence.ui.contacts
 
 import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +59,8 @@ fun ContactsScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var contactToDelete by remember { mutableStateOf<UserData?>(null) }
     var emailToAdd by remember { mutableStateOf("") }
+    
+    var expandedContactId by remember { mutableStateOf<String?>(null) }
 
     val refreshContacts = {
         scope.launch {
@@ -60,7 +69,6 @@ fun ContactsScreen(
                 val result = repository.refreshContacts(serverConfig, accessToken!!)
                 if (result.isFailure) {
                     val msg = result.exceptionOrNull()?.message ?: "Sync failed"
-                    // Only show toast for real errors, not configuration issues
                     if (!msg.contains("resolve host", ignoreCase = true)) {
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                     }
@@ -141,13 +149,16 @@ fun ContactsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(contacts) { contact ->
+                    items(contacts, key = { it.id }) { contact ->
                         ContactItem(
                             contact = contact,
-                            onClick = { onContactClick(contact) },
-                            onDelete = {
-                                contactToDelete = contact
-                            }
+                            isExpanded = expandedContactId == contact.id,
+                            onExpandClick = {
+                                expandedContactId = if (expandedContactId == contact.id) null else contact.id
+                            },
+                            onCallClick = { onContactClick(contact) },
+                            onDeleteClick = { contactToDelete = contact },
+                            onInfoClick = { /* TODO: Info screen */ }
                         )
                     }
                 }
@@ -230,39 +241,122 @@ fun ContactsScreen(
 @Composable
 fun ContactItem(
     contact: UserData,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    isExpanded: Boolean,
+    onExpandClick: () -> Unit,
+    onCallClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onInfoClick: () -> Unit
 ) {
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceContainerHigh)
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(), // Snap expand (spring)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceContainerHigh),
+        onClick = onExpandClick
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Person,
-                contentDescription = null,
-                modifier = Modifier.size(40.dp),
-                tint = Color.White
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email },
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                if (contact.first_name != null) {
-                    Text(text = contact.email, fontSize = 12.sp, color = TextSecondary)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.1f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email },
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+                    Text(
+                        text = contact.email,
+                        fontSize = 14.sp,
+                        color = TextSecondary
+                    )
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White.copy(alpha = 0.8f))
+            
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = EnterTransition.None, // snappier expand
+                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)) // smooth shrink
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ContactActionButton(
+                            icon = Icons.Default.Call,
+                            label = "Call",
+                            color = Color(0xFF4CAF50),
+                            onClick = onCallClick
+                        )
+                        ContactActionButton(
+                            icon = Icons.Default.Delete,
+                            label = "Delete",
+                            color = Color.White.copy(alpha = 0.8f),
+                            onClick = onDeleteClick
+                        )
+                        ContactActionButton(
+                            icon = Icons.Default.Info,
+                            label = "Info",
+                            color = Color(0xFF2196F3),
+                            onClick = onInfoClick
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+fun ContactActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable { onClick() }
+            .padding(8.dp)
+    ) {
+        Surface(
+            modifier = Modifier.size(48.dp),
+            shape = CircleShape,
+            color = color.copy(alpha = 0.2f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = color,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = label, fontSize = 12.sp, color = color)
     }
 }
