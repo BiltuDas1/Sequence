@@ -36,18 +36,10 @@ import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
-import com.github.biltudas1.sequence.ui.AboutScreen
-import com.github.biltudas1.sequence.ui.AudioQualityScreen
-import com.github.biltudas1.sequence.ui.BatteryOptimizationScreen
-import com.github.biltudas1.sequence.ui.DataUsageScreen
-import com.github.biltudas1.sequence.ui.LoginScreen
-import com.github.biltudas1.sequence.ui.RoomEntryScreen
-import com.github.biltudas1.sequence.ui.SettingsScreen
-import com.github.biltudas1.sequence.ui.WebRTCConfigScreen
-import com.github.biltudas1.sequence.ui.WebRTCScreen
+import com.github.biltudas1.sequence.ui.*
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
-import com.github.biltudas1.sequence.ui.isBatteryOptimized
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
+import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -71,6 +63,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Allow this activity to show over the lock screen for ongoing calls
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
         intent.getStringExtra("roomId")?.let {
             isCallExternal = true
             incomingRoomId.value = it
@@ -141,6 +147,23 @@ class MainActivity : ComponentActivity() {
                         if (!isGranted) Log.w("MainActivity", "Notification permission denied")
                     }
 
+                    val requiredPermissions = mutableListOf<String>().apply {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            add(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        add(Manifest.permission.READ_PHONE_STATE)
+                    }
+
+                    val initialPermissionsLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestMultiplePermissions()
+                    ) { permissions ->
+                        // Handle result
+                    }
+
+                    LaunchedEffect(Unit) {
+                        initialPermissionsLauncher.launch(requiredPermissions.toTypedArray())
+                    }
+
                     var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
                     val audioPermissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission()
@@ -160,16 +183,6 @@ class MainActivity : ComponentActivity() {
                         } else {
                             pendingNavigationUrl = rId to url
                             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
-
-                    // --- Effects ---
-
-                    LaunchedEffect(Unit) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
                         }
                     }
 
@@ -227,6 +240,11 @@ class MainActivity : ComponentActivity() {
                             composable("contacts") {
                                 ContactsScreen(
                                     onContactClick = { contact ->
+                                        val callStatusManager = CallStatusManager(context)
+                                        if (callStatusManager.isUserOnAnotherCall()) {
+                                            Toast.makeText(context, "Cannot place a call while on another call", Toast.LENGTH_SHORT).show()
+                                            return@ContactsScreen
+                                        }
                                         isCallExternal = false // Outgoing call
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {

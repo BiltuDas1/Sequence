@@ -16,6 +16,7 @@ class SignalingClient(
         fun onConnected()
         fun onPeerJoined()
         fun onPeerLeft()
+        fun onUserBusy()
         fun onOfferReceived(description: String)
         fun onAnswerReceived(description: String)
         fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String)
@@ -39,7 +40,7 @@ class SignalingClient(
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d("SignalingClient", "Received: $text")
+                Log.i("SignalingClient", "Received Message: $text")
                 try {
                     val json = JSONObject(text)
                     when (json.optString("type")) {
@@ -50,6 +51,10 @@ class SignalingClient(
                         "peer-left" -> {
                             Log.d("SignalingClient", "Peer left event")
                             listener.onPeerLeft()
+                        }
+                        "user-busy" -> {
+                            Log.d("SignalingClient", "User busy event")
+                            listener.onUserBusy()
                         }
                         "offer" -> {
                             Log.d("SignalingClient", "Offer received")
@@ -77,12 +82,12 @@ class SignalingClient(
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d("SignalingClient", "WebSocket Closing: $code / $reason")
+                Log.i("SignalingClient", "WebSocket Closing: $code / $reason")
                 listener.onPeerLeft()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("SignalingClient", "WebSocket Error: ${t.message}")
+                Log.e("SignalingClient", "WebSocket Error: ${t.message}", t)
                 listener.onPeerLeft()
             }
         })
