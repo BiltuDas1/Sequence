@@ -2,10 +2,12 @@ package com.github.biltudas1.sequence.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,13 +43,16 @@ fun AboutScreen(
     
     val dataStoreManager = remember { DataStoreManager(context) }
     val versionService = remember { VersionService(OkHttpClient(), dataStoreManager) }
-    var latestVersion by remember { mutableStateOf<String?>(null) }
+    var latestRelease by remember { mutableStateOf<com.github.biltudas1.sequence.data.remote.model.GitHubRelease?>(null) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            latestVersion = versionService.getLatestVersion()
+            latestRelease = versionService.getLatestRelease()
         }
     }
+    
+    val latestVersion = latestRelease?.tag_name
+    val isUpdateAvailable = latestVersion != null && latestVersion.removePrefix("v") != (versionName ?: "").removePrefix("v")
 
     val sourceTooltipState = rememberTooltipState()
     val licenseTooltipState = rememberTooltipState()
@@ -197,6 +202,33 @@ fun AboutScreen(
                         fontSize = 14.sp,
                         color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else Color.Yellow.copy(alpha = 0.7f)
                     )
+                }
+                
+                if (isUpdateAvailable && latestRelease != null) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { uriHandler.openUri(latestRelease!!.html_url) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Yellow,
+                            contentColor = Color.Black
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Download Update",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
             }
         }

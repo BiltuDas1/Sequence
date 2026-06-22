@@ -1,8 +1,10 @@
 package com.github.biltudas1.sequence.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -43,7 +45,12 @@ fun SettingsScreen(
     val dataStoreManager = remember { DataStoreManager(context) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
+    val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
     val scope = rememberCoroutineScope()
+
+    val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
+    val currentVersion = packageInfo.versionName ?: ""
+    val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
 
     var showConfigDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -128,7 +135,16 @@ fun SettingsScreen(
                     title = "About",
                     description = "About Sequence",
                     icon = Icons.Default.Info,
-                    onClick = onAboutClick
+                    onClick = onAboutClick,
+                    trailingContent = if (hasUpdate) {
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color.Yellow, CircleShape)
+                            )
+                        }
+                    } else null
                 )
             }
             item {
@@ -227,7 +243,8 @@ fun SettingsCategoryItem(
     title: String,
     description: String? = null,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     ListItem(
         headlineContent = { 
@@ -255,6 +272,7 @@ fun SettingsCategoryItem(
                 modifier = Modifier.size(28.dp)
             )
         },
+        trailingContent = trailingContent,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }

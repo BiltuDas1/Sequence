@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private val incomingRoomId = mutableStateOf<String?>(null)
     private val incomingCallerName = mutableStateOf("")
     private val incomingCallerEmail = mutableStateOf("")
+    private val targetPage = mutableStateOf<String?>(null)
     private var lastHandledRoomId: String? = null
 
     override fun onNewIntent(intent: Intent) {
@@ -70,6 +71,7 @@ class MainActivity : ComponentActivity() {
             incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
             incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
         }
+        targetPage.value = intent.getStringExtra("targetPage")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +83,7 @@ class MainActivity : ComponentActivity() {
             incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
             incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
         }
+        targetPage.value = intent.getStringExtra("targetPage")
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
@@ -97,6 +100,9 @@ class MainActivity : ComponentActivity() {
                 val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
                 LaunchedEffect(updateInterval) {
                     UpdateWorker.schedule(context, updateInterval)
+                    if (updateInterval != "Never") {
+                        UpdateWorker.checkNow(context)
+                    }
                 }
 
                 Surface(
@@ -166,7 +172,18 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val roomId by incomingRoomId
+                    val destinationPage by targetPage
                     
+                    LaunchedEffect(destinationPage, accessToken, currentRoute) {
+                        if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
+                            Log.i("MainActivity", "Navigation target detected: $destinationPage")
+                            if (destinationPage == "about" && currentRoute != "about") {
+                                targetPage.value = null
+                                navController.navigate("about")
+                            }
+                        }
+                    }
+
                     LaunchedEffect(roomId, accessToken, serverConfig, currentRoute) {
                         val rId = roomId
                         if (rId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
