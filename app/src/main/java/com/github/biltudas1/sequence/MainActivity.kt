@@ -45,6 +45,9 @@ import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -255,7 +258,10 @@ class MainActivity : ComponentActivity() {
                         ) {
                             composable("login") {
                                 LoginScreen(onLoginSuccess = {
-                                    navController.navigate("contacts") { popUpTo("login") { inclusive = true } }
+                                    navController.navigate("contacts") {
+                                        popUpTo("login") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
                                 })
                             }
                             composable("contacts") {

@@ -44,6 +44,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     var showConfigDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -124,10 +125,33 @@ fun SettingsScreen(
                     title = "Logout",
                     description = "Clear session and local data",
                     icon = Icons.AutoMirrored.Filled.Logout,
-                    onClick = onLogoutClick
+                    onClick = { showLogoutDialog = true }
                 )
             }
         }
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Logout") },
+            text = { Text("Are you sure you want to logout? This will clear your session and local data.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        onLogoutClick()
+                    }
+                ) {
+                    Text("Logout", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showConfigDialog) {
