@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 
 @Composable
@@ -87,6 +88,5 @@ fun BatteryOptimizationScreen(
 }
 
 fun isBatteryOptimized(context: Context): Boolean {
-    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    return !powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    return !PermissionUtils.isIgnoringBatteryOptimizations(context)
 }
