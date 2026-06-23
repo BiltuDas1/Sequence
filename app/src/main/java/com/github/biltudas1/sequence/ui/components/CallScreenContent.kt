@@ -139,8 +139,8 @@ fun CallScreenContent(
             // Stop Call Button
             FloatingActionButton(
                 onClick = { onCallStopped() },
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
+                containerColor = if (LocalIsDarkTheme.current) Color(0xFFF44336) else MaterialTheme.colorScheme.error,
+                contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier.size(72.dp)
             ) {

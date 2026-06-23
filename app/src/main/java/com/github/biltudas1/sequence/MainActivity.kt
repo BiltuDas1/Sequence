@@ -225,7 +225,7 @@ class MainActivity : ComponentActivity() {
                                     val baseUrl = serverConfig!!.cleanEndpoint
                                     "$protocol://$baseUrl/room/$rId"
                                 }
-                                val isExternal = if (incomingServerUrl.value != null) incomingIsExternal.value else true
+                                val isExternal = if (incomingServerUrl.value != null) incomingIsExternal.value else false
                                 
                                 Log.i("MainActivity", "Incoming call effect triggered for Room: $rId. URL: $urlToUse, External: $isExternal")
                                 

@@ -10,6 +10,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -276,7 +277,8 @@ fun FixedButtonDraggableAction(
                 },
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp
+            border = BorderStroke(2.dp, iconColor.copy(alpha = 0.6f)),
+            shadowElevation = 8.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
