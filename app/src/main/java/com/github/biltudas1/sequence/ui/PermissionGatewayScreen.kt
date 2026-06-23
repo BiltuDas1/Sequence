@@ -9,6 +9,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -102,17 +103,17 @@ fun PermissionGatewayScreen(
             
             Text(
                 text = "Permissions Required",
-                fontSize = 28.sp,
+                fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             Text(
                 text = "Please grant the following permissions to ensure the app works correctly.",
-                fontSize = 16.sp,
-                color = TextSecondary,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             
@@ -164,10 +165,10 @@ fun PermissionGatewayScreen(
                 onClick = { 
                     if (allGranted) onAllPermissionsGranted()
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(64.dp),
                 enabled = allGranted
             ) {
-                Text("Continue")
+                Text("Continue", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -186,7 +187,7 @@ fun PermissionItem(
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isGranted) Color.Green.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.05f)
+            containerColor = if (isGranted) Color.Green.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Row(
@@ -198,7 +199,11 @@ fun PermissionItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isGranted) Color.Green else Color.White,
+                tint = when {
+                    isGranted && isSystemInDarkTheme() -> Color.Green
+                    isGranted && !isSystemInDarkTheme() -> Color(0xFF1B9623)
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
                 modifier = Modifier.size(32.dp)
             )
             
@@ -207,17 +212,22 @@ fun PermissionItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isGranted) Color.Green else Color.White,
+                    color = when {
+                        isGranted && isSystemInDarkTheme() -> Color.Green
+                        isGranted && !isSystemInDarkTheme() -> Color(0xFF1B9623)
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
                     style = LocalTextStyle.current.copy(
                         platformStyle = PlatformTextStyle(includeFontPadding = false)
                     )
                 )
                 Text(
                     text = description,
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    lineHeight = 14.sp,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp,
                     style = LocalTextStyle.current.copy(
                         platformStyle = PlatformTextStyle(includeFontPadding = false)
                     )
@@ -226,13 +236,13 @@ fun PermissionItem(
             
             if (!isGranted) {
                 TextButton(onClick = onClick) {
-                    Text("Grant")
+                    Text("Grant", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Granted",
-                    tint = Color.Green
+                    tint = if (isSystemInDarkTheme()) Color.Green else Color(0xFF1B9623)
                 )
             }
         }

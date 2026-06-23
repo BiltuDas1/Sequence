@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,6 +36,8 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.data.remote.model.UserData
+import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
@@ -60,6 +63,7 @@ fun ContactsScreen(
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
     val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
+    val updateColor = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
 
     val scope = rememberCoroutineScope()
 
@@ -95,20 +99,19 @@ fun ContactsScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Contacts", color = Color.White) },
+                title = { Text("Contacts") },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
                         Box {
                             Icon(
                                 imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = Color.White
+                                contentDescription = "Settings"
                             )
                             if (hasUpdate) {
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
-                                        .background(Color.Yellow, CircleShape)
+                                        .background(updateColor, CircleShape)
                                         .align(Alignment.TopEnd)
                                         .offset(x = 1.dp, y = 1.dp)
                                 )
@@ -117,7 +120,9 @@ fun ContactsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
@@ -125,7 +130,7 @@ fun ContactsScreen(
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Contact")
             }
@@ -271,7 +276,7 @@ fun ContactItem(
             .fillMaxWidth()
             .animateContentSize(), // Snap expand (spring)
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         onClick = onExpandClick
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -282,14 +287,14 @@ fun ContactItem(
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.1f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Default.Person,
                             contentDescription = null,
                             modifier = Modifier.size(28.dp),
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -298,13 +303,13 @@ fun ContactItem(
                     Text(
                         text = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email },
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 18.sp
                     )
                     Text(
                         text = contact.email,
                         fontSize = 14.sp,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -330,7 +335,7 @@ fun ContactItem(
                         ContactActionButton(
                             icon = Icons.Default.Delete,
                             label = "Delete",
-                            color = Color.White.copy(alpha = 0.8f),
+                            color = MaterialTheme.colorScheme.error,
                             onClick = onDeleteClick
                         )
                         ContactActionButton(

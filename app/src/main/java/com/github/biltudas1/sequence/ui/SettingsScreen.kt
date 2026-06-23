@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.SettingsInputComponent
@@ -27,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
+import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
@@ -45,39 +48,43 @@ fun SettingsScreen(
     val dataStoreManager = remember { DataStoreManager(context) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
+    val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = com.github.biltudas1.sequence.data.model.AppTheme.SYSTEM)
     val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
     val scope = rememberCoroutineScope()
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
     val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
+    val updateColor = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
 
     var showConfigDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showUpdateIntervalDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Settings", color = Color.White) },
+                    title = { Text("Settings") },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.White
+                                contentDescription = "Back"
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    color = Color.White.copy(alpha = 0.2f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f)
                 )
             }
         }
@@ -116,6 +123,14 @@ fun SettingsScreen(
             }
             item {
                 SettingsCategoryItem(
+                    title = "Theme",
+                    description = "Theme: ${appTheme.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    icon = Icons.Default.DarkMode,
+                    onClick = { showThemeDialog = true }
+                )
+            }
+            item {
+                SettingsCategoryItem(
                     title = "App Updates",
                     description = "Check for updates: $updateInterval",
                     icon = Icons.Default.SystemUpdate,
@@ -141,7 +156,7 @@ fun SettingsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .background(Color.Yellow, CircleShape)
+                                    .background(updateColor, CircleShape)
                             )
                         }
                     } else null
@@ -224,13 +239,56 @@ fun SettingsScreen(
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = option, color = Color.White)
+                            Text(text = option)
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showUpdateIntervalDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showThemeDialog) {
+        val themes = com.github.biltudas1.sequence.data.model.AppTheme.values()
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = { Text("Select Theme") },
+            text = {
+                Column {
+                    themes.forEach { theme ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch {
+                                        dataStoreManager.saveAppTheme(theme)
+                                        showThemeDialog = false
+                                    }
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = appTheme == theme,
+                                onClick = {
+                                    scope.launch {
+                                        dataStoreManager.saveAppTheme(theme)
+                                        showThemeDialog = false
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = theme.name.lowercase().replaceFirstChar { it.uppercase() })
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
                     Text("Close")
                 }
             }
@@ -250,7 +308,6 @@ fun SettingsCategoryItem(
         headlineContent = { 
             Text(
                 text = title, 
-                color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium
             ) 
@@ -259,7 +316,7 @@ fun SettingsCategoryItem(
             {
                 Text(
                     text = it,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
@@ -268,7 +325,6 @@ fun SettingsCategoryItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White,
                 modifier = Modifier.size(28.dp)
             )
         },
@@ -277,6 +333,11 @@ fun SettingsCategoryItem(
             .fillMaxWidth()
             .clickable { onClick() }
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent,
+            headlineColor = MaterialTheme.colorScheme.onSurface,
+            leadingIconColor = MaterialTheme.colorScheme.onSurface,
+            trailingIconColor = MaterialTheme.colorScheme.onSurface
+        )
     )
 }

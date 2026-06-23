@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.*
@@ -85,15 +87,12 @@ class MainActivity : ComponentActivity() {
         }
         targetPage.value = intent.getStringExtra("targetPage")
 
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
-        )
-        
         setContent {
-            SequenceTheme(darkTheme = true) {
-                val context = LocalContext.current
-                val dataStoreManager = remember { DataStoreManager(context) }
+            val context = LocalContext.current
+            val dataStoreManager = remember { DataStoreManager(context) }
+            val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.SYSTEM)
+
+            SequenceTheme(appTheme = appTheme) {
                 val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
                 val contactRepository = remember { ContactRepository(context, authService) }
 

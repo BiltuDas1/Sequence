@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.VersionService
+import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -53,6 +55,7 @@ fun AboutScreen(
     
     val latestVersion = latestRelease?.tag_name
     val isUpdateAvailable = latestVersion != null && latestVersion.removePrefix("v") != (versionName ?: "").removePrefix("v")
+    val updateColor = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
 
     val sourceTooltipState = rememberTooltipState()
     val licenseTooltipState = rememberTooltipState()
@@ -71,18 +74,19 @@ fun AboutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About", color = Color.White) },
+                title = { Text("About") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                            contentDescription = "Back"
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
@@ -94,7 +98,7 @@ fun AboutScreen(
             ) {
                 HorizontalDivider(
                     thickness = 0.5.dp,
-                    color = Color.White.copy(alpha = 0.2f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f),
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Row(
@@ -108,14 +112,13 @@ fun AboutScreen(
                         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
                         tooltip = {
                             PlainTooltip(
-                                containerColor = Color.White,
-                                contentColor = Color.Black
+                                containerColor = MaterialTheme.colorScheme.inverseSurface,
+                                contentColor = MaterialTheme.colorScheme.inverseOnSurface
                             ) {
                                 Text(
                                     text = "Source Code",
                                     fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Black
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         },
@@ -128,7 +131,7 @@ fun AboutScreen(
                             Icon(
                                 imageVector = Icons.Default.Code,
                                 contentDescription = "Source Code",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onBackground,
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -138,14 +141,13 @@ fun AboutScreen(
                         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
                         tooltip = {
                             PlainTooltip(
-                                containerColor = Color.White,
-                                contentColor = Color.Black
+                                containerColor = MaterialTheme.colorScheme.inverseSurface,
+                                contentColor = MaterialTheme.colorScheme.inverseOnSurface
                             ) {
                                 Text(
                                     text = "License",
                                     fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Black
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         },
@@ -157,8 +159,8 @@ fun AboutScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Description,
+                                tint = MaterialTheme.colorScheme.onBackground,
                                 contentDescription = "License",
-                                tint = Color.White,
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -187,20 +189,20 @@ fun AboutScreen(
                     text = "Sequence",
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "v$versionName",
                     fontSize = 18.sp,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (latestVersion != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (latestVersion == "v$versionName") "You are on the latest version" else "Latest version: $latestVersion",
                         fontSize = 14.sp,
-                        color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else Color.Yellow.copy(alpha = 0.7f)
+                        color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else updateColor.copy(alpha = 0.7f)
                     )
                 }
                 
@@ -209,8 +211,8 @@ fun AboutScreen(
                     Button(
                         onClick = { uriHandler.openUri(latestRelease!!.html_url) },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Yellow,
-                            contentColor = Color.Black
+                            containerColor = updateColor,
+                            contentColor = if (LocalIsDarkTheme.current) Color.Black else Color.White
                         ),
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
