@@ -48,7 +48,7 @@ fun AboutScreen(
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            latestRelease = versionService.getLatestRelease()
+            latestRelease = versionService.getLatestRelease(currentVersion = versionName)
         }
     }
     

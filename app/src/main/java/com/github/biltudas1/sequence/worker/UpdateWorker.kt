@@ -18,9 +18,10 @@ class UpdateWorker(context: Context, workerParams: WorkerParameters) :
         val versionService = VersionService(OkHttpClient(), dataStoreManager)
 
         return try {
-            val latestRelease = versionService.getLatestRelease()
+            val currentVersion = getCurrentVersionName(applicationContext)
+            val latestRelease = versionService.getLatestRelease(currentVersion = currentVersion)
+            
             if (latestRelease != null) {
-                val currentVersion = getCurrentVersionName(applicationContext)
                 if (isNewerVersion(latestRelease.tag_name, currentVersion)) {
                     NotificationHelper.showUpdateNotification(
                         applicationContext,
