@@ -42,7 +42,7 @@ fun AboutScreen(
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     val versionName = packageInfo.versionName
     
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val versionService = remember { VersionService(OkHttpClient(), dataStoreManager) }
     var latestRelease by remember { mutableStateOf<com.github.biltudas1.sequence.data.remote.model.GitHubRelease?>(null) }
 

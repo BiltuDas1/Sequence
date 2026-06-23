@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val context = LocalContext.current
-            val dataStoreManager = remember { DataStoreManager(context) }
+            val dataStoreManager = remember { DataStoreManager.getInstance(context) }
             val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.SYSTEM)
 
             SequenceTheme(appTheme = appTheme) {
@@ -99,6 +99,17 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
+
+                    LaunchedEffect(Unit) {
+                        dataStoreManager.sessionExpiredEvent.collect {
+                            Toast.makeText(context, "Session Expired", Toast.LENGTH_LONG).show()
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()

@@ -85,7 +85,7 @@ class IncomingCallActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
-            val dataStoreManager = remember { DataStoreManager(context) }
+            val dataStoreManager = remember { DataStoreManager.getInstance(context) }
             val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = com.github.biltudas1.sequence.data.model.AppTheme.SYSTEM)
 
             SequenceTheme(appTheme = appTheme) {
@@ -107,7 +107,7 @@ class IncomingCallActivity : ComponentActivity() {
                     onReject = {
                         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                         nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
-                        val dataStoreManager = DataStoreManager(applicationContext)
+                        val dataStoreManager = DataStoreManager.getInstance(applicationContext)
                         val authService = AuthService(OkHttpClient(), dataStoreManager)
                         CoroutineScope(Dispatchers.IO).launch {
                             val config = dataStoreManager.serverConfigFlow.firstOrNull()

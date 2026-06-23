@@ -26,7 +26,7 @@ fun DataUsageScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val dataUsageState = dataStoreManager.dataUsageFlow.collectAsStateWithLifecycle(initialValue = DataUsage())
     val currentUsage: DataUsage = dataUsageState.value
     val scope = rememberCoroutineScope()

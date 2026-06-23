@@ -124,7 +124,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun reportBusyStatus(roomId: String) {
-        val dataStoreManager = DataStoreManager(this)
+        val dataStoreManager = DataStoreManager.getInstance(this)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
         serviceScope.launch {
             try {
@@ -243,7 +243,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        val dataStoreManager = DataStoreManager(applicationContext)
+        val dataStoreManager = DataStoreManager.getInstance(applicationContext)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
         serviceScope.launch {
             val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()

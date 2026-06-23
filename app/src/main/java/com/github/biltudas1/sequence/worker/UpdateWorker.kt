@@ -14,7 +14,7 @@ class UpdateWorker(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val dataStoreManager = DataStoreManager(applicationContext)
+        val dataStoreManager = DataStoreManager.getInstance(applicationContext)
         val versionService = VersionService(OkHttpClient(), dataStoreManager)
 
         return try {

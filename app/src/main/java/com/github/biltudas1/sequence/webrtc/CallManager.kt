@@ -53,7 +53,7 @@ object CallManager {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         audioManager = CallAudioManager(context)
         
-        val dataStoreManager = DataStoreManager(context)
+        val dataStoreManager = DataStoreManager.getInstance(context)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
         
         webRTCClient = WebRTCClient(context, object : WebRTCClient.WebRTCListener {

@@ -11,17 +11,32 @@ import com.github.biltudas1.sequence.data.model.DataUsage
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "server_config")
 
-class DataStoreManager(private val context: Context) {
+class DataStoreManager private constructor(private val context: Context) {
 
     private val cryptoManager = CryptoManager()
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val _sessionExpiredEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val sessionExpiredEvent: SharedFlow<Unit> = _sessionExpiredEvent.asSharedFlow()
+
     companion object {
+        @Volatile
+        private var INSTANCE: DataStoreManager? = null
+
+        fun getInstance(context: Context): DataStoreManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: DataStoreManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+
         private val ENDPOINT = stringPreferencesKey("endpoint")
         private val USERNAME = stringPreferencesKey("username")
         private val PASSWORD = stringPreferencesKey("password")
@@ -191,6 +206,11 @@ class DataStoreManager(private val context: Context) {
             preferences.remove(ACCESS_TOKEN)
             preferences.remove(REFRESH_TOKEN)
         }
+    }
+
+    suspend fun notifySessionExpired() {
+        clearTokens()
+        _sessionExpiredEvent.emit(Unit)
     }
 
     private fun String.encrypt(): String {

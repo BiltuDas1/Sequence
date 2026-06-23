@@ -47,7 +47,7 @@ fun ContactsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val repository = remember { ContactRepository(context, authService) }
     

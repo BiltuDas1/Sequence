@@ -93,7 +93,7 @@ class CallService : Service() {
         val roomId = CallManager.activeRoomId ?: return
         val context = this
         serviceScope.launch {
-            val dataStoreManager = DataStoreManager(context)
+            val dataStoreManager = DataStoreManager.getInstance(context)
             val authService = AuthService(OkHttpClient(), dataStoreManager)
             
             val actualConfig = try {

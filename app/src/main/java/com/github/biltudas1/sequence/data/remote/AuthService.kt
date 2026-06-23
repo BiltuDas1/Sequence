@@ -131,6 +131,17 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                         Result.success(parsed)
                     }
                 } else if (resp.code == 401 || (bodyString.contains("expired", true) && bodyString.contains("token", true))) {
+                    // Only attempt refresh if the request had a token. 
+                    // Prevents infinite loops if refresh/login themselves return 401.
+                    if (request.header("Authorization") == null) {
+                        try {
+                            val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)
+                            return Result.failure(Exception(errorResponse.message))
+                        } catch (e: Exception) {
+                            return Result.failure(Exception("Request failed: ${resp.code}"))
+                        }
+                    }
+
                     val newAccessToken = tryRefresh(serverConfig)
                     if (newAccessToken != null) {
                         val newRequest = request.newBuilder()
@@ -171,7 +182,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                     return newTokens.access_token
                 }
             } else {
-                dataStoreManager.clearTokens()
+                dataStoreManager.notifySessionExpired()
             }
             null
         }
