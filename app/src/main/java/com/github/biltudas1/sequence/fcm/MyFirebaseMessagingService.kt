@@ -21,7 +21,6 @@ import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import okhttp3.OkHttpClient
 import java.util.concurrent.ConcurrentHashMap
@@ -92,18 +91,26 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
                 null, "start" -> {
                     val callStatusManager = CallStatusManager(this)
-                    val isBusy = try { 
-                        callStatusManager.isUserOnAnotherCall() 
+                    val currentActive = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId
+                    
+                    if (currentActive != null && currentActive == roomId) {
+                        Log.i("FCM", "Already in this call room: $roomId")
+                        return
+                    }
+
+                    val isOnAnotherCall = try { 
+                        callStatusManager.isUserOnAnotherCall()
                     } catch (e: Exception) { 
                         Log.e("FCM", "Error checking busy status", e)
                         false 
                     }
-                    Log.i("FCM", "Incoming call request. RoomId: $roomId, IsBusy: $isBusy")
                     
-                    if (isBusy) {
+                    Log.i("FCM", "Incoming call request. RoomId: $roomId, IsOnAnotherCall: $isOnAnotherCall")
+                    
+                    if (isOnAnotherCall) {
                         reportBusyStatus(roomId)
                     }
-                    
+
                     wakeUpScreen()
                     showIncomingCallNotification(roomId, callerName, callerEmail)
                 }
@@ -121,10 +128,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val authService = AuthService(OkHttpClient(), dataStoreManager)
         serviceScope.launch {
             try {
-                val config = dataStoreManager.serverConfigFlow.first()
-                val token = dataStoreManager.accessTokenFlow.first()
+                val config = dataStoreManager.serverConfigFlow.firstOrNull()
+                val token = dataStoreManager.accessTokenFlow.firstOrNull()
                 
-                if (config.isValid() && token != null) {
+                if (config != null && config.isValid() && token != null) {
                     repeat(4) { i ->
                         val delayMs = if (i == 0) 800L else 2000L
                         delay(delayMs)
