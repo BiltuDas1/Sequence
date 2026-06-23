@@ -82,6 +82,9 @@ class WebRTCClient(
         val audioSource = peerConnectionFactory.createAudioSource(audioConstraints)
         localAudioTrack = peerConnectionFactory.createAudioTrack("AUDIO_TRACK", audioSource)
         peerConnection?.addTrack(localAudioTrack, listOf("STREAM"))
+        
+        // Ensure audio mode is set for VoIP call detection
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
     }
 
     fun setSpeakerphoneOn(isEnabled: Boolean) {
@@ -183,6 +186,7 @@ class WebRTCClient(
         val pc = peerConnection ?: return
         peerConnection = null
         
+        // Get stats before closing to log final usage
         pc.getStats { report ->
             var stunSent = 0L
             var stunRecv = 0L
@@ -208,8 +212,16 @@ class WebRTCClient(
                 }
             }
             listener.onDataUsageCollected(stunSent, stunRecv, turnSent, turnRecv)
-            pc.close()
-            pc.dispose()
+            
+            // Dispose WebRTC objects on Main thread to avoid threading issues
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    pc.close()
+                    pc.dispose()
+                } catch (e: Exception) {
+                    Log.e("WebRTCClient", "Error disposing PeerConnection", e)
+                }
+            }
         }
 
         audioManager.mode = AudioManager.MODE_NORMAL

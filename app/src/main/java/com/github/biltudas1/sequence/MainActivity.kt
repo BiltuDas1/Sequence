@@ -49,32 +49,33 @@ class MainActivity : ComponentActivity() {
     private val incomingRoomId = mutableStateOf<String?>(null)
     private val incomingCallerName = mutableStateOf("")
     private val incomingCallerEmail = mutableStateOf("")
+    private val incomingServerUrl = mutableStateOf<String?>(null)
+    private val incomingIsExternal = mutableStateOf(false)
     private val targetPage = mutableStateOf<String?>(null)
     private var lastHandledRoomId: String? = null
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
         val roomId = intent.getStringExtra("roomId")
-        Log.i("MainActivity", "onNewIntent: roomId=$roomId")
+        Log.i("MainActivity", "handleIntent: roomId=$roomId")
         if (roomId != null) {
             incomingRoomId.value = roomId
             incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
             incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
+            incomingServerUrl.value = intent.getStringExtra("serverUrl")
+            incomingIsExternal.value = intent.getStringExtra("isExternal")?.toBoolean() ?: false
         }
         targetPage.value = intent.getStringExtra("targetPage")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        intent.getStringExtra("roomId")?.let {
-            Log.i("MainActivity", "onCreate intent: roomId=$it")
-            incomingRoomId.value = it
-            incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
-            incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
-        }
-        targetPage.value = intent.getStringExtra("targetPage")
+        handleIntent(intent)
 
         setContent {
             val context = LocalContext.current
@@ -101,6 +102,16 @@ class MainActivity : ComponentActivity() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()
+
+                    DisposableEffect(Unit) {
+                        val callEndListener = {
+                            lastHandledRoomId = null
+                        }
+                        com.github.biltudas1.sequence.webrtc.CallManager.onCallEnded = callEndListener
+                        onDispose {
+                            com.github.biltudas1.sequence.webrtc.CallManager.onCallEnded = null
+                        }
+                    }
 
                     // Dynamically show over lock screen only for calls
                     LaunchedEffect(currentRoute) {
@@ -177,6 +188,18 @@ class MainActivity : ComponentActivity() {
                         if (rId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
                             Log.i("MainActivity", "Incoming call effect check. Room: $rId, CurrentRoute: $currentRoute")
                             
+                            val callStatusManager = CallStatusManager(context)
+                            val isAlreadyInCall = callStatusManager.isUserOnAnotherCall()
+                            val isActiveRoom = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId == rId
+
+                            // If it's a different call and we are already busy, ignore
+                            if (isAlreadyInCall && !isActiveRoom) {
+                                val currentActive = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId
+                                Log.i("MainActivity", "Ignoring new call while busy. Active: $currentActive, New: $rId")
+                                incomingRoomId.value = null
+                                return@LaunchedEffect
+                            }
+
                             // If coming from the Accept notification button, stop busy loop
                             if (intent.getStringExtra("action") == MyFirebaseMessagingService.ACTION_ACCEPT) {
                                 MyFirebaseMessagingService.markRoomAccepted(rId)
@@ -185,24 +208,32 @@ class MainActivity : ComponentActivity() {
                                 nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
                             }
 
-                            if (rId == lastHandledRoomId) {
+                            if (rId == lastHandledRoomId && incomingServerUrl.value == null) {
                                 Log.i("MainActivity", "Skipping duplicate incoming call navigation for Room: $rId")
                                 incomingRoomId.value = null
                                 return@LaunchedEffect
                             }
 
-                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                            val baseUrl = serverConfig!!.cleanEndpoint
-                            val fullUrl = "$protocol://$baseUrl/room/$rId"
-                            
-                            Log.i("MainActivity", "Incoming call effect triggered for Room: $rId")
                             if (currentRoute?.contains("webrtc_call") != true) {
-                                lastHandledRoomId = rId
                                 val name = incomingCallerName.value
                                 val email = incomingCallerEmail.value
+                                
+                                // If we already have a server URL from the intent (e.g. from CallService notification)
+                                // use it, otherwise build it from serverConfig
+                                val urlToUse = incomingServerUrl.value ?: run {
+                                    val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                    val baseUrl = serverConfig!!.cleanEndpoint
+                                    "$protocol://$baseUrl/room/$rId"
+                                }
+                                val isExternal = if (incomingServerUrl.value != null) incomingIsExternal.value else true
+                                
+                                Log.i("MainActivity", "Incoming call effect triggered for Room: $rId. URL: $urlToUse, External: $isExternal")
+                                
+                                lastHandledRoomId = rId
                                 // Use a local copy to navigate and clear the state immediately
                                 incomingRoomId.value = null
-                                navigateToCallWithPermission(rId, fullUrl, name, email, isExternal = true)
+                                incomingServerUrl.value = null
+                                navigateToCallWithPermission(rId, urlToUse, name, email, isExternal = isExternal)
                             } else {
                                 Log.i("MainActivity", "Already in a call, clearing incomingRoomId")
                                 incomingRoomId.value = null
@@ -337,7 +368,14 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("room_entry") {
                                 RoomEntryScreen(
-                                    onJoinRoom = { rId, url -> navigateToCallWithPermission(rId, url, "Room Call", "") }
+                                    onJoinRoom = { rId, url -> 
+                                        val callStatusManager = CallStatusManager(context)
+                                        if (callStatusManager.isUserOnAnotherCall()) {
+                                            Toast.makeText(context, "Cannot place a call while on another call", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            navigateToCallWithPermission(rId, url, "Room Call", "") 
+                                        }
+                                    }
                                 )
                             }
                             composable("webrtc_call/{roomId}?serverUrl={serverUrl}&name={name}&email={email}&isExternal={isExternal}") { backStackEntry ->
