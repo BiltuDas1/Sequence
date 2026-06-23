@@ -59,13 +59,13 @@ fun LoginScreen(
                     IconButton(onClick = { showConfigDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Server Configuration",
-                            tint = Color.White
+                            contentDescription = "Server Configuration"
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color.Transparent,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -92,14 +92,14 @@ fun LoginScreen(
                 text = "Sequence",
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             // Subtitle
             Text(
                 text = "Connect instantly, securely.",
                 fontSize = 16.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp, bottom = 48.dp)
             )
 
@@ -171,10 +171,10 @@ fun LoginScreen(
                     .height(64.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SurfaceContainerHigh,
-                    contentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
-                border = BorderStroke(1.dp, OutlineGhost)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -194,7 +194,7 @@ fun LoginScreen(
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(40.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 strokeWidth = 3.dp
                             )
                         }

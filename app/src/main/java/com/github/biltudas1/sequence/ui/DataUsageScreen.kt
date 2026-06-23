@@ -39,29 +39,31 @@ fun DataUsageScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Data Usage", color = Color.White) },
+                    title = { Text("Data Usage") },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.White
+                                contentDescription = "Back"
                             )
                         }
                     },
                     actions = {
                         IconButton(onClick = { showResetDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Reset", tint = Color.White)
+                            Icon(Icons.Default.Delete, contentDescription = "Reset")
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    color = Color.White.copy(alpha = 0.2f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f)
                 )
             }
         }
@@ -129,14 +131,14 @@ fun DataUsageScreen(
 fun UsageCard(title: String, sent: Long, received: Long) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = SurfaceContainerHigh)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(12.dp))
             Row(
@@ -153,8 +155,8 @@ fun UsageCard(title: String, sent: Long, received: Long) {
 @Composable
 fun UsageItem(label: String, bytes: Long) {
     Column {
-        Text(text = label, color = TextSecondary, fontSize = 14.sp)
-        Text(text = formatBytes(bytes), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text(text = formatBytes(bytes), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, fontWeight = FontWeight.Medium)
     }
 }
 

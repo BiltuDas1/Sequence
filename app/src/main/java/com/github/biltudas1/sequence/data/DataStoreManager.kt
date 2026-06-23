@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.model.DataUsage
 import com.github.biltudas1.sequence.data.model.ServerConfig
@@ -40,6 +41,7 @@ class DataStoreManager(private val context: Context) {
         private val TURN_BYTES_RECEIVED = longPreferencesKey("turn_bytes_received")
         private val AUDIO_QUALITY_LEVEL = stringPreferencesKey("audio_quality_level")
         private val UPDATE_CHECK_INTERVAL = stringPreferencesKey("update_check_interval")
+        private val APP_THEME = stringPreferencesKey("app_theme")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -98,6 +100,19 @@ class DataStoreManager(private val context: Context) {
         }
     }
 
+    val appThemeFlow: Flow<AppTheme> = context.dataStore.data.map { preferences ->
+        val name = preferences[APP_THEME]
+        if (name != null) {
+            try {
+                AppTheme.valueOf(name)
+            } catch (e: Exception) {
+                AppTheme.SYSTEM
+            }
+        } else {
+            AppTheme.SYSTEM
+        }
+    }
+
     val updateIntervalFlow: Flow<String> = context.dataStore.data.map { it[UPDATE_CHECK_INTERVAL] ?: "Daily" }
 
     suspend fun saveServerConfig(config: ServerConfig) {
@@ -150,6 +165,12 @@ class DataStoreManager(private val context: Context) {
     suspend fun saveAudioQuality(level: AudioQualityLevel) {
         context.dataStore.edit { preferences ->
             preferences[AUDIO_QUALITY_LEVEL] = level.name
+        }
+    }
+
+    suspend fun saveAppTheme(theme: AppTheme) {
+        context.dataStore.edit { preferences ->
+            preferences[APP_THEME] = theme.name
         }
     }
 

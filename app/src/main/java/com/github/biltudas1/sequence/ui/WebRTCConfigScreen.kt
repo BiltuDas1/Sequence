@@ -45,28 +45,29 @@ fun WebRTCConfigScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("WebRTC Configuration", color = Color.White) },
+                    title = { Text("WebRTC Configuration") },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.White
+                                contentDescription = "Back"
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
                 PrimaryTabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = MaterialTheme.colorScheme.background,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.primary,
                     divider = {
                         HorizontalDivider(
                             thickness = 0.5.dp,
-                            color = Color.White.copy(alpha = 0.2f)
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f)
                         )
                     }
                 ) {
@@ -80,7 +81,8 @@ fun WebRTCConfigScreen(
                                     fontSize = 16.sp,
                                     fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal
                                 ) 
-                            }
+                            },
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -90,7 +92,7 @@ fun WebRTCConfigScreen(
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Server")
             }
@@ -167,20 +169,20 @@ fun IceServerItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = SurfaceContainerHigh)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = server.url, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text(text = server.url, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 if (!server.username.isNullOrBlank()) {
-                    Text(text = "User: ${server.username}", color = TextSecondary, fontSize = 13.sp)
+                    Text(text = "User: ${server.username}", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 13.sp)
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.7f))
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
             }
         }
     }

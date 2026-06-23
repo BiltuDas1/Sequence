@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.ui.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 
 @Composable
@@ -50,7 +53,7 @@ fun CallScreenContent(
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = "Call Info",
-                tint = Color.White.copy(alpha = 0.6f)
+                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
             )
         }
 
@@ -64,14 +67,14 @@ fun CallScreenContent(
             Surface(
                 modifier = Modifier.size(140.dp),
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.05f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
                         modifier = Modifier.size(80.dp),
-                        tint = Color.White.copy(alpha = 0.6f)
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -82,14 +85,14 @@ fun CallScreenContent(
                 text = callerName.ifEmpty { "Unknown" },
                 fontSize = 28.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
 
             Text(
                 text = callerEmail,
                 fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.padding(top = 4.dp),
                 textAlign = TextAlign.Center
             )
@@ -105,7 +108,9 @@ fun CallScreenContent(
                 text = displayStatus,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (displayStatus == "On another call") Color.Yellow.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.7f),
+                color = if (displayStatus == "On another call") {
+                    if (LocalIsDarkTheme.current) Color.Yellow.copy(alpha = 0.8f) else Crimson.copy(alpha = 0.8f)
+                } else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
             )
         }
@@ -126,7 +131,7 @@ fun CallScreenContent(
                 Icon(
                     imageVector = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
                     contentDescription = if (isMuted) "Unmute" else "Mute",
-                    tint = if (isMuted) Color.Red else Color.White,
+                    tint = if (isMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -134,8 +139,8 @@ fun CallScreenContent(
             // Stop Call Button
             FloatingActionButton(
                 onClick = { onCallStopped() },
-                containerColor = Color.Red,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
                 shape = CircleShape,
                 modifier = Modifier.size(72.dp)
             ) {
@@ -154,7 +159,12 @@ fun CallScreenContent(
                 Icon(
                     imageVector = if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                     contentDescription = if (isSpeakerOn) "Speaker Off" else "Speaker On",
-                    tint = if (isSpeakerOn) Color.Green else Color.White,
+//                    tint = if (isSpeakerOn) Color.Green else MaterialTheme.colorScheme.onBackground,
+                    tint = when {
+                        isSpeakerOn && isSystemInDarkTheme() -> Color.Green
+                        isSpeakerOn && !isSystemInDarkTheme() -> Color(0xFF1B9623)
+                        else -> MaterialTheme.colorScheme.onBackground
+                    },
                     modifier = Modifier.size(32.dp)
                 )
             }

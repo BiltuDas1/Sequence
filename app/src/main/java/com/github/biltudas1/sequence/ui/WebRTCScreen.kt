@@ -221,7 +221,7 @@ fun WebRTCScreen(
                 }
             },
             modifier = Modifier
-                .background(SurfaceDim)
+                .background(MaterialTheme.colorScheme.background)
                 .systemBarsPadding(),
             statusMessage = when {
                 hasPeerJoined -> "Connected"

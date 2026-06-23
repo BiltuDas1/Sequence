@@ -31,11 +31,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
@@ -82,7 +84,11 @@ class IncomingCallActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            SequenceTheme(darkTheme = true) {
+            val context = LocalContext.current
+            val dataStoreManager = remember { DataStoreManager(context) }
+            val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = com.github.biltudas1.sequence.data.model.AppTheme.SYSTEM)
+
+            SequenceTheme(appTheme = appTheme) {
                 IncomingCallContent(
                     callerName = callerName,
                     callerEmail = callerEmail,
@@ -128,7 +134,7 @@ fun IncomingCallContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0B0F)) // Deep AMOLED black
+            .background(MaterialTheme.colorScheme.background)
             .systemBarsPadding()
     ) {
         // Top Info
@@ -141,14 +147,14 @@ fun IncomingCallContent(
             Surface(
                 modifier = Modifier.size(100.dp),
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.05f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
                         modifier = Modifier.size(60.dp),
-                        tint = Color.White.copy(alpha = 0.6f)
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -159,7 +165,7 @@ fun IncomingCallContent(
                 text = callerName,
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Light,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
             
             if (callerEmail.isNotEmpty()) {
@@ -167,7 +173,7 @@ fun IncomingCallContent(
                 Text(
                     text = callerEmail,
                     fontSize = 16.sp,
-                    color = Color.White.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     fontWeight = FontWeight.Normal
                 )
             }
@@ -198,7 +204,7 @@ fun IncomingCallContent(
         Text(
             text = "Swipe to answer or reject",
             fontSize = 12.sp,
-            color = Color.White.copy(alpha = 0.3f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
         )
     }
@@ -270,7 +276,7 @@ fun FixedButtonDraggableAction(
                     }
                 },
             shape = CircleShape,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {

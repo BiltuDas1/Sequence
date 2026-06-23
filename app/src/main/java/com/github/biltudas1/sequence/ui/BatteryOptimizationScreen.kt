@@ -18,8 +18,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.github.biltudas1.sequence.ui.utils.PermissionUtils
+import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 
 @Composable
 fun BatteryOptimizationScreen(
@@ -42,7 +44,7 @@ fun BatteryOptimizationScreen(
                 imageVector = Icons.Default.BatteryAlert,
                 contentDescription = null,
                 modifier = Modifier.size(100.dp),
-                tint = Color.Yellow
+                tint = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
             )
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -51,7 +53,7 @@ fun BatteryOptimizationScreen(
                 text = "Unrestricted Battery Required",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
             
@@ -60,7 +62,7 @@ fun BatteryOptimizationScreen(
             Text(
                 text = "To receive calls instantly while your screen is off, you must set the app's battery usage to 'Unrestricted'.",
                 fontSize = 16.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             
