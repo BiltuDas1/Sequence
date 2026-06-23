@@ -4,10 +4,12 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,10 +36,12 @@ fun WebRTCConfigScreen(
     val webrtcConfig by dataStoreManager.webrtcConfigFlow.collectAsStateWithLifecycle(initialValue = WebRTCConfig())
     val scope = rememberCoroutineScope()
 
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var showAddDialog by remember { mutableStateOf(false) }
-
     val tabs = listOf("STUN Servers", "TURN Servers")
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val selectedTabIndex = pagerState.currentPage
+
+    var serverToEdit by remember { mutableStateOf<IceServerConfig?>(null) }
+    var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -72,7 +76,11 @@ fun WebRTCConfigScreen(
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
+                            onClick = { 
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
                             text = { 
                                 Text(
                                     text = title,
@@ -96,66 +104,89 @@ fun WebRTCConfigScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            val currentServers = if (selectedTabIndex == 0) webrtcConfig.stunServers else webrtcConfig.turnServers
-            
-            if (currentServers.isEmpty()) {
-                Text(
-                    text = "No ${tabs[selectedTabIndex]} configured",
-                    modifier = Modifier.align(Alignment.Center),
-                    color = TextSecondary
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(currentServers) { server ->
-                        IceServerItem(
-                            server = server,
-                            onDelete = {
-                                scope.launch {
-                                    if (selectedTabIndex == 0) {
-                                        if (webrtcConfig.stunServers.size <= 1) {
-                                            Toast.makeText(context, "At least one STUN server is mandatory", Toast.LENGTH_SHORT).show()
-                                            return@launch
-                                        }
-                                        val newStun = webrtcConfig.stunServers.filter { it != server }
-                                        dataStoreManager.saveWebRTCConfig(webrtcConfig.copy(stunServers = newStun))
-                                    } else {
-                                        val newTurn = webrtcConfig.turnServers.filter { it != server }
-                                        dataStoreManager.saveWebRTCConfig(webrtcConfig.copy(turnServers = newTurn))
-                                    }
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            verticalAlignment = Alignment.Top
+        ) { page ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                val currentServers = if (page == 0) webrtcConfig.stunServers else webrtcConfig.turnServers
+                
+                if (currentServers.isEmpty()) {
+                    Text(
+                        text = "No ${tabs[page]} configured",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = TextSecondary
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(currentServers) { server ->
+                            IceServerItem(
+                                server = server,
+                                onInfoClick = {
+                                    serverToEdit = server
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    if (showAddDialog) {
+    if (showAddDialog || serverToEdit != null) {
         val type = if (selectedTabIndex == 0) IceServerType.STUN else IceServerType.TURN
-        AddIceServerDialog(
+        IceServerDialog(
             type = type,
-            onDismiss = { showAddDialog = false },
-            onAdd = { url, user, cred ->
+            existingServer = serverToEdit,
+            onDismiss = { 
+                showAddDialog = false
+                serverToEdit = null
+            },
+            onSave = { url, user, cred ->
                 scope.launch {
                     val newServer = IceServerConfig(url, user, cred)
-                    if (type == IceServerType.STUN) {
-                        dataStoreManager.saveWebRTCConfig(
-                            webrtcConfig.copy(stunServers = webrtcConfig.stunServers + newServer)
-                        )
+                    val updatedConfig = if (serverToEdit != null) {
+                        // Update
+                        if (type == IceServerType.STUN) {
+                            webrtcConfig.copy(stunServers = webrtcConfig.stunServers.map { if (it == serverToEdit) newServer else it })
+                        } else {
+                            webrtcConfig.copy(turnServers = webrtcConfig.turnServers.map { if (it == serverToEdit) newServer else it })
+                        }
                     } else {
-                        dataStoreManager.saveWebRTCConfig(
+                        // Add
+                        if (type == IceServerType.STUN) {
+                            webrtcConfig.copy(stunServers = webrtcConfig.stunServers + newServer)
+                        } else {
                             webrtcConfig.copy(turnServers = webrtcConfig.turnServers + newServer)
-                        )
+                        }
                     }
+                    dataStoreManager.saveWebRTCConfig(updatedConfig)
                     showAddDialog = false
+                    serverToEdit = null
                 }
-            }
+            },
+            onDelete = if (serverToEdit != null) {
+                {
+                    scope.launch {
+                        if (type == IceServerType.STUN && webrtcConfig.stunServers.size <= 1) {
+                            Toast.makeText(context, "At least one STUN server is mandatory", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val updatedConfig = if (type == IceServerType.STUN) {
+                                webrtcConfig.copy(stunServers = webrtcConfig.stunServers.filter { it != serverToEdit })
+                            } else {
+                                webrtcConfig.copy(turnServers = webrtcConfig.turnServers.filter { it != serverToEdit })
+                            }
+                            dataStoreManager.saveWebRTCConfig(updatedConfig)
+                            serverToEdit = null
+                        }
+                    }
+                }
+            } else null
         )
     }
 }
@@ -163,7 +194,7 @@ fun WebRTCConfigScreen(
 @Composable
 fun IceServerItem(
     server: IceServerConfig,
-    onDelete: () -> Unit
+    onInfoClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -179,26 +210,28 @@ fun IceServerItem(
                     Text(text = "User: ${server.username}", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 13.sp)
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+            IconButton(onClick = onInfoClick) {
+                Icon(Icons.Default.Info, contentDescription = "Server Info", tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
             }
         }
     }
 }
 
 @Composable
-fun AddIceServerDialog(
+fun IceServerDialog(
     type: IceServerType,
+    existingServer: IceServerConfig? = null,
     onDismiss: () -> Unit,
-    onAdd: (String, String?, String?) -> Unit
+    onSave: (String, String?, String?) -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
-    var url by remember { mutableStateOf(if (type == IceServerType.STUN) "stun:" else "turn:") }
-    var username by remember { mutableStateOf("") }
-    var credential by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf(existingServer?.url ?: if (type == IceServerType.STUN) "stun:" else "turn:") }
+    var username by remember { mutableStateOf(existingServer?.username ?: "") }
+    var credential by remember { mutableStateOf(existingServer?.credential ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add ${type.name} Server") },
+        title = { Text(if (existingServer != null) "Edit ${type.name} Server" else "Add ${type.name} Server") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -227,18 +260,34 @@ fun AddIceServerDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onAdd(url, username.ifBlank { null }, credential.ifBlank { null }) },
-                enabled = url.isNotBlank() && url != "stun:" && url != "turn:"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Add")
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Remove")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+                
+                TextButton(
+                    onClick = { onSave(url, username.ifBlank { null }, credential.ifBlank { null }) },
+                    enabled = url.isNotBlank() && url != "stun:" && url != "turn:"
+                ) {
+                    Text(if (existingServer != null) "Update" else "Add")
+                }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        dismissButton = null
     )
 }
 
