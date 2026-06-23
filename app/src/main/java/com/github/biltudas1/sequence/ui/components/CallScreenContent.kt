@@ -1,6 +1,5 @@
 package com.github.biltudas1.sequence.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.DeepGreen
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 
@@ -159,10 +159,9 @@ fun CallScreenContent(
                 Icon(
                     imageVector = if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                     contentDescription = if (isSpeakerOn) "Speaker Off" else "Speaker On",
-//                    tint = if (isSpeakerOn) Color.Green else MaterialTheme.colorScheme.onBackground,
                     tint = when {
-                        isSpeakerOn && isSystemInDarkTheme() -> Color.Green
-                        isSpeakerOn && !isSystemInDarkTheme() -> Color(0xFF1B9623)
+                        isSpeakerOn && LocalIsDarkTheme.current -> Color.Green
+                        isSpeakerOn && !LocalIsDarkTheme.current -> DeepGreen
                         else -> MaterialTheme.colorScheme.onBackground
                     },
                     modifier = Modifier.size(32.dp)

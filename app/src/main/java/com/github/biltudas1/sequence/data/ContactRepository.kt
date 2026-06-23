@@ -8,7 +8,6 @@ import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.data.remote.model.UserData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import okhttp3.OkHttpClient
 
 class ContactRepository(context: Context, private val authService: AuthService) {
     private val database = AppDatabase.getDatabase(context)

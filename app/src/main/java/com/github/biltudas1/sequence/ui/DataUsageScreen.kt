@@ -16,8 +16,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.DataUsage
-import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 import java.util.*
 

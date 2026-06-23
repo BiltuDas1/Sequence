@@ -1,7 +1,6 @@
 package com.github.biltudas1.sequence.ui
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -9,7 +8,6 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -27,14 +25,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.github.biltudas1.sequence.ui.theme.DeepGreen
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun PermissionGatewayScreen(
@@ -200,8 +198,8 @@ fun PermissionItem(
                 imageVector = icon,
                 contentDescription = null,
                 tint = when {
-                    isGranted && isSystemInDarkTheme() -> Color.Green
-                    isGranted && !isSystemInDarkTheme() -> Color(0xFF1B9623)
+                    isGranted && LocalIsDarkTheme.current -> Color.Green
+                    isGranted && !LocalIsDarkTheme.current -> DeepGreen
                     else -> MaterialTheme.colorScheme.onSurface
                 },
                 modifier = Modifier.size(32.dp)
@@ -215,8 +213,8 @@ fun PermissionItem(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = when {
-                        isGranted && isSystemInDarkTheme() -> Color.Green
-                        isGranted && !isSystemInDarkTheme() -> Color(0xFF1B9623)
+                        isGranted && LocalIsDarkTheme.current -> Color.Green
+                        isGranted && !LocalIsDarkTheme.current -> DeepGreen
                         else -> MaterialTheme.colorScheme.onSurface
                     },
                     style = LocalTextStyle.current.copy(
@@ -242,7 +240,7 @@ fun PermissionItem(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Granted",
-                    tint = if (isSystemInDarkTheme()) Color.Green else Color(0xFF1B9623)
+                    tint = if (LocalIsDarkTheme.current) Color.Green else DeepGreen
                 )
             }
         }

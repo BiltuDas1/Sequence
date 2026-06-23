@@ -30,7 +30,6 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,9 +93,6 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
             item {
                 SettingsCategoryItem(
                     title = "Server Configuration",

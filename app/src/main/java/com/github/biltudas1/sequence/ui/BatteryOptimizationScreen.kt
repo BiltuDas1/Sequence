@@ -3,7 +3,6 @@ package com.github.biltudas1.sequence.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -20,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 
 @Composable

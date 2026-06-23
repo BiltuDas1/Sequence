@@ -26,9 +26,6 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
-import com.github.biltudas1.sequence.ui.theme.OutlineGhost
-import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
