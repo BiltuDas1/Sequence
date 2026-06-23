@@ -9,7 +9,6 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
-import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.github.biltudas1.sequence.MainActivity
@@ -111,7 +110,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         reportBusyStatus(roomId)
                     }
 
-                    wakeUpScreen()
                     showIncomingCallNotification(roomId, callerName, callerEmail)
                 }
                 else -> {
@@ -148,19 +146,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             } catch (e: Exception) {
                 Log.e("FCM", "Error in reportBusyStatus", e)
             }
-        }
-    }
-
-    private fun wakeUpScreen() {
-        try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            val wakeLock = powerManager.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
-                "Sequence:CallWakeLock"
-            )
-            wakeLock.acquire(5000)
-        } catch (e: Exception) {
-            Log.e("FCM", "Error waking screen", e)
         }
     }
 
