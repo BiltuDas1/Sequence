@@ -26,7 +26,6 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.VersionService
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -202,7 +201,14 @@ fun AboutScreen(
                     Text(
                         text = if (latestVersion == "v$versionName") "You are on the latest version" else "Latest version: $latestVersion",
                         fontSize = 14.sp,
-                        color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else updateColor.copy(alpha = 0.7f)
+//                        color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else updateColor.copy(alpha = 0.7f)
+                        color = when {
+                            LocalIsDarkTheme.current && (latestVersion == "v$versionName") -> Color.Green.copy(alpha = 0.7f)
+                            !LocalIsDarkTheme.current && (latestVersion == "v$versionName") -> Color(
+                                0xFF00B702
+                            )
+                            else -> updateColor.copy(alpha = 0.7f)
+                        }
                     )
                 }
                 

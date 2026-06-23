@@ -9,13 +9,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
-import com.github.biltudas1.sequence.data.model.AudioQualityLevel
-import com.github.biltudas1.sequence.data.model.WebRTCConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.CallScreenContent
 import com.github.biltudas1.sequence.webrtc.SignalingClient
 import com.github.biltudas1.sequence.webrtc.WebRTCClient
-import com.github.biltudas1.sequence.ui.theme.SurfaceDim
 import com.github.biltudas1.sequence.ui.utils.CallAudioManager
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import kotlinx.coroutines.*

@@ -1,6 +1,5 @@
 package com.github.biltudas1.sequence.fcm
 
-import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager

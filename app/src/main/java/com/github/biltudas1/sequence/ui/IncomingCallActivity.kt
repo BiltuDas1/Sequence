@@ -43,7 +43,6 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
-import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
