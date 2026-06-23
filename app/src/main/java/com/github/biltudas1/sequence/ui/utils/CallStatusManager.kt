@@ -22,13 +22,9 @@ class CallStatusManager(private val context: Context) {
             Manifest.permission.READ_PHONE_STATE
         ) == PackageManager.PERMISSION_GRANTED
 
+        @Suppress("DEPRECATION")
         val telephonyCallState = if (hasPhoneStatePermission) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                telephonyManager.callState
-            } else {
-                @Suppress("DEPRECATION")
-                telephonyManager.callState
-            }
+            telephonyManager.callState
         } else {
             Log.w("CallStatusManager", "READ_PHONE_STATE permission not granted")
             TelephonyManager.CALL_STATE_IDLE

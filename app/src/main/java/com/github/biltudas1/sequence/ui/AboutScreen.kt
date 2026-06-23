@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,7 +109,9 @@ fun AboutScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TooltipBox(
-                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                            positioning = TooltipAnchorPosition.Above
+                        ),
                         tooltip = {
                             PlainTooltip(
                                 containerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -137,7 +140,9 @@ fun AboutScreen(
                     }
 
                     TooltipBox(
-                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                            positioning = TooltipAnchorPosition.Above
+                        ),
                         tooltip = {
                             PlainTooltip(
                                 containerColor = MaterialTheme.colorScheme.inverseSurface,
