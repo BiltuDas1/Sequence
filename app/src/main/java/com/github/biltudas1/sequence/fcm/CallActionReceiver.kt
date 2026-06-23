@@ -47,7 +47,7 @@ class CallActionReceiver : BroadcastReceiver() {
         } else if (action == MyFirebaseMessagingService.ACTION_REJECT) {
             Log.d("CallActionReceiver", "Call Rejected: $roomId")
             
-            val dataStoreManager = DataStoreManager(context)
+            val dataStoreManager = DataStoreManager.getInstance(context)
             val authService = AuthService(OkHttpClient(), dataStoreManager)
             
             CoroutineScope(Dispatchers.IO).launch {

@@ -29,7 +29,7 @@ fun WebRTCScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
 

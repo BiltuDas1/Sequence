@@ -1,4 +1,4 @@
-name: Continuous Integration - Build and Release
+name: Build and Release (Android)
 
 on:
   workflow_dispatch:

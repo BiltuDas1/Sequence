@@ -24,7 +24,7 @@ fun RoomEntryScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
     
     var roomId by remember { mutableStateOf("") }

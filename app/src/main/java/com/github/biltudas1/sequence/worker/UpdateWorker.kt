@@ -14,13 +14,14 @@ class UpdateWorker(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val dataStoreManager = DataStoreManager(applicationContext)
+        val dataStoreManager = DataStoreManager.getInstance(applicationContext)
         val versionService = VersionService(OkHttpClient(), dataStoreManager)
 
         return try {
-            val latestRelease = versionService.getLatestRelease()
+            val currentVersion = getCurrentVersionName(applicationContext)
+            val latestRelease = versionService.getLatestRelease(currentVersion = currentVersion)
+            
             if (latestRelease != null) {
-                val currentVersion = getCurrentVersionName(applicationContext)
                 if (isNewerVersion(latestRelease.tag_name, currentVersion)) {
                     NotificationHelper.showUpdateNotification(
                         applicationContext,

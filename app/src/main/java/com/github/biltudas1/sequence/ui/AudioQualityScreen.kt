@@ -26,7 +26,7 @@ fun AudioQualityScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val currentQuality by dataStoreManager.audioQualityFlow.collectAsStateWithLifecycle(initialValue = AudioQualityLevel.STANDARD)
     val scope = rememberCoroutineScope()
 

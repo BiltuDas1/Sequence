@@ -38,7 +38,7 @@ fun LoginScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val dataStoreManager = remember { DataStoreManager(context) }
+    val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val googleAuthManager = remember { GoogleAuthManager(context) }
     val okHttpClient = remember { OkHttpClient() }
     val authService = remember { AuthService(okHttpClient, dataStoreManager) }
