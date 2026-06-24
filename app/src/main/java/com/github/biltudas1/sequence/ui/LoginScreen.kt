@@ -156,6 +156,7 @@ fun LoginScreen(
                                             accessToken = loginData.jwt.access_token,
                                             refreshToken = loginData.jwt.refresh_token
                                         )
+                                        dataStoreManager.saveUserEmail(loginData.email)
 
                                         // Fetch and send FCM Token
                                         try {

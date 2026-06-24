@@ -32,6 +32,7 @@ object CallManager {
     var isSignalingConnected = mutableStateOf(false)
     
     var onCallEnded: (() -> Unit)? = null
+    private var startTime: Long = 0
 
     fun initCall(
         context: Context,
@@ -87,6 +88,7 @@ object CallManager {
                 override fun onPeerJoined() {
                     hasPeerJoined.value = true
                     isRemoteBusy.value = false
+                    if (startTime == 0L) startTime = System.currentTimeMillis()
                     webRTCClient?.createOffer()
                     audioManager?.stopAny()
                     CallStatusManager(context).requestCallAudioFocus()
@@ -108,6 +110,7 @@ object CallManager {
                 override fun onOfferReceived(description: String) {
                     hasPeerJoined.value = true
                     isRemoteBusy.value = false
+                    if (startTime == 0L) startTime = System.currentTimeMillis()
                     webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
                     webRTCClient?.createAnswer()
                     audioManager?.stopAny()
@@ -171,10 +174,19 @@ object CallManager {
     }
 
     fun terminateCall(context: Context) {
-        if (activeRoomId == null) return
+        val roomId = activeRoomId
+        if (roomId == null) return
         
         Log.i("CallManager", "Terminating call")
         activeRoomId = null 
+
+        val duration = if (startTime > 0) System.currentTimeMillis() - startTime else 0
+        startTime = 0
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context.applicationContext)
+            repository.updateDuration(roomId, duration)
+        }
 
         webRTCClient?.close()
         signalingClient?.stop()

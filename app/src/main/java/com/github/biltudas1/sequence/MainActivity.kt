@@ -156,6 +156,7 @@ class MainActivity : ComponentActivity() {
 
                     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
                     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+                    val ownEmail by dataStoreManager.userEmailFlow.collectAsStateWithLifecycle(initialValue = null)
 
                     var isServerIncompatible by remember { mutableStateOf(false) }
                     val serverIncompatibleText = stringResource(R.string.server_incompatible)
@@ -349,17 +350,21 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(AppConstants.Routes.CONTACTS) {
                                 val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
-                                ContactsScreen(
+                                MainScreen(
                                     isServerIncompatible = isServerIncompatible,
                                     onContactClick = { contact ->
                                         if (isServerIncompatible) {
                                             Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
-                                            return@ContactsScreen
+                                            return@MainScreen
+                                        }
+                                        if (contact.email == ownEmail) {
+                                            Toast.makeText(context, "You cannot call yourself", Toast.LENGTH_SHORT).show()
+                                            return@MainScreen
                                         }
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
                                             Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
-                                            return@ContactsScreen
+                                            return@MainScreen
                                         }
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
@@ -369,7 +374,59 @@ class MainActivity : ComponentActivity() {
                                                     val protocol = if (serverConfig!!.useWss) "wss" else "ws"
                                                     val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
                                                     val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
+                                                    
+                                                    // Save Outgoing Call Log
+                                                    val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                    repository.insertCallLog(
+                                                        com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                            email = contact.email,
+                                                            name = fullName,
+                                                            type = "OUTGOING",
+                                                            timestamp = System.currentTimeMillis(),
+                                                            roomId = rId
+                                                        )
+                                                    )
+                                                    
                                                     navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false)
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onDialerCallClick = { email ->
+                                        if (isServerIncompatible) {
+                                            Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                                            return@MainScreen
+                                        }
+                                        if (email == ownEmail) {
+                                            Toast.makeText(context, "You cannot call yourself", Toast.LENGTH_SHORT).show()
+                                            return@MainScreen
+                                        }
+                                        val callStatusManager = CallStatusManager(context)
+                                        if (callStatusManager.isUserOnAnotherCall()) {
+                                            Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
+                                            return@MainScreen
+                                        }
+                                        scope.launch {
+                                            if (accessToken != null && serverConfig != null) {
+                                                val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, email)
+                                                result.getOrNull()?.data?.let { data ->
+                                                    val rId = data.roomId
+                                                    val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                    val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                    
+                                                    // Save Outgoing Call Log
+                                                    val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                    repository.insertCallLog(
+                                                        com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                            email = email,
+                                                            name = null,
+                                                            type = "OUTGOING",
+                                                            timestamp = System.currentTimeMillis(),
+                                                            roomId = rId
+                                                        )
+                                                    )
+                                                    
+                                                    navigateToCallWithPermission(rId, fullUrl, email, email, isExternal = false)
                                                 }
                                             }
                                         }

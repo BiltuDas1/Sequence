@@ -74,7 +74,9 @@ fun ServerConfigDialog(
                     val major = VersionUtils.extractMajorVersion(versionData.version)
                     if (major == AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
                         isValidated = true
-                        testResult = "Server version ${versionData.version} is compatible"
+                        val msg = "Server version ${versionData.version} is compatible"
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        testResult = null
                     } else if (major != null) {
                         isError = true
                         val msg = if (major > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {

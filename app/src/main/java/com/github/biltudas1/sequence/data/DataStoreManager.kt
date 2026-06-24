@@ -56,6 +56,8 @@ class DataStoreManager private constructor(private val context: Context) {
         private val AUDIO_QUALITY_LEVEL = stringPreferencesKey("audio_quality_level")
         private val UPDATE_CHECK_INTERVAL = stringPreferencesKey("update_check_interval")
         private val APP_THEME = stringPreferencesKey("app_theme")
+        private val LAST_SELECTED_TAB = intPreferencesKey("last_selected_tab")
+        private val USER_EMAIL = stringPreferencesKey("user_email")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -129,6 +131,10 @@ class DataStoreManager private constructor(private val context: Context) {
 
     val updateIntervalFlow: Flow<String> = context.dataStore.data.map { it[UPDATE_CHECK_INTERVAL] ?: "Daily" }
 
+    val lastSelectedTabFlow: Flow<Int> = context.dataStore.data.map { it[LAST_SELECTED_TAB] ?: 0 }
+
+    val userEmailFlow: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL]?.decrypt() }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
@@ -191,6 +197,18 @@ class DataStoreManager private constructor(private val context: Context) {
     suspend fun saveUpdateInterval(interval: String) {
         context.dataStore.edit { preferences ->
             preferences[UPDATE_CHECK_INTERVAL] = interval
+        }
+    }
+
+    suspend fun saveLastSelectedTab(tab: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_SELECTED_TAB] = tab
+        }
+    }
+
+    suspend fun saveUserEmail(email: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_EMAIL] = email.encrypt()
         }
     }
 

@@ -11,12 +11,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,9 +32,6 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.data.remote.model.UserData
-import com.github.biltudas1.sequence.ui.theme.Crimson
-import com.github.biltudas1.sequence.ui.theme.DarkOrange
-import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -47,6 +42,8 @@ fun ContactsScreen(
     isServerIncompatible: Boolean,
     onContactClick: (UserData) -> Unit,
     onSettingsClick: () -> Unit,
+    showAddDialogExternally: Boolean = false,
+    onAddDialogDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -57,19 +54,12 @@ fun ContactsScreen(
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = null)
     val contacts by repository.contactsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-    val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
-
-    val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
-    val currentVersion = packageInfo.versionName ?: ""
-    val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
-    val updateColor = if (LocalIsDarkTheme.current) DarkOrange else Crimson
 
     val scope = rememberCoroutineScope()
 
     val serverIncompatibleText = stringResource(com.github.biltudas1.sequence.R.string.server_incompatible)
 
     var isLoading by remember { mutableStateOf(false) }
-    var showAddDialog by remember { mutableStateOf(false) }
     var contactToDelete by remember { mutableStateOf<UserData?>(null) }
     var emailToAdd by remember { mutableStateOf("") }
     
@@ -101,114 +91,71 @@ fun ContactsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Contacts") },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Box {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings"
-                            )
-                            if (hasUpdate) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(updateColor, CircleShape)
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 1.dp, y = 1.dp)
-                                )
-                            }
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
-        floatingActionButton = {
-            if (!isServerIncompatible) {
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (isServerIncompatible) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Contact")
+                    Text(
+                        text = serverIncompatibleText,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(12.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
             }
-        }
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                if (isServerIncompatible) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        modifier = Modifier.fillMaxWidth()
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (!serverConfig.isValid()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = serverIncompatibleText,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(12.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            text = "Server not configured",
+                            color = TextSecondary,
+                            fontSize = 16.sp
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onSettingsClick) {
+                            Text("Go to Settings")
+                        }
                     }
-                }
-
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    if (!serverConfig.isValid()) {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Server not configured",
-                                color = TextSecondary,
-                                fontSize = 16.sp
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = onSettingsClick) {
-                                Text("Go to Settings")
-                            }
+                } else if (isLoading && contacts.isEmpty()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (contacts.isEmpty()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "No contacts yet",
+                            color = TextSecondary
+                        )
+                        TextButton(onClick = { refreshContacts() }) {
+                            Text("Refresh")
                         }
-                    } else if (isLoading && contacts.isEmpty()) {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    } else if (contacts.isEmpty()) {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "No contacts yet",
-                                color = TextSecondary
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(contacts, key = { it.id }) { contact ->
+                            ContactItem(
+                                contact = contact,
+                                isExpanded = expandedContactId == contact.id,
+                                onExpandClick = {
+                                    expandedContactId = if (expandedContactId == contact.id) null else contact.id
+                                },
+                                onCallClick = { onContactClick(contact) },
+                                onDeleteClick = { contactToDelete = contact },
+                                onInfoClick = { /* TODO: Info screen */ }
                             )
-                            TextButton(onClick = { refreshContacts() }) {
-                                Text("Refresh")
-                            }
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(contacts, key = { it.id }) { contact ->
-                                ContactItem(
-                                    contact = contact,
-                                    isExpanded = expandedContactId == contact.id,
-                                    onExpandClick = {
-                                        expandedContactId = if (expandedContactId == contact.id) null else contact.id
-                                    },
-                                    onCallClick = { onContactClick(contact) },
-                                    onDeleteClick = { contactToDelete = contact },
-                                    onInfoClick = { /* TODO: Info screen */ }
-                                )
-                            }
                         }
                     }
                 }
@@ -216,9 +163,9 @@ fun ContactsScreen(
         }
     }
 
-    if (showAddDialog) {
+    if (showAddDialogExternally) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = onAddDialogDismiss,
             title = { Text("Add Contact") },
             text = {
                 OutlinedTextField(
@@ -235,7 +182,7 @@ fun ContactsScreen(
                             if (accessToken != null && emailToAdd.isNotBlank()) {
                                 val result = repository.addContact(serverConfig, accessToken!!, emailToAdd)
                                 if (result.isSuccess) {
-                                    showAddDialog = false
+                                    onAddDialogDismiss()
                                     emailToAdd = ""
                                 } else {
                                     Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to add", Toast.LENGTH_SHORT).show()
@@ -248,7 +195,7 @@ fun ContactsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(onClick = onAddDialogDismiss) {
                     Text("Cancel")
                 }
             }
