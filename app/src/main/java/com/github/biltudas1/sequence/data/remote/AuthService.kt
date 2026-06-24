@@ -16,6 +16,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
+class ForbiddenException(message: String) : Exception(message)
+
 class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataStoreManager) {
     val json = Json { ignoreUnknownKeys = true }
     internal val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -67,6 +69,10 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
 
     suspend fun updateFcmToken(serverConfig: ServerConfig, accessToken: String, fcmToken: String?): Result<ApiResponse<Unit>> {
         return performPost(serverConfig, AppConstants.Api.USERS_FCM_TOKEN, accessToken, FcmTokenRequest(fcmToken))
+    }
+
+    suspend fun updatePrivacyMode(serverConfig: ServerConfig, accessToken: String, enabled: Boolean): Result<ApiResponse<PrivacyModeData>> {
+        return performPost(serverConfig, AppConstants.Api.USERS_PRIVACY, accessToken, PrivacyModeRequest(enabled))
     }
 
     suspend fun sendVoiceCall(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<VoiceCallResponse>> {
@@ -176,6 +182,13 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                         Result.failure(Exception(errorResponse.message))
                     } catch (e: Exception) {
                         Result.failure(Exception("Request failed: ${resp.code}"))
+                    }
+                } else if (resp.code == 403) {
+                    try {
+                        val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)
+                        Result.failure(ForbiddenException(errorResponse.message))
+                    } catch (e: Exception) {
+                        Result.failure(ForbiddenException("Access forbidden"))
                     }
                 } else {
                     try {
