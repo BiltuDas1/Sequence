@@ -17,7 +17,7 @@ interface CallLogDao {
     @Query("DELETE FROM call_logs")
     suspend fun deleteAllCallLogs()
 
-    @Query("SELECT * FROM call_logs WHERE roomId = :roomId LIMIT 1")
+    @Query("SELECT * FROM call_logs WHERE roomId = :roomId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getCallLogByRoomId(roomId: String): CallLogEntity?
     
     @Update

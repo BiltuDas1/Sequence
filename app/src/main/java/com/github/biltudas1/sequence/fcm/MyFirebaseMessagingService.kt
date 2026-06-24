@@ -108,6 +108,20 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     
                     if (isOnAnotherCall) {
                         reportBusyStatus(roomId)
+                    } else {
+                        // Log as INCOMING only if not on another call
+                        serviceScope.launch {
+                            val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
+                            repository.insertCallLog(
+                                com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                    email = callerEmail,
+                                    name = callerName,
+                                    type = "INCOMING",
+                                    timestamp = System.currentTimeMillis(),
+                                    roomId = roomId
+                                )
+                            )
+                        }
                     }
 
                     showIncomingCallNotification(roomId, callerName, callerEmail)
@@ -150,18 +164,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String) {
-        serviceScope.launch {
-            val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
-            repository.insertCallLog(
-                com.github.biltudas1.sequence.data.local.CallLogEntity(
-                    email = callerEmail,
-                    name = callerName,
-                    type = "INCOMING",
-                    timestamp = System.currentTimeMillis(),
-                    roomId = roomId
-                )
-            )
-        }
         // Full screen intent for the heads-up display
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
@@ -226,12 +228,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         serviceScope.launch {
             val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
-            val log = com.github.biltudas1.sequence.data.local.AppDatabase.getDatabase(applicationContext)
-                .callLogDao().getCallLogByRoomId(roomId)
-            if (log != null && log.type == "INCOMING") {
-                repository.insertCallLog(log.copy(type = "MISSED"))
-            }
+            Log.i("FCM", "Marking room $roomId as missed")
+            repository.markAsMissed(roomId)
         }
+
+        // Send cancel broadcast to close IncomingCallActivity if it's open
+        val cancelIntent = Intent(this, IncomingCallActivity::class.java).apply {
+            putExtra("cancel", true)
+            putExtra("roomId", roomId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        startActivity(cancelIntent)
 
         // Don't try to start an activity from background when cancelled (it's blocked)
         // Just show a missed call notification.
