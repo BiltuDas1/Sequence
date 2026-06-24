@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DeepGreen
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
@@ -39,6 +40,24 @@ fun CallScreenContent(
     statusMessage: String? = null
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
+    
+    var secondsElapsed by remember { mutableIntStateOf(0) }
+    val isConnected = statusMessage == "Connected"
+
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
+            while (true) {
+                delay(1000)
+                secondsElapsed++
+            }
+        }
+    }
+
+    val durationDisplay = remember(secondsElapsed) {
+        val mins = secondsElapsed / 60
+        val secs = secondsElapsed % 60
+        String.format("%02d:%02d", mins, secs)
+    }
 
     Box(
         modifier = modifier.fillMaxSize()
@@ -96,6 +115,17 @@ fun CallScreenContent(
                 modifier = Modifier.padding(top = 4.dp),
                 textAlign = TextAlign.Center
             )
+
+            if (isConnected) {
+                Text(
+                    text = durationDisplay,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 16.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
