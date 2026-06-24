@@ -28,6 +28,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        buildConfigField("int", "COMPATIBLE_SERVER_MAJOR_VERSION", "1")
+
         ndk {
             // Only bundle common ABIs to reduce APK size
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))

@@ -22,6 +22,13 @@
     <string name="mic_permission_required">Microphone permission is required for calls</string>
     <string name="cannot_place_call_busy">Cannot place a call while on another call</string>
     <string name="room_call">Room Call</string>
+    <string name="client_outdated">Client is outdated (Server: %1$s). Please update the app.</string>
+    <string name="server_outdated">Server is outdated (Version: %1$s)</string>
+    <string name="server_incompatible">Server is incompatible with this client version.</string>
+    <string name="testing">Testing</string>
+    <string name="valid_server">Server connection valid</string>
+    <string name="invalid_endpoint">Invalid endpoint format</string>
+    <string name="connection_failed">Connection failed</string>
 
     <!-- Audio Quality Levels -->
     <string name="audio_quality_very_high">Very High</string>

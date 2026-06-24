@@ -1,9 +1,13 @@
 package com.github.biltudas1.sequence.util
 
+import com.github.biltudas1.sequence.BuildConfig
+
 object AppConstants {
     const val GITHUB_REPO_URL = "https://github.com/BiltuDas1/Sequence"
     const val LICENSE_URL = "https://github.com/BiltuDas1/Sequence/blob/main/LICENSE"
     const val GITHUB_RELEASES_API_URL = "https://api.github.com/repos/BiltuDas1/Sequence/releases"
+    const val DEFAULT_STUN_SERVER = "stun:stun.l.google.com:19302"
+    const val COMPATIBLE_SERVER_MAJOR_VERSION = BuildConfig.COMPATIBLE_SERVER_MAJOR_VERSION
 
     object Routes {
         const val LOGIN = "login"
@@ -19,6 +23,7 @@ object AppConstants {
     }
 
     object Api {
+        const val VERSION = "version"
         const val CONTACTS = "contacts"
         const val USERS_REGISTER = "users/register"
         const val USERS_LOGIN = "users/login"

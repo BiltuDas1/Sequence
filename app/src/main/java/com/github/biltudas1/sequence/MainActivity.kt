@@ -42,6 +42,7 @@ import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
+import com.github.biltudas1.sequence.util.VersionUtils
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -155,6 +156,39 @@ class MainActivity : ComponentActivity() {
 
                     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
                     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+
+                    var isServerIncompatible by remember { mutableStateOf(false) }
+                    val serverIncompatibleText = stringResource(R.string.server_incompatible)
+
+                    LaunchedEffect(serverConfig) {
+                        val config = serverConfig
+                        if (config != null && config.isValid()) {
+                            val result = authService.getServerVersion(config)
+                            val serverVersion = result.getOrNull()?.data?.version
+                            if (serverVersion != null) {
+                                val serverMajor = VersionUtils.extractMajorVersion(serverVersion)
+                                if (serverMajor != null) {
+                                    if (serverMajor > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
+                                        Toast.makeText(context, context.getString(R.string.client_outdated, serverVersion), Toast.LENGTH_LONG).show()
+                                        isServerIncompatible = true
+                                    } else if (serverMajor < AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
+                                        Toast.makeText(context, context.getString(R.string.server_outdated, serverVersion), Toast.LENGTH_LONG).show()
+                                        isServerIncompatible = true
+                                    } else {
+                                        isServerIncompatible = false
+                                    }
+                                } else {
+                                    Log.e("MainActivity", "Failed to parse server version: $serverVersion")
+                                    isServerIncompatible = true
+                                }
+                            } else {
+                                Log.e("MainActivity", "Failed to fetch server version")
+                                // If we can't even reach the version API, we might want to block 
+                                // or allow. Given "stop doing further server operation", blocking is safer.
+                                // isServerIncompatible = true
+                            }
+                        }
+                    }
 
                     // --- Permission Launchers ---
                     
@@ -295,12 +329,15 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.background(MaterialTheme.colorScheme.background)
                         ) {
                             composable(AppConstants.Routes.LOGIN) {
-                                LoginScreen(onLoginSuccess = {
-                                    navController.navigate(AppConstants.Routes.PERMISSIONS) {
-                                        popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
-                                        launchSingleTop = true
+                                LoginScreen(
+                                    isServerIncompatible = isServerIncompatible,
+                                    onLoginSuccess = {
+                                        navController.navigate(AppConstants.Routes.PERMISSIONS) {
+                                            popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
                                     }
-                                })
+                                )
                             }
                             composable(AppConstants.Routes.PERMISSIONS) {
                                 PermissionGatewayScreen(onAllPermissionsGranted = {
@@ -313,7 +350,12 @@ class MainActivity : ComponentActivity() {
                             composable(AppConstants.Routes.CONTACTS) {
                                 val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
                                 ContactsScreen(
+                                    isServerIncompatible = isServerIncompatible,
                                     onContactClick = { contact ->
+                                        if (isServerIncompatible) {
+                                            Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                                            return@ContactsScreen
+                                        }
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
                                             Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
@@ -339,6 +381,7 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(AppConstants.Routes.SETTINGS) {
                                 SettingsScreen(
+                                    isServerIncompatible = isServerIncompatible,
                                     onBackClick = {
                                         navController.popBackStack()
                                     },
@@ -387,6 +430,10 @@ class MainActivity : ComponentActivity() {
                                 val roomCallText = stringResource(R.string.room_call)
                                 RoomEntryScreen(
                                     onJoinRoom = { rId, url -> 
+                                        if (isServerIncompatible) {
+                                            Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                                            return@RoomEntryScreen
+                                        }
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
                                             Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()

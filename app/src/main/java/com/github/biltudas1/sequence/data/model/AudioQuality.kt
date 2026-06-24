@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import com.github.biltudas1.sequence.R
 
 enum class AudioQualityLevel(
-    @StringRes val labelResId: Int,
+    @get:StringRes val labelResId: Int,
     val bitrateKbps: Int,
     val stereo: Boolean,
     val opusModeAudio: Boolean, // true for 'audio', false for 'voip'

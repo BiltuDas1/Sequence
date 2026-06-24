@@ -21,20 +21,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
+import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    isServerIncompatible: Boolean,
     onBackClick: () -> Unit,
     onAboutClick: () -> Unit,
     onWebRTCConfigClick: () -> Unit,
@@ -45,11 +49,15 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager.getInstance(context) }
+    val okHttpClient = remember { OkHttpClient() }
+    val authService = remember { AuthService(okHttpClient, dataStoreManager) }
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
     val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = com.github.biltudas1.sequence.data.model.AppTheme.SYSTEM)
     val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
     val scope = rememberCoroutineScope()
+
+    val serverIncompatibleText = stringResource(com.github.biltudas1.sequence.R.string.server_incompatible)
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
@@ -88,83 +96,98 @@ fun SettingsScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            item {
-                SettingsCategoryItem(
-                    title = "Server Configuration",
-                    description = "Change backend server settings",
-                    icon = Icons.Default.Storage,
-                    onClick = { showConfigDialog = true }
-                )
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (isServerIncompatible) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = serverIncompatibleText,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(12.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
-            item {
-                SettingsCategoryItem(
-                    title = "WebRTC Configuration",
-                    description = "Configure STUN/TURN servers",
-                    icon = Icons.Default.SettingsInputComponent,
-                    onClick = onWebRTCConfigClick
-                )
-            }
-            item {
-                SettingsCategoryItem(
-                    title = "Audio Quality",
-                    description = "Choose your preferred bitrate",
-                    icon = Icons.Default.GraphicEq,
-                    onClick = onAudioQualityClick
-                )
-            }
-            item {
-                SettingsCategoryItem(
-                    title = "Theme",
-                    description = "Theme: ${appTheme.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    icon = Icons.Default.DarkMode,
-                    onClick = { showThemeDialog = true }
-                )
-            }
-            item {
-                SettingsCategoryItem(
-                    title = "App Updates",
-                    description = "Check for updates: $updateInterval",
-                    icon = Icons.Default.SystemUpdate,
-                    onClick = { showUpdateIntervalDialog = true }
-                )
-            }
-            item {
-                SettingsCategoryItem(
-                    title = "Data Usage",
-                    description = "View network statistics",
-                    icon = Icons.Default.QueryStats,
-                    onClick = onDataUsageClick
-                )
-            }
-            item {
-                SettingsCategoryItem(
-                    title = "About",
-                    description = "About Sequence",
-                    icon = Icons.Default.Info,
-                    onClick = onAboutClick,
-                    trailingContent = if (hasUpdate) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(updateColor, CircleShape)
-                            )
-                        }
-                    } else null
-                )
-            }
-            item {
-                SettingsCategoryItem(
-                    title = "Logout",
-                    description = "Clear session and local data",
-                    icon = Icons.AutoMirrored.Filled.Logout,
-                    onClick = { showLogoutDialog = true }
-                )
+            
+            LazyColumn(
+                modifier = Modifier.weight(1f)
+            ) {
+                item {
+                    SettingsCategoryItem(
+                        title = "Server Configuration",
+                        description = "Change backend server settings",
+                        icon = Icons.Default.Storage,
+                        onClick = { showConfigDialog = true }
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "WebRTC Configuration",
+                        description = "Configure STUN/TURN servers",
+                        icon = Icons.Default.SettingsInputComponent,
+                        onClick = onWebRTCConfigClick
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "Audio Quality",
+                        description = "Choose your preferred bitrate",
+                        icon = Icons.Default.GraphicEq,
+                        onClick = onAudioQualityClick
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "Theme",
+                        description = "Theme: ${appTheme.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                        icon = Icons.Default.DarkMode,
+                        onClick = { showThemeDialog = true }
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "App Updates",
+                        description = "Check for updates: $updateInterval",
+                        icon = Icons.Default.SystemUpdate,
+                        onClick = { showUpdateIntervalDialog = true }
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "Data Usage",
+                        description = "View network statistics",
+                        icon = Icons.Default.QueryStats,
+                        onClick = onDataUsageClick
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "About",
+                        description = "About Sequence",
+                        icon = Icons.Default.Info,
+                        onClick = onAboutClick,
+                        trailingContent = if (hasUpdate) {
+                            {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(updateColor, CircleShape)
+                                )
+                            }
+                        } else null
+                    )
+                }
+                item {
+                    SettingsCategoryItem(
+                        title = "Logout",
+                        description = "Clear session and local data",
+                        icon = Icons.AutoMirrored.Filled.Logout,
+                        onClick = { showLogoutDialog = true }
+                    )
+                }
             }
         }
     }
@@ -195,6 +218,7 @@ fun SettingsScreen(
     if (showConfigDialog) {
         ServerConfigDialog(
             config = serverConfig,
+            authService = authService,
             onDismiss = { showConfigDialog = false },
             onSave = {
                 scope.launch {
