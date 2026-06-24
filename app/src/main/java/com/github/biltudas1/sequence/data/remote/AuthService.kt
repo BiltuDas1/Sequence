@@ -21,6 +21,26 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
     internal val mediaType = "application/json; charset=utf-8".toMediaType()
     internal val refreshMutex = Mutex()
 
+    suspend fun getServerVersion(serverConfig: ServerConfig): Result<ApiResponse<ServerVersionData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val baseUrl = serverConfig.cleanEndpoint
+                val protocol = if (serverConfig.useHttps) "https" else "http"
+                val url = "$protocol://$baseUrl/${AppConstants.Api.VERSION}"
+
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .build()
+
+                executeRequest<ApiResponse<ServerVersionData>>(request, serverConfig)
+            } catch (e: Exception) {
+                Log.e("AuthService", "Version check error", e)
+                Result.failure(e)
+            }
+        }
+    }
+
     suspend fun getContacts(serverConfig: ServerConfig, accessToken: String): Result<ApiResponse<List<UserData>>> {
         return performGet(serverConfig, AppConstants.Api.CONTACTS, accessToken)
     }

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,6 +36,7 @@ import okhttp3.OkHttpClient
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    isServerIncompatible: Boolean,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -47,6 +49,7 @@ fun LoginScreen(
 
     var isLoading by remember { mutableStateOf(false) }
     var showConfigDialog by remember { mutableStateOf(false) }
+    val serverIncompatibleText = stringResource(R.string.server_incompatible)
 
     Scaffold(
         topBar = {
@@ -100,9 +103,29 @@ fun LoginScreen(
                 modifier = Modifier.padding(top = 8.dp, bottom = 48.dp)
             )
 
+            if (isServerIncompatible) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth()
+                ) {
+                    Text(
+                        text = serverIncompatibleText,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(12.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+
             // Google Sign-In Button
             Button(
                 onClick = {
+                    if (isServerIncompatible) {
+                        Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
                     if (serverConfig.isValid()) {
                         isLoading = true
                         scope.launch {
@@ -221,6 +244,7 @@ fun LoginScreen(
     if (showConfigDialog) {
         ServerConfigDialog(
             config = serverConfig,
+            authService = authService,
             onDismiss = { showConfigDialog = false },
             onSave = {
                 scope.launch {

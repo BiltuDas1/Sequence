@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +43,7 @@ import okhttp3.OkHttpClient
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactsScreen(
+    isServerIncompatible: Boolean,
     onContactClick: (UserData) -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -63,6 +65,8 @@ fun ContactsScreen(
 
     val scope = rememberCoroutineScope()
 
+    val serverIncompatibleText = stringResource(com.github.biltudas1.sequence.R.string.server_incompatible)
+
     var isLoading by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var contactToDelete by remember { mutableStateOf<UserData?>(null) }
@@ -72,6 +76,10 @@ fun ContactsScreen(
 
     val refreshContacts = {
         scope.launch {
+            if (isServerIncompatible) {
+                Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
             if (accessToken != null && serverConfig.isValid()) {
                 isLoading = true
                 val result = repository.refreshContacts(serverConfig, accessToken!!)
@@ -123,63 +131,84 @@ fun ContactsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Contact")
+            if (!isServerIncompatible) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Contact")
+                }
             }
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (!serverConfig.isValid()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Server not configured",
-                        color = TextSecondary,
-                        fontSize = 16.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onSettingsClick) {
-                        Text("Go to Settings")
-                    }
-                }
-            } else if (isLoading && contacts.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (contacts.isEmpty()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "No contacts yet",
-                        color = TextSecondary
-                    )
-                    TextButton(onClick = { refreshContacts() }) {
-                        Text("Refresh")
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(contacts, key = { it.id }) { contact ->
-                        ContactItem(
-                            contact = contact,
-                            isExpanded = expandedContactId == contact.id,
-                            onExpandClick = {
-                                expandedContactId = if (expandedContactId == contact.id) null else contact.id
-                            },
-                            onCallClick = { onContactClick(contact) },
-                            onDeleteClick = { contactToDelete = contact },
-                            onInfoClick = { /* TODO: Info screen */ }
+            Column {
+                if (isServerIncompatible) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = serverIncompatibleText,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(12.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    if (!serverConfig.isValid()) {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Server not configured",
+                                color = TextSecondary,
+                                fontSize = 16.sp
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = onSettingsClick) {
+                                Text("Go to Settings")
+                            }
+                        }
+                    } else if (isLoading && contacts.isEmpty()) {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    } else if (contacts.isEmpty()) {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No contacts yet",
+                                color = TextSecondary
+                            )
+                            TextButton(onClick = { refreshContacts() }) {
+                                Text("Refresh")
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(contacts, key = { it.id }) { contact ->
+                                ContactItem(
+                                    contact = contact,
+                                    isExpanded = expandedContactId == contact.id,
+                                    onExpandClick = {
+                                        expandedContactId = if (expandedContactId == contact.id) null else contact.id
+                                    },
+                                    onCallClick = { onContactClick(contact) },
+                                    onDeleteClick = { contactToDelete = contact },
+                                    onInfoClick = { /* TODO: Info screen */ }
+                                )
+                            }
+                        }
                     }
                 }
             }

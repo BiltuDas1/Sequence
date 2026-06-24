@@ -92,3 +92,8 @@ data class CalleeData(
     val first_name: String? = null,
     val last_name: String? = null
 )
+
+@Serializable
+data class ServerVersionData(
+    val version: String
+)
