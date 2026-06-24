@@ -6,7 +6,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -42,9 +41,6 @@ fun MainScreen(
     val lastSelectedTab by dataStoreManager.lastSelectedTabFlow.collectAsStateWithLifecycle(initialValue = 0)
     val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
     
-    val callLogRepository = remember { CallLogRepository(context) }
-    val callLogs by callLogRepository.allCallLogs.collectAsStateWithLifecycle(initialValue = emptyList())
-
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
     val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
@@ -65,11 +61,6 @@ fun MainScreen(
                     )
                 },
                 actions = {
-                    if (lastSelectedTab == 1 && callLogs.isNotEmpty()) {
-                        IconButton(onClick = { scope.launch { callLogRepository.clearAll() } }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Clear All")
-                        }
-                    }
                     IconButton(onClick = onSettingsClick) {
                         Box {
                             Icon(

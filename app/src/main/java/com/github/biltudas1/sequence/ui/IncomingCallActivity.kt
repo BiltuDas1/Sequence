@@ -63,6 +63,11 @@ class IncomingCallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        if (intent.getBooleanExtra("cancel", false)) {
+            finishAndRemoveTask()
+            return
+        }
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -109,7 +114,9 @@ class IncomingCallActivity : ComponentActivity() {
                         nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
                         val dataStoreManager = DataStoreManager.getInstance(applicationContext)
                         val authService = AuthService(OkHttpClient(), dataStoreManager)
+                        val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
                         CoroutineScope(Dispatchers.IO).launch {
+                            repository.markAsMissed(roomId)
                             val config = dataStoreManager.serverConfigFlow.firstOrNull()
                             val token = dataStoreManager.accessTokenFlow.firstOrNull()
                             if (config != null && token != null) {

@@ -28,4 +28,11 @@ class CallLogRepository(context: Context) {
             callLogDao.updateCallLog(log.copy(duration = duration))
         }
     }
+
+    suspend fun markAsMissed(roomId: String) {
+        val log = callLogDao.getCallLogByRoomId(roomId)
+        if (log != null && log.type == "INCOMING") {
+            callLogDao.updateCallLog(log.copy(type = "MISSED"))
+        }
+    }
 }

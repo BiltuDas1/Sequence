@@ -49,8 +49,10 @@ class CallActionReceiver : BroadcastReceiver() {
             
             val dataStoreManager = DataStoreManager.getInstance(context)
             val authService = AuthService(OkHttpClient(), dataStoreManager)
+            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
             
             CoroutineScope(Dispatchers.IO).launch {
+                repository.markAsMissed(roomId)
                 val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
                 val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
                 if (serverConfig != null && accessToken != null) {
