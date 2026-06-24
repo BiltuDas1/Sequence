@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -141,9 +142,9 @@ fun RecentCallItem(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = when (log.type) {
-                                "OUTGOING" -> Icons.Default.CallMade
-                                "INCOMING" -> Icons.Default.CallReceived
-                                else -> Icons.Default.CallMissed
+                                "OUTGOING" -> Icons.AutoMirrored.Filled.CallMade
+                                "INCOMING" -> Icons.AutoMirrored.Filled.CallReceived
+                                else -> Icons.AutoMirrored.Filled.CallMissed
                             },
                             contentDescription = null,
                             modifier = Modifier.size(24.dp),
@@ -192,9 +193,9 @@ fun RecentCallItem(
                     ) {
                         Icon(
                             imageVector = when (log.type) {
-                                "OUTGOING" -> Icons.Default.CallMade
-                                "INCOMING" -> Icons.Default.CallReceived
-                                else -> Icons.Default.CallMissed
+                                "OUTGOING" -> Icons.AutoMirrored.Filled.CallMade
+                                "INCOMING" -> Icons.AutoMirrored.Filled.CallReceived
+                                else -> Icons.AutoMirrored.Filled.CallMissed
                             },
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
