@@ -86,7 +86,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             when (action) {
                 "cancel" -> {
                     Log.i("FCM", "Call cancelled by sender: $roomId")
-                    handleCallCancelled(callerName)
+                    handleCallCancelled(roomId, callerName)
                 }
                 null, "start" -> {
                     val callStatusManager = CallStatusManager(this)
@@ -150,6 +150,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String) {
+        serviceScope.launch {
+            val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
+            repository.insertCallLog(
+                com.github.biltudas1.sequence.data.local.CallLogEntity(
+                    email = callerEmail,
+                    name = callerName,
+                    type = "INCOMING",
+                    timestamp = System.currentTimeMillis(),
+                    roomId = roomId
+                )
+            )
+        }
         // Full screen intent for the heads-up display
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
@@ -208,9 +220,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notificationManager.notify(CALL_NOTIFICATION_ID, notification)
     }
 
-    private fun handleCallCancelled(callerName: String) {
+    private fun handleCallCancelled(roomId: String, callerName: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(CALL_NOTIFICATION_ID)
+
+        serviceScope.launch {
+            val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
+            val log = com.github.biltudas1.sequence.data.local.AppDatabase.getDatabase(applicationContext)
+                .callLogDao().getCallLogByRoomId(roomId)
+            if (log != null && log.type == "INCOMING") {
+                repository.insertCallLog(log.copy(type = "MISSED"))
+            }
+        }
 
         // Don't try to start an activity from background when cancelled (it's blocked)
         // Just show a missed call notification.
