@@ -43,7 +43,7 @@ fun ServerConfigDialog(
 
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
-    var isValidated by remember { mutableStateOf(false) }
+    var isValidated by remember { mutableStateOf(config.isValid()) }
     var isError by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
