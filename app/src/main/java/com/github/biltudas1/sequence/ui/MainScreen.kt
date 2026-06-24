@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.CallLogRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
@@ -128,23 +129,40 @@ fun MainScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            when (lastSelectedTab) {
-                0 -> DialerScreen(
-                    onCallClick = onDialerCallClick
-                )
-                1 -> RecentsScreen(
-                    onCallClick = { email, name ->
-                        onContactClick(UserData(id = "", email = email, first_name = name, last_name = "", created_at = ""))
-                    }
-                )
-                2 -> ContactsScreen(
-                    isServerIncompatible = isServerIncompatible,
-                    onContactClick = onContactClick,
-                    onSettingsClick = onSettingsClick,
-                    showAddDialogExternally = showAddContactDialog,
-                    onAddDialogDismiss = { showAddContactDialog = false }
-                )
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (isServerIncompatible) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val serverIncompatibleText = androidx.compose.ui.res.stringResource(com.github.biltudas1.sequence.R.string.server_incompatible)
+                    Text(
+                        text = serverIncompatibleText,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(12.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                when (lastSelectedTab) {
+                    0 -> DialerScreen(
+                        onCallClick = onDialerCallClick
+                    )
+                    1 -> RecentsScreen(
+                        onCallClick = { email, name ->
+                            onContactClick(UserData(id = "", email = email, first_name = name, last_name = "", created_at = ""))
+                        }
+                    )
+                    2 -> ContactsScreen(
+                        isServerIncompatible = isServerIncompatible,
+                        onContactClick = onContactClick,
+                        onSettingsClick = onSettingsClick,
+                        showAddDialogExternally = showAddContactDialog,
+                        onAddDialogDismiss = { showAddContactDialog = false }
+                    )
+                }
             }
         }
     }
