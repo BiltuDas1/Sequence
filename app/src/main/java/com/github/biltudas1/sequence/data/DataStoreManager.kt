@@ -58,6 +58,7 @@ class DataStoreManager private constructor(private val context: Context) {
         private val APP_THEME = stringPreferencesKey("app_theme")
         private val LAST_SELECTED_TAB = intPreferencesKey("last_selected_tab")
         private val USER_EMAIL = stringPreferencesKey("user_email")
+        private val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -135,6 +136,8 @@ class DataStoreManager private constructor(private val context: Context) {
 
     val userEmailFlow: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL]?.decrypt() }
 
+    val privacyModeFlow: Flow<Boolean> = context.dataStore.data.map { it[PRIVACY_MODE] ?: false }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
@@ -209,6 +212,12 @@ class DataStoreManager private constructor(private val context: Context) {
     suspend fun saveUserEmail(email: String) {
         context.dataStore.edit { preferences ->
             preferences[USER_EMAIL] = email.encrypt()
+        }
+    }
+
+    suspend fun savePrivacyMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PRIVACY_MODE] = enabled
         }
     }
 

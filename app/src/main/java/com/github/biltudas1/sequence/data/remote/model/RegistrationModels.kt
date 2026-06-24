@@ -20,6 +20,7 @@ data class UserData(
     val email: String,
     val first_name: String? = null,
     val last_name: String? = null,
+    val privacy_mode: Boolean = false,
     val created_at: String
 )
 
@@ -34,6 +35,7 @@ data class LoginData(
     val email: String,
     val firstname: String? = null,
     val lastname: String? = null,
+    val privacy_mode: Boolean = false,
     val jwt: JwtTokens
 )
 
@@ -61,6 +63,16 @@ data class RemoveContactRequest(
 @Serializable
 data class FcmTokenRequest(
     val fcmToken: String?
+)
+
+@Serializable
+data class PrivacyModeRequest(
+    val privacyMode: Boolean
+)
+
+@Serializable
+data class PrivacyModeData(
+    val privacy_mode: Boolean
 )
 
 @Serializable

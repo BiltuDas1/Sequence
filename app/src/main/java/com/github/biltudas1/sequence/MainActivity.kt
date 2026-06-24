@@ -350,6 +350,7 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(AppConstants.Routes.CONTACTS) {
                                 val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
+                                val privacyModeRestrictionText = stringResource(R.string.privacy_mode_restriction)
                                 MainScreen(
                                     isServerIncompatible = isServerIncompatible,
                                     onContactClick = { contact ->
@@ -369,25 +370,34 @@ class MainActivity : ComponentActivity() {
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
                                                 val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, contact.email)
-                                                result.getOrNull()?.data?.let { data ->
-                                                    val rId = data.roomId
-                                                    val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                                    val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                                    val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
-                                                    
-                                                    // Save Outgoing Call Log
-                                                    val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
-                                                    repository.insertCallLog(
-                                                        com.github.biltudas1.sequence.data.local.CallLogEntity(
-                                                            email = contact.email,
-                                                            name = fullName,
-                                                            type = "OUTGOING",
-                                                            timestamp = System.currentTimeMillis(),
-                                                            roomId = rId
+                                                if (result.isSuccess) {
+                                                    result.getOrNull()?.data?.let { data ->
+                                                        val rId = data.roomId
+                                                        val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                        val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                        val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
+                                                        
+                                                        // Save Outgoing Call Log
+                                                        val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                        repository.insertCallLog(
+                                                            com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                                email = contact.email,
+                                                                name = fullName,
+                                                                type = "OUTGOING",
+                                                                timestamp = System.currentTimeMillis(),
+                                                                roomId = rId
+                                                            )
                                                         )
-                                                    )
-                                                    
-                                                    navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false)
+                                                        
+                                                        navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false)
+                                                    }
+                                                } else {
+                                                    val exception = result.exceptionOrNull()
+                                                    if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
+                                                        Toast.makeText(context, privacyModeRestrictionText, Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        Toast.makeText(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT).show()
+                                                    }
                                                 }
                                             }
                                         }
@@ -409,24 +419,33 @@ class MainActivity : ComponentActivity() {
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
                                                 val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, email)
-                                                result.getOrNull()?.data?.let { data ->
-                                                    val rId = data.roomId
-                                                    val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                                    val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                                    
-                                                    // Save Outgoing Call Log
-                                                    val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
-                                                    repository.insertCallLog(
-                                                        com.github.biltudas1.sequence.data.local.CallLogEntity(
-                                                            email = email,
-                                                            name = null,
-                                                            type = "OUTGOING",
-                                                            timestamp = System.currentTimeMillis(),
-                                                            roomId = rId
+                                                if (result.isSuccess) {
+                                                    result.getOrNull()?.data?.let { data ->
+                                                        val rId = data.roomId
+                                                        val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                        val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                        
+                                                        // Save Outgoing Call Log
+                                                        val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                        repository.insertCallLog(
+                                                            com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                                email = email,
+                                                                name = null,
+                                                                type = "OUTGOING",
+                                                                timestamp = System.currentTimeMillis(),
+                                                                roomId = rId
+                                                            )
                                                         )
-                                                    )
-                                                    
-                                                    navigateToCallWithPermission(rId, fullUrl, email, email, isExternal = false)
+                                                        
+                                                        navigateToCallWithPermission(rId, fullUrl, email, email, isExternal = false)
+                                                    }
+                                                } else {
+                                                    val exception = result.exceptionOrNull()
+                                                    if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
+                                                        Toast.makeText(context, privacyModeRestrictionText, Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        Toast.makeText(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT).show()
+                                                    }
                                                 }
                                             }
                                         }
@@ -445,14 +464,11 @@ class MainActivity : ComponentActivity() {
                                     onAboutClick = {
                                         navController.navigate(AppConstants.Routes.ABOUT)
                                     },
-                                    onWebRTCConfigClick = {
-                                        navController.navigate(AppConstants.Routes.WEBRTC_CONFIG)
+                                    onCallSettingsClick = {
+                                        navController.navigate(AppConstants.Routes.CALL_SETTINGS)
                                     },
                                     onDataUsageClick = {
                                         navController.navigate(AppConstants.Routes.DATA_USAGE)
-                                    },
-                                    onAudioQualityClick = {
-                                        navController.navigate(AppConstants.Routes.AUDIO_QUALITY)
                                     },
                                     onLogoutClick = {
                                         scope.launch {
@@ -460,6 +476,13 @@ class MainActivity : ComponentActivity() {
                                             contactRepository.clearLocalData()
                                         }
                                     }
+                                )
+                            }
+                            composable(AppConstants.Routes.CALL_SETTINGS) {
+                                CallSettingsScreen(
+                                    onBackClick = { navController.popBackStack() },
+                                    onWebRTCConfigClick = { navController.navigate(AppConstants.Routes.WEBRTC_CONFIG) },
+                                    onAudioQualityClick = { navController.navigate(AppConstants.Routes.AUDIO_QUALITY) }
                                 )
                             }
                             composable(AppConstants.Routes.AUDIO_QUALITY) {

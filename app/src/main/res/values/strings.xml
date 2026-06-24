@@ -29,6 +29,7 @@
     <string name="valid_server">Server connection valid</string>
     <string name="invalid_endpoint">Invalid endpoint format</string>
     <string name="connection_failed">Connection failed</string>
+    <string name="privacy_mode_restriction">Callee has privacy mode enabled and you are not in their contacts.</string>
 
     <!-- Audio Quality Levels -->
     <string name="audio_quality_very_high">Very High</string>

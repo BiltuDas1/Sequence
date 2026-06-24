@@ -8,11 +8,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.QueryStats
-import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
@@ -30,6 +29,7 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
+import com.github.biltudas1.sequence.ui.components.SettingsCategoryItem
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
@@ -42,9 +42,8 @@ fun SettingsScreen(
     isServerIncompatible: Boolean,
     onBackClick: () -> Unit,
     onAboutClick: () -> Unit,
-    onWebRTCConfigClick: () -> Unit,
+    onCallSettingsClick: () -> Unit,
     onDataUsageClick: () -> Unit,
-    onAudioQualityClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -126,18 +125,10 @@ fun SettingsScreen(
                 }
                 item {
                     SettingsCategoryItem(
-                        title = "WebRTC Configuration",
-                        description = "Configure STUN/TURN servers",
-                        icon = Icons.Default.SettingsInputComponent,
-                        onClick = onWebRTCConfigClick
-                    )
-                }
-                item {
-                    SettingsCategoryItem(
-                        title = "Audio Quality",
-                        description = "Choose your preferred bitrate",
-                        icon = Icons.Default.GraphicEq,
-                        onClick = onAudioQualityClick
+                        title = "Call Settings",
+                        description = "Configure Calls and Privacy Mode",
+                        icon = Icons.Default.Call,
+                        onClick = onCallSettingsClick
                     )
                 }
                 item {
@@ -315,50 +306,4 @@ fun SettingsScreen(
             }
         )
     }
-}
-
-@Composable
-fun SettingsCategoryItem(
-    title: String,
-    description: String? = null,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    trailingContent: (@Composable () -> Unit)? = null
-) {
-    ListItem(
-        headlineContent = { 
-            Text(
-                text = title, 
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
-            ) 
-        },
-        supportingContent = description?.let {
-            {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp
-                )
-            }
-        },
-        leadingContent = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(28.dp)
-            )
-        },
-        trailingContent = trailingContent,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        colors = ListItemDefaults.colors(
-            containerColor = Color.Transparent,
-            headlineColor = MaterialTheme.colorScheme.onSurface,
-            leadingIconColor = MaterialTheme.colorScheme.onSurface,
-            trailingIconColor = MaterialTheme.colorScheme.onSurface
-        )
-    )
 }
