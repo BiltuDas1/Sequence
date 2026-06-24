@@ -4,6 +4,7 @@ import android.util.Log
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.model.*
+import com.github.biltudas1.sequence.util.AppConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -21,43 +22,43 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
     internal val refreshMutex = Mutex()
 
     suspend fun getContacts(serverConfig: ServerConfig, accessToken: String): Result<ApiResponse<List<UserData>>> {
-        return performGet(serverConfig, "contacts", accessToken)
+        return performGet(serverConfig, AppConstants.Api.CONTACTS, accessToken)
     }
 
     suspend fun registerUser(serverConfig: ServerConfig, idToken: String): Result<ApiResponse<UserData>> {
-        return performPost(serverConfig, "users/register", null, RegistrationRequest(idToken))
+        return performPost(serverConfig, AppConstants.Api.USERS_REGISTER, null, RegistrationRequest(idToken))
     }
 
     suspend fun loginUser(serverConfig: ServerConfig, idToken: String): Result<ApiResponse<LoginData>> {
-        return performPost(serverConfig, "users/login", null, LoginRequest(idToken))
+        return performPost(serverConfig, AppConstants.Api.USERS_LOGIN, null, LoginRequest(idToken))
     }
 
     suspend fun addContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<UserData>> {
-        return performPost(serverConfig, "contacts/add", accessToken, AddContactRequest(email))
+        return performPost(serverConfig, AppConstants.Api.CONTACTS_ADD, accessToken, AddContactRequest(email))
     }
 
     suspend fun removeContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<Unit>> {
-        return performPost(serverConfig, "contacts/remove", accessToken, RemoveContactRequest(email))
+        return performPost(serverConfig, AppConstants.Api.CONTACTS_REMOVE, accessToken, RemoveContactRequest(email))
     }
 
     suspend fun refreshToken(serverConfig: ServerConfig, refreshToken: String): Result<ApiResponse<JwtTokens>> {
-        return performPost(serverConfig, "token/refresh", null, RefreshRequest(refreshToken))
+        return performPost(serverConfig, AppConstants.Api.TOKEN_REFRESH, null, RefreshRequest(refreshToken))
     }
 
     suspend fun updateFcmToken(serverConfig: ServerConfig, accessToken: String, fcmToken: String?): Result<ApiResponse<Unit>> {
-        return performPost(serverConfig, "users/fcm-token", accessToken, FcmTokenRequest(fcmToken))
+        return performPost(serverConfig, AppConstants.Api.USERS_FCM_TOKEN, accessToken, FcmTokenRequest(fcmToken))
     }
 
     suspend fun sendVoiceCall(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<VoiceCallResponse>> {
-        return performPost(serverConfig, "voicecall/send", accessToken, VoiceCallRequest(email))
+        return performPost(serverConfig, AppConstants.Api.VOICECALL_SEND, accessToken, VoiceCallRequest(email))
     }
 
     suspend fun endVoiceCall(serverConfig: ServerConfig, accessToken: String, roomId: String): Result<ApiResponse<Unit>> {
-        return performPost(serverConfig, "voicecall/end", accessToken, EndCallRequest(roomId))
+        return performPost(serverConfig, AppConstants.Api.VOICECALL_END, accessToken, EndCallRequest(roomId))
     }
 
     suspend fun sendBusySignal(serverConfig: ServerConfig, accessToken: String, roomId: String): Result<ApiResponse<Unit>> {
-        return performPost(serverConfig, "voicecall/busy", accessToken, EndCallRequest(roomId))
+        return performPost(serverConfig, AppConstants.Api.VOICECALL_BUSY, accessToken, EndCallRequest(roomId))
     }
 
     private suspend inline fun <reified RES : Any> performGet(

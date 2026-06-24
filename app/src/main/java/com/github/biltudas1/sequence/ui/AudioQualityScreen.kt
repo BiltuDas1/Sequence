@@ -11,10 +11,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import kotlinx.coroutines.launch
@@ -36,12 +38,12 @@ fun AudioQualityScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Audio Quality") },
+                    title = { Text(stringResource(R.string.audio_quality)) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.back)
                             )
                         }
                     },
@@ -108,13 +110,18 @@ fun AudioQualityItem(
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = level.label,
+                    text = stringResource(level.labelResId),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = level.description,
+                    text = stringResource(
+                        R.string.audio_quality_description_format,
+                        level.bitrateKbps,
+                        stringResource(if (level.stereo) R.string.stereo else R.string.mono),
+                        stringResource(if (level.useProcessing) R.string.on else R.string.off)
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )

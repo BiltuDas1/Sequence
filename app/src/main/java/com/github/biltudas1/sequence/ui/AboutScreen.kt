@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +28,7 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.VersionService
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
+import com.github.biltudas1.sequence.util.AppConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -74,12 +76,12 @@ fun AboutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About") },
+                title = { Text(stringResource(R.string.about)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -118,7 +120,7 @@ fun AboutScreen(
                                 contentColor = MaterialTheme.colorScheme.inverseOnSurface
                             ) {
                                 Text(
-                                    text = "Source Code",
+                                    text = stringResource(R.string.source_code),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -127,12 +129,12 @@ fun AboutScreen(
                         state = sourceTooltipState
                     ) {
                         IconButton(
-                            onClick = { uriHandler.openUri("https://github.com/BiltuDas1/Sequence") },
+                            onClick = { uriHandler.openUri(AppConstants.GITHUB_REPO_URL) },
                             modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Code,
-                                contentDescription = "Source Code",
+                                contentDescription = stringResource(R.string.source_code),
                                 tint = MaterialTheme.colorScheme.onBackground,
                                 modifier = Modifier.size(28.dp)
                             )
@@ -149,7 +151,7 @@ fun AboutScreen(
                                 contentColor = MaterialTheme.colorScheme.inverseOnSurface
                             ) {
                                 Text(
-                                    text = "License",
+                                    text = stringResource(R.string.license),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -158,13 +160,13 @@ fun AboutScreen(
                         state = licenseTooltipState
                     ) {
                         IconButton(
-                            onClick = { uriHandler.openUri("https://github.com/BiltuDas1/Sequence/blob/main/LICENSE") },
+                            onClick = { uriHandler.openUri(AppConstants.LICENSE_URL) },
                             modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Description,
                                 tint = MaterialTheme.colorScheme.onBackground,
-                                contentDescription = "License",
+                                contentDescription = stringResource(R.string.license),
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -185,12 +187,12 @@ fun AboutScreen(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_logo),
-                    contentDescription = "App Logo",
+                    contentDescription = stringResource(R.string.app_logo),
                     modifier = Modifier.size(120.dp)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Sequence",
+                    text = stringResource(R.string.app_name),
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -204,7 +206,7 @@ fun AboutScreen(
                 if (latestVersion != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (latestVersion == "v$versionName") "You are on the latest version" else "Latest version: $latestVersion",
+                        text = if (latestVersion == "v$versionName") stringResource(R.string.you_are_on_latest_version) else stringResource(R.string.latest_version, latestVersion),
                         fontSize = 14.sp,
 //                        color = if (latestVersion == "v$versionName") Color.Green.copy(alpha = 0.7f) else updateColor.copy(alpha = 0.7f)
                         color = when {
@@ -237,7 +239,7 @@ fun AboutScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Download Update",
+                            text = stringResource(R.string.download_update),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )

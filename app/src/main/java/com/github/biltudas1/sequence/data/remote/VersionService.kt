@@ -3,6 +3,7 @@ package com.github.biltudas1.sequence.data.remote
 import android.util.Log
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.model.GitHubRelease
+import com.github.biltudas1.sequence.util.AppConstants
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -10,7 +11,6 @@ import okhttp3.Request
 
 class VersionService(private val client: OkHttpClient, private val dataStoreManager: DataStoreManager) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val releasesUrl = "https://api.github.com/repos/BiltuDas1/Sequence/releases"
 
     enum class ReleaseType { ALPHA, BETA, STABLE }
 
@@ -36,7 +36,7 @@ class VersionService(private val client: OkHttpClient, private val dataStoreMana
 
         return try {
             Log.d("VersionService", "Fetching latest version from GitHub...")
-            val request = Request.Builder().url(releasesUrl).build()
+            val request = Request.Builder().url(AppConstants.GITHUB_RELEASES_API_URL).build()
             val response = client.newCall(request).execute()
 
             if (response.isSuccessful) {
