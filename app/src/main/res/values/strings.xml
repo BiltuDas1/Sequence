@@ -1,4 +1,36 @@
 <resources>
     <string name="app_name">Sequence</string>
     <string name="google_web_client_id" translatable="false">219557175265-v5q0n5a92rsjbtikcmmceda6qpge9dps.apps.googleusercontent.com</string>
+
+    <!-- UI Strings -->
+    <string name="about">About</string>
+    <string name="back">Back</string>
+    <string name="source_code">Source Code</string>
+    <string name="license">License</string>
+    <string name="app_logo">App Logo</string>
+    <string name="you_are_on_latest_version">You are on the latest version</string>
+    <string name="latest_version">Latest version: %1$s</string>
+    <string name="download_update">Download Update</string>
+
+    <string name="unrestricted_battery_required">Unrestricted Battery Required</string>
+    <string name="battery_optimization_description">To receive calls instantly while your screen is off, you must set the app\'s battery usage to \'Unrestricted\'.</string>
+    <string name="disable_optimization">Disable Optimization</string>
+    <string name="check_again">I\'ve enabled it, check again</string>
+
+    <string name="audio_quality">Audio Quality</string>
+    <string name="session_expired">Session Expired</string>
+    <string name="mic_permission_required">Microphone permission is required for calls</string>
+    <string name="cannot_place_call_busy">Cannot place a call while on another call</string>
+    <string name="room_call">Room Call</string>
+
+    <!-- Audio Quality Levels -->
+    <string name="audio_quality_very_high">Very High</string>
+    <string name="audio_quality_high">High</string>
+    <string name="audio_quality_standard">Standard (Default)</string>
+    <string name="audio_quality_low">Low (Data Saver)</string>
+    <string name="audio_quality_description_format">%1$d kbps, %2$s, Processing: %3$s</string>
+    <string name="stereo">Stereo</string>
+    <string name="mono">Mono</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
 </resources>

@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -40,6 +41,7 @@ import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
+import com.github.biltudas1.sequence.util.AppConstants
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -100,10 +102,11 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
+                    val sessionExpiredText = stringResource(R.string.session_expired)
                     LaunchedEffect(Unit) {
                         dataStoreManager.sessionExpiredEvent.collect {
-                            Toast.makeText(context, "Session Expired", Toast.LENGTH_LONG).show()
-                            navController.navigate("login") {
+                            Toast.makeText(context, sessionExpiredText, Toast.LENGTH_LONG).show()
+                            navController.navigate(AppConstants.Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                                 launchSingleTop = true
                             }
@@ -156,6 +159,7 @@ class MainActivity : ComponentActivity() {
                     // --- Permission Launchers ---
                     
                     var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
+                    val micPermissionRequiredText = stringResource(R.string.mic_permission_required)
                     val audioPermissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission()
                     ) { isGranted ->
@@ -164,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             navController.navigate("webrtc_call/$rId?serverUrl=$url")
                             pendingNavigationUrl = null
                         } else {
-                            Toast.makeText(context, "Microphone permission is required for calls", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, micPermissionRequiredText, Toast.LENGTH_LONG).show()
                         }
                     }
 
@@ -187,9 +191,9 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(destinationPage, accessToken, currentRoute) {
                         if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
                             Log.i("MainActivity", "Navigation target detected: $destinationPage")
-                            if (destinationPage == "about" && currentRoute != "about") {
+                            if (destinationPage == "about" && currentRoute != AppConstants.Routes.ABOUT) {
                                 targetPage.value = null
-                                navController.navigate("about")
+                                navController.navigate(AppConstants.Routes.ABOUT)
                             }
                         }
                     }
@@ -256,9 +260,9 @@ class MainActivity : ComponentActivity() {
                         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
                     } else {
                         val startDest = remember(accessToken) {
-                            if (accessToken == null) "login"
-                            else if (!PermissionUtils.hasAllPermissions(context)) "permissions"
-                            else "contacts"
+                            if (accessToken == null) AppConstants.Routes.LOGIN
+                            else if (!PermissionUtils.hasAllPermissions(context)) AppConstants.Routes.PERMISSIONS
+                            else AppConstants.Routes.CONTACTS
                         }
 
                         NavHost(
@@ -290,28 +294,29 @@ class MainActivity : ComponentActivity() {
                             },
                             modifier = Modifier.background(MaterialTheme.colorScheme.background)
                         ) {
-                            composable("login") {
+                            composable(AppConstants.Routes.LOGIN) {
                                 LoginScreen(onLoginSuccess = {
-                                    navController.navigate("permissions") {
-                                        popUpTo("login") { inclusive = true }
+                                    navController.navigate(AppConstants.Routes.PERMISSIONS) {
+                                        popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 })
                             }
-                            composable("permissions") {
+                            composable(AppConstants.Routes.PERMISSIONS) {
                                 PermissionGatewayScreen(onAllPermissionsGranted = {
-                                    navController.navigate("contacts") {
-                                        popUpTo("permissions") { inclusive = true }
+                                    navController.navigate(AppConstants.Routes.CONTACTS) {
+                                        popUpTo(AppConstants.Routes.PERMISSIONS) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 })
                             }
-                            composable("contacts") {
+                            composable(AppConstants.Routes.CONTACTS) {
+                                val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
                                 ContactsScreen(
                                     onContactClick = { contact ->
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
-                                            Toast.makeText(context, "Cannot place a call while on another call", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
                                             return@ContactsScreen
                                         }
                                         scope.launch {
@@ -328,26 +333,26 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onSettingsClick = {
-                                        navController.navigate("settings")
+                                        navController.navigate(AppConstants.Routes.SETTINGS)
                                     }
                                 )
                             }
-                            composable("settings") {
+                            composable(AppConstants.Routes.SETTINGS) {
                                 SettingsScreen(
                                     onBackClick = {
                                         navController.popBackStack()
                                     },
                                     onAboutClick = {
-                                        navController.navigate("about")
+                                        navController.navigate(AppConstants.Routes.ABOUT)
                                     },
                                     onWebRTCConfigClick = {
-                                        navController.navigate("webrtc_config")
+                                        navController.navigate(AppConstants.Routes.WEBRTC_CONFIG)
                                     },
                                     onDataUsageClick = {
-                                        navController.navigate("data_usage")
+                                        navController.navigate(AppConstants.Routes.DATA_USAGE)
                                     },
                                     onAudioQualityClick = {
-                                        navController.navigate("audio_quality")
+                                        navController.navigate(AppConstants.Routes.AUDIO_QUALITY)
                                     },
                                     onLogoutClick = {
                                         scope.launch {
@@ -357,39 +362,41 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
-                            composable("audio_quality") {
+                            composable(AppConstants.Routes.AUDIO_QUALITY) {
                                 AudioQualityScreen(onBackClick = {
                                     navController.popBackStack()
                                 })
                             }
-                            composable("data_usage") {
+                            composable(AppConstants.Routes.DATA_USAGE) {
                                 DataUsageScreen(onBackClick = {
                                     navController.popBackStack()
                                 })
                             }
-                            composable("webrtc_config") {
+                            composable(AppConstants.Routes.WEBRTC_CONFIG) {
                                 WebRTCConfigScreen(onBackClick = {
                                     navController.popBackStack()
                                 })
                             }
-                            composable("about") {
+                            composable(AppConstants.Routes.ABOUT) {
                                 AboutScreen(onBackClick = {
                                     navController.popBackStack()
                                 })
                             }
-                            composable("room_entry") {
+                            composable(AppConstants.Routes.ROOM_ENTRY) {
+                                val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
+                                val roomCallText = stringResource(R.string.room_call)
                                 RoomEntryScreen(
                                     onJoinRoom = { rId, url -> 
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
-                                            Toast.makeText(context, "Cannot place a call while on another call", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
                                         } else {
-                                            navigateToCallWithPermission(rId, url, "Room Call", "") 
+                                            navigateToCallWithPermission(rId, url, roomCallText, "")
                                         }
                                     }
                                 )
                             }
-                            composable("webrtc_call/{roomId}?serverUrl={serverUrl}&name={name}&email={email}&isExternal={isExternal}") { backStackEntry ->
+                            composable(AppConstants.Routes.WEBRTC_CALL) { backStackEntry ->
                                 val rId = backStackEntry.arguments?.getString("roomId") ?: ""
                                 val rawUrl = backStackEntry.arguments?.getString("serverUrl") ?: ""
                                 val rawName = backStackEntry.arguments?.getString("name") ?: ""

@@ -1,18 +1,18 @@
 package com.github.biltudas1.sequence.data.model
 
+import androidx.annotation.StringRes
+import com.github.biltudas1.sequence.R
+
 enum class AudioQualityLevel(
-    val label: String,
+    @StringRes val labelResId: Int,
     val bitrateKbps: Int,
     val stereo: Boolean,
     val opusModeAudio: Boolean, // true for 'audio', false for 'voip'
     val cbr: Boolean,
     val useProcessing: Boolean
 ) {
-    VERY_HIGH("Very High", 128, true, true, true, false),
-    HIGH("High", 64, false, false, false, true),
-    STANDARD("Standard (Default)", 40, false, false, false, true),
-    LOW("Low (Data Saver)", 16, false, false, false, true);
-
-    val description: String
-        get() = "$bitrateKbps kbps, ${if (stereo) "Stereo" else "Mono"}, Processing: ${if (useProcessing) "On" else "Off"}"
+    VERY_HIGH(R.string.audio_quality_very_high, 128, true, true, true, false),
+    HIGH(R.string.audio_quality_high, 64, false, false, false, true),
+    STANDARD(R.string.audio_quality_standard, 40, false, false, false, true),
+    LOW(R.string.audio_quality_low, 16, false, false, false, true);
 }

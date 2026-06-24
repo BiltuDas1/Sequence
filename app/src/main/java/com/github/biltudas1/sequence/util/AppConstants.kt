@@ -1,0 +1,33 @@
+package com.github.biltudas1.sequence.util
+
+object AppConstants {
+    const val GITHUB_REPO_URL = "https://github.com/BiltuDas1/Sequence"
+    const val LICENSE_URL = "https://github.com/BiltuDas1/Sequence/blob/main/LICENSE"
+    const val GITHUB_RELEASES_API_URL = "https://api.github.com/repos/BiltuDas1/Sequence/releases"
+
+    object Routes {
+        const val LOGIN = "login"
+        const val PERMISSIONS = "permissions"
+        const val CONTACTS = "contacts"
+        const val SETTINGS = "settings"
+        const val ABOUT = "about"
+        const val AUDIO_QUALITY = "audio_quality"
+        const val DATA_USAGE = "data_usage"
+        const val WEBRTC_CONFIG = "webrtc_config"
+        const val ROOM_ENTRY = "room_entry"
+        const val WEBRTC_CALL = "webrtc_call/{roomId}?serverUrl={serverUrl}&name={name}&email={email}&isExternal={isExternal}"
+    }
+
+    object Api {
+        const val CONTACTS = "contacts"
+        const val USERS_REGISTER = "users/register"
+        const val USERS_LOGIN = "users/login"
+        const val CONTACTS_ADD = "contacts/add"
+        const val CONTACTS_REMOVE = "contacts/remove"
+        const val TOKEN_REFRESH = "token/refresh"
+        const val USERS_FCM_TOKEN = "users/fcm-token"
+        const val VOICECALL_SEND = "voicecall/send"
+        const val VOICECALL_END = "voicecall/end"
+        const val VOICECALL_BUSY = "voicecall/busy"
+    }
+}

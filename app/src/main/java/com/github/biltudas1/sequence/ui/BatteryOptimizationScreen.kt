@@ -13,10 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
@@ -48,7 +50,7 @@ fun BatteryOptimizationScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
-                text = "Unrestricted Battery Required",
+                text = stringResource(R.string.unrestricted_battery_required),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -58,7 +60,7 @@ fun BatteryOptimizationScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "To receive calls instantly while your screen is off, you must set the app's battery usage to 'Unrestricted'.",
+                text = stringResource(R.string.battery_optimization_description),
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -75,13 +77,13 @@ fun BatteryOptimizationScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
-                Text("Disable Optimization")
+                Text(stringResource(R.string.disable_optimization))
             }
             
             Spacer(modifier = Modifier.height(16.dp))
             
             TextButton(onClick = onCheckAgain) {
-                Text("I've enabled it, check again")
+                Text(stringResource(R.string.check_again))
             }
         }
     }
