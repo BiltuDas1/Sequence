@@ -31,6 +31,7 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -62,7 +63,7 @@ fun SettingsScreen(
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
     val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
-    val updateColor = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
+    val updateColor = if (LocalIsDarkTheme.current) DarkOrange else Crimson
 
     var showConfigDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }

@@ -27,6 +27,7 @@ import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.VersionService
 import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.util.AppConstants
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +58,7 @@ fun AboutScreen(
     
     val latestVersion = latestRelease?.tag_name
     val isUpdateAvailable = latestVersion != null && latestVersion.removePrefix("v") != (versionName ?: "").removePrefix("v")
-    val updateColor = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
+    val updateColor = if (LocalIsDarkTheme.current) DarkOrange else Crimson
 
     val sourceTooltipState = rememberTooltipState()
     val licenseTooltipState = rememberTooltipState()

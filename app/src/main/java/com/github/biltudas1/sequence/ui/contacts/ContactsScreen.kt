@@ -35,6 +35,7 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.data.remote.model.UserData
 import com.github.biltudas1.sequence.ui.theme.Crimson
+import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
@@ -61,7 +62,7 @@ fun ContactsScreen(
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
     val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
-    val updateColor = if (LocalIsDarkTheme.current) Color.Yellow else Crimson
+    val updateColor = if (LocalIsDarkTheme.current) DarkOrange else Crimson
 
     val scope = rememberCoroutineScope()
 
@@ -143,7 +144,7 @@ fun ContactsScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            Column {
+            Column(modifier = Modifier.fillMaxSize()) {
                 if (isServerIncompatible) {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -159,7 +160,7 @@ fun ContactsScreen(
                     }
                 }
 
-                Box(modifier = Modifier.weight(1f)) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     if (!serverConfig.isValid()) {
                         Column(
                             modifier = Modifier.align(Alignment.Center).padding(32.dp),
