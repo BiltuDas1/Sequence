@@ -1,6 +1,6 @@
 package com.github.biltudas1.sequence.webrtc
 
-import android.util.Log
+import timber.log.Timber
 import kotlinx.coroutines.*
 import okhttp3.*
 import org.json.JSONObject
@@ -33,7 +33,7 @@ class SignalingClient(
     }
 
     fun start() {
-        Log.i("SignalingClient", "Starting connection to: $serverUrl")
+        Timber.i("Starting connection to: $serverUrl")
         val request = try {
             Request.Builder()
                 .url(serverUrl)
@@ -44,14 +44,14 @@ class SignalingClient(
                 }
                 .build()
         } catch (e: Exception) {
-            Log.e("SignalingClient", "Invalid URL: $serverUrl", e)
+            Timber.e(e, "Invalid URL: $serverUrl")
             listener.onPeerLeft()
             return
         }
             
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.i("SignalingClient", "WebSocket Connected Successfully")
+                Timber.i("WebSocket Connected Successfully")
                 lastMessageTime = System.currentTimeMillis()
                 startHeartbeat()
                 listener.onConnected()
@@ -70,15 +70,15 @@ class SignalingClient(
                             // Already updated lastMessageTime
                         }
                         "peer-joined" -> {
-                            Log.i("SignalingClient", "Remote peer joined")
+                            Timber.i("Remote peer joined")
                             listener.onPeerJoined()
                         }
                         "peer-left" -> {
-                            Log.i("SignalingClient", "Remote peer left the room")
+                            Timber.i("Remote peer left the room")
                             listener.onPeerLeft()
                         }
                         "user-busy" -> {
-                            Log.i("SignalingClient", "Remote user reported busy")
+                            Timber.i("Remote user reported busy")
                             listener.onUserBusy()
                         }
                         "offer" -> {
@@ -96,18 +96,18 @@ class SignalingClient(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("SignalingClient", "Error parsing message: $text", e)
+                    Timber.e(e, "Error parsing message: $text")
                 }
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.i("SignalingClient", "WebSocket Closing from remote. Code: $code, Reason: $reason")
+                Timber.i("WebSocket Closing from remote. Code: $code, Reason: $reason")
                 stopHeartbeat()
                 listener.onPeerLeft()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("SignalingClient", "WebSocket Connection Failed. Code: ${response?.code}, Message: ${t.message}")
+                Timber.e(t, "WebSocket Connection Failed. Code: ${response?.code}")
                 stopHeartbeat()
                 listener.onPeerLeft()
             }
@@ -121,7 +121,7 @@ class SignalingClient(
                 delay(HEARTBEAT_INTERVAL)
                 val now = System.currentTimeMillis()
                 if (now - lastMessageTime > HEARTBEAT_TIMEOUT) {
-                    Log.w("SignalingClient", "Heartbeat timeout! Closing connection.")
+                    Timber.w("Heartbeat timeout! Closing connection.")
                     listener.onPeerLeft()
                     stop()
                     break
@@ -172,12 +172,12 @@ class SignalingClient(
     }
 
     fun stop() {
-        Log.i("SignalingClient", "Stopping signaling client")
+        Timber.i("Stopping signaling client")
         stopHeartbeat()
         try {
             webSocket?.close(1000, "Normal closure")
         } catch (e: Exception) {
-            Log.e("SignalingClient", "Error during stop", e)
+            Timber.e(e, "Error during stop")
         }
         webSocket = null
         scope.cancel()
