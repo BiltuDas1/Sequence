@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import timber.log.Timber
 
 class CallService : Service() {
 
@@ -64,6 +65,7 @@ class CallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
+        Timber.i("onStartCommand action: $action")
         
         when (action) {
             ACTION_MUTE -> {
@@ -91,6 +93,7 @@ class CallService : Service() {
 
     private fun handleEndCall() {
         val roomId = CallManager.activeRoomId ?: return
+        Timber.i("Ending call for room: $roomId")
         val context = this
         serviceScope.launch {
             val dataStoreManager = DataStoreManager.getInstance(context)

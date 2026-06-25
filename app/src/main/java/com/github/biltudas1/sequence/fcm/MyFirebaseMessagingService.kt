@@ -9,7 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
-import android.util.Log
+import timber.log.Timber
 import androidx.core.app.NotificationCompat
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.R
@@ -75,7 +75,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        Log.i("FCM", "Message received. Data: ${message.data}")
+        Timber.i("Message received. Data: ${message.data}")
         
         val roomId = message.data["roomId"]
         val action = message.data["action"]
@@ -85,7 +85,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (roomId != null) {
             when (action) {
                 "cancel" -> {
-                    Log.i("FCM", "Call cancelled by sender: $roomId")
+                    Timber.i("Call cancelled by sender: $roomId")
                     handleCallCancelled(roomId, callerName)
                 }
                 null, "start" -> {
@@ -93,18 +93,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     val currentActive = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId
                     
                     if (currentActive != null && currentActive == roomId) {
-                        Log.i("FCM", "Already in this call room: $roomId")
+                        Timber.i("Already in this call room: $roomId")
                         return
                     }
 
                     val isOnAnotherCall = try { 
                         callStatusManager.isUserOnAnotherCall()
                     } catch (e: Exception) { 
-                        Log.e("FCM", "Error checking busy status", e)
+                        Timber.e(e, "Error checking busy status")
                         false 
                     }
                     
-                    Log.i("FCM", "Incoming call request. RoomId: $roomId, IsOnAnotherCall: $isOnAnotherCall")
+                    Timber.i("Incoming call request. RoomId: $roomId, IsOnAnotherCall: $isOnAnotherCall")
                     
                     if (isOnAnotherCall) {
                         reportBusyStatus(roomId)
@@ -127,7 +127,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     showIncomingCallNotification(roomId, callerName, callerEmail)
                 }
                 else -> {
-                    Log.i("FCM", "Received unknown action: $action")
+                    Timber.i("Received unknown action: $action")
                     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     notificationManager.cancel(CALL_NOTIFICATION_ID)
                 }
@@ -149,16 +149,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         delay(delayMs)
                         
                         if (acceptedRooms.contains(roomId)) {
-                            Log.i("FCM", "Stopping busy signals for $roomId as it was accepted")
+                            Timber.i("Stopping busy signals for $roomId as it was accepted")
                             return@launch
                         }
 
-                        Log.i("FCM", "Sending busy signal attempt ${i + 1} for room $roomId")
+                        Timber.i("Sending busy signal attempt ${i + 1} for room $roomId")
                         authService.sendBusySignal(config, token, roomId)
                     }
                 }
             } catch (e: Exception) {
-                Log.e("FCM", "Error in reportBusyStatus", e)
+                Timber.e(e, "Error in reportBusyStatus")
             }
         }
     }
@@ -228,7 +228,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         serviceScope.launch {
             val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
-            Log.i("FCM", "Marking room $roomId as missed")
+            Timber.i("Marking room $roomId as missed")
             repository.markAsMissed(roomId)
         }
 

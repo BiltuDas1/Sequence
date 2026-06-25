@@ -7,6 +7,7 @@
     <string name="back">Back</string>
     <string name="source_code">Source Code</string>
     <string name="license">License</string>
+    <string name="app_logs">App Logs</string>
     <string name="app_logo">App Logo</string>
     <string name="you_are_on_latest_version">You are on the latest version</string>
     <string name="latest_version">Latest version: %1$s</string>

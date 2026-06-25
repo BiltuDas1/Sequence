@@ -7,9 +7,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import timber.log.Timber
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent) {
         val roomId = intent.getStringExtra("roomId")
-        Log.i("MainActivity", "handleIntent: roomId=$roomId")
+        Timber.i("handleIntent: roomId=$roomId")
         if (roomId != null) {
             incomingRoomId.value = roomId
             incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
@@ -187,11 +187,11 @@ class MainActivity : ComponentActivity() {
                                         isServerIncompatible = false
                                     }
                                 } else {
-                                    Log.e("MainActivity", "Failed to parse server version: $serverVersion")
+                                    Timber.e("Failed to parse server version: $serverVersion")
                                     isServerIncompatible = true
                                 }
                             } else {
-                                Log.e("MainActivity", "Failed to fetch server version")
+                                Timber.e("Failed to fetch server version")
                                 // If we can't even reach the version API, we might want to block 
                                 // or allow. Given "stop doing further server operation", blocking is safer.
                                 // isServerIncompatible = true
@@ -220,7 +220,7 @@ class MainActivity : ComponentActivity() {
                             val encodedName = java.net.URLEncoder.encode(name, "UTF-8")
                             val encodedEmail = java.net.URLEncoder.encode(email, "UTF-8")
                             val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
-                            Log.i("MainActivity", "Navigating to webrtc_call. Room: $rId, External: $isExternal")
+                            Timber.i("Navigating to webrtc_call. Room: $rId, External: $isExternal")
                             navController.navigate("webrtc_call/$rId?serverUrl=$encodedUrl&name=$encodedName&email=$encodedEmail&isExternal=$isExternal")
                         } else {
                             pendingNavigationUrl = rId to url
@@ -233,7 +233,7 @@ class MainActivity : ComponentActivity() {
                     
                     LaunchedEffect(destinationPage, accessToken, currentRoute) {
                         if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
-                            Log.i("MainActivity", "Navigation target detected: $destinationPage")
+                            Timber.i("Navigation target detected: $destinationPage")
                             if (destinationPage == "about" && currentRoute != AppConstants.Routes.ABOUT) {
                                 targetPage.value = null
                                 navController.navigate(AppConstants.Routes.ABOUT)
@@ -244,7 +244,7 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(roomId, accessToken, serverConfig, currentRoute) {
                         val rId = roomId
                         if (rId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
-                            Log.i("MainActivity", "Incoming call effect check. Room: $rId, CurrentRoute: $currentRoute")
+                            Timber.i("Incoming call effect check. Room: $rId, CurrentRoute: $currentRoute")
                             
                             val callStatusManager = CallStatusManager(context)
                             val isAlreadyInCall = callStatusManager.isUserOnAnotherCall()
@@ -253,7 +253,7 @@ class MainActivity : ComponentActivity() {
                             // If it's a different call and we are already busy, ignore
                             if (isAlreadyInCall && !isActiveRoom) {
                                 val currentActive = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId
-                                Log.i("MainActivity", "Ignoring new call while busy. Active: $currentActive, New: $rId")
+                                Timber.i("Ignoring new call while busy. Active: $currentActive, New: $rId")
                                 incomingRoomId.value = null
                                 return@LaunchedEffect
                             }
@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             if (rId == lastHandledRoomId && incomingServerUrl.value == null) {
-                                Log.i("MainActivity", "Skipping duplicate incoming call navigation for Room: $rId")
+                                Timber.i("Skipping duplicate incoming call navigation for Room: $rId")
                                 incomingRoomId.value = null
                                 return@LaunchedEffect
                             }
@@ -285,7 +285,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 val isExternal = if (incomingServerUrl.value != null) incomingIsExternal.value else false
                                 
-                                Log.i("MainActivity", "Incoming call effect triggered for Room: $rId. URL: $urlToUse, External: $isExternal")
+                                Timber.i("Incoming call effect triggered for Room: $rId. URL: $urlToUse, External: $isExternal")
                                 
                                 lastHandledRoomId = rId
                                 // Use a local copy to navigate and clear the state immediately
@@ -293,7 +293,7 @@ class MainActivity : ComponentActivity() {
                                 incomingServerUrl.value = null
                                 navigateToCallWithPermission(rId, urlToUse, name, email, isExternal = isExternal)
                             } else {
-                                Log.i("MainActivity", "Already in a call, clearing incomingRoomId")
+                                Timber.i("Already in a call, clearing incomingRoomId")
                                 incomingRoomId.value = null
                             }
                         }
@@ -521,7 +521,17 @@ class MainActivity : ComponentActivity() {
                                 })
                             }
                             composable(AppConstants.Routes.ABOUT) {
-                                AboutScreen(onBackClick = {
+                                AboutScreen(
+                                    onBackClick = {
+                                        navController.popBackStack()
+                                    },
+                                    onViewLogsClick = {
+                                        navController.navigate(AppConstants.Routes.LOGS)
+                                    }
+                                )
+                            }
+                            composable(AppConstants.Routes.LOGS) {
+                                LogViewerScreen(onBackClick = {
                                     navController.popBackStack()
                                 })
                             }
@@ -554,7 +564,7 @@ class MainActivity : ComponentActivity() {
                                 val decodedName = try { java.net.URLDecoder.decode(rawName, "UTF-8") } catch (e: Exception) { rawName }
                                 val decodedEmail = try { java.net.URLDecoder.decode(rawEmail, "UTF-8") } catch (e: Exception) { rawEmail }
 
-                                Log.i("MainActivity", "Entering WebRTCScreen. Room: $rId, External: $isExternal")
+                                Timber.i("Entering WebRTCScreen. Room: $rId, External: $isExternal")
 
                                 WebRTCScreen(
                                     roomId = rId,
@@ -564,7 +574,7 @@ class MainActivity : ComponentActivity() {
                                     isExternal = isExternal,
                                     accessToken = accessToken,
                                     onCallStopped = {
-                                        Log.i("MainActivity", "onCallStopped triggered. isExternal: $isExternal")
+                                        Timber.i("onCallStopped triggered. isExternal: $isExternal")
                                         if (isExternal) {
                                             finishAndRemoveTask()
                                         } else {

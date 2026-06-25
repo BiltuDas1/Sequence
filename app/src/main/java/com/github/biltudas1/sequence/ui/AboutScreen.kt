@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
@@ -38,6 +39,7 @@ import okhttp3.OkHttpClient
 @Composable
 fun AboutScreen(
     onBackClick: () -> Unit,
+    onViewLogsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -62,6 +64,7 @@ fun AboutScreen(
 
     val sourceTooltipState = rememberTooltipState()
     val licenseTooltipState = rememberTooltipState()
+    val logsTooltipState = rememberTooltipState()
 
     LaunchedEffect(sourceTooltipState.isVisible) {
         if (sourceTooltipState.isVisible) {
@@ -70,6 +73,11 @@ fun AboutScreen(
     }
     LaunchedEffect(licenseTooltipState.isVisible) {
         if (licenseTooltipState.isVisible) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+    LaunchedEffect(logsTooltipState.isVisible) {
+        if (logsTooltipState.isVisible) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
@@ -168,6 +176,37 @@ fun AboutScreen(
                                 imageVector = Icons.Default.Description,
                                 tint = MaterialTheme.colorScheme.onBackground,
                                 contentDescription = stringResource(R.string.license),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                            positioning = TooltipAnchorPosition.Above
+                        ),
+                        tooltip = {
+                            PlainTooltip(
+                                containerColor = MaterialTheme.colorScheme.inverseSurface,
+                                contentColor = MaterialTheme.colorScheme.inverseOnSurface
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.app_logs),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        },
+                        state = logsTooltipState
+                    ) {
+                        IconButton(
+                            onClick = onViewLogsClick,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                contentDescription = stringResource(R.string.app_logs),
                                 modifier = Modifier.size(28.dp)
                             )
                         }
