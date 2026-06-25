@@ -136,15 +136,17 @@ class SignalingClient(
         heartbeatJob = null
     }
 
-    private fun sendPing() {
+    fun sendPing() {
         val json = JSONObject()
         json.put("type", "ping")
+        Timber.v("Sending Ping")
         webSocket?.send(json.toString())
     }
 
     private fun sendPong() {
         val json = JSONObject()
         json.put("type", "pong")
+        Timber.v("Sending Pong")
         webSocket?.send(json.toString())
     }
 
@@ -152,6 +154,7 @@ class SignalingClient(
         val json = JSONObject()
         json.put("type", "offer")
         json.put("sdp", sdp)
+        Timber.d("Sending Offer")
         webSocket?.send(json.toString())
     }
 
@@ -159,6 +162,7 @@ class SignalingClient(
         val json = JSONObject()
         json.put("type", "answer")
         json.put("sdp", sdp)
+        Timber.d("Sending Answer")
         webSocket?.send(json.toString())
     }
 
@@ -168,6 +172,7 @@ class SignalingClient(
         json.put("sdpMid", sdpMid)
         json.put("sdpMLineIndex", sdpMLineIndex)
         json.put("candidate", candidate)
+        Timber.v("Sending ICE Candidate: $sdpMid")
         webSocket?.send(json.toString())
     }
 

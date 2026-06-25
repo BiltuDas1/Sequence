@@ -62,12 +62,15 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        Timber.d("onNewIntent: intent=$intent")
         handleIntent(intent)
     }
 
     private fun handleIntent(intent: Intent) {
         val roomId = intent.getStringExtra("roomId")
-        Timber.i("handleIntent: roomId=$roomId")
+        val target = intent.getStringExtra("targetPage")
+        val action = intent.getStringExtra("action")
+        Timber.i("handleIntent: roomId=$roomId, target=$target, action=$action")
         if (roomId != null) {
             incomingRoomId.value = roomId
             incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
@@ -75,11 +78,12 @@ class MainActivity : ComponentActivity() {
             incomingServerUrl.value = intent.getStringExtra("serverUrl")
             incomingIsExternal.value = intent.getStringExtra("isExternal")?.toBoolean() ?: false
         }
-        targetPage.value = intent.getStringExtra("targetPage")
+        targetPage.value = target
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Timber.i("onCreate MainActivity")
         handleIntent(intent)
 
         setContent {
@@ -172,10 +176,12 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(serverConfig) {
                         val config = serverConfig
                         if (config != null && config.isValid()) {
+                            Timber.d("Checking server compatibility for: ${config.cleanEndpoint}")
                             val result = authService.getServerVersion(config)
                             val serverVersion = result.getOrNull()?.data?.version
                             if (serverVersion != null) {
                                 val serverMajor = VersionUtils.extractMajorVersion(serverVersion)
+                                Timber.i("Server Version: $serverVersion (Major: $serverMajor), Expected Major: ${AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION}")
                                 if (serverMajor != null) {
                                     if (serverMajor > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
                                         Toast.makeText(context, context.getString(R.string.client_outdated, serverVersion), Toast.LENGTH_LONG).show()
@@ -191,10 +197,7 @@ class MainActivity : ComponentActivity() {
                                     isServerIncompatible = true
                                 }
                             } else {
-                                Timber.e("Failed to fetch server version")
-                                // If we can't even reach the version API, we might want to block 
-                                // or allow. Given "stop doing further server operation", blocking is safer.
-                                // isServerIncompatible = true
+                                Timber.e(result.exceptionOrNull(), "Failed to fetch server version")
                             }
                         }
                     }

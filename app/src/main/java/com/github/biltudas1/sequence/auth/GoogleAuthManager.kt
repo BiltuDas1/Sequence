@@ -1,7 +1,6 @@
 package com.github.biltudas1.sequence.auth
 
 import android.content.Context
-import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -14,12 +13,13 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 class GoogleAuthManager(private val context: Context) {
     private val credentialManager = CredentialManager.create(context)
-    private val TAG = "GoogleAuthManager"
 
     suspend fun signIn(): GoogleIdTokenCredential? {
+        Timber.d("signIn: Initiating credential request")
         val serverClientId = context.getString(R.string.google_web_client_id)
         
         val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(serverClientId)
@@ -36,37 +36,39 @@ class GoogleAuthManager(private val context: Context) {
             )
             handleSignIn(result)
         } catch (e: GetCredentialException) {
-            Log.e(TAG, "Credential Manager error", e)
+            Timber.e(e, "Credential Manager error")
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Unknown error during sign in", e)
+            Timber.e(e, "Unknown error during sign in")
             null
         }
     }
 
     private fun handleSignIn(result: GetCredentialResponse): GoogleIdTokenCredential? {
         val credential = result.credential
+        Timber.d("handleSignIn: Received credential of type ${credential.type}")
         
         return if (credential is CustomCredential && 
             credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
             try {
                 GoogleIdTokenCredential.createFrom(credential.data)
             } catch (e: GoogleIdTokenParsingException) {
-                Log.e(TAG, "Received an invalid google id token response", e)
+                Timber.e(e, "Received an invalid google id token response")
                 null
             }
         } else {
-            Log.e(TAG, "Unexpected type of credential: ${credential.type}")
+            Timber.e("Unexpected type of credential: ${credential.type}")
             null
         }
     }
 
     suspend fun signOut() {
+        Timber.i("signOut: Clearing credential state")
         withContext(Dispatchers.IO) {
             try {
                 credentialManager.clearCredentialState(ClearCredentialStateRequest())
             } catch (e: Exception) {
-                Log.e(TAG, "Error during sign out", e)
+                Timber.e(e, "Error during sign out")
             }
         }
     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 enum class NetworkStatus {
     Available, Unavailable, Unstable
@@ -32,21 +33,25 @@ class ConnectivityObserver(
             val callback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     super.onAvailable(network)
+                    Timber.i("Network available: $network")
                     launch { send(NetworkStatus.Available) }
                 }
 
                 override fun onLosing(network: Network, maxMsToLive: Int) {
                     super.onLosing(network, maxMsToLive)
+                    Timber.w("Network losing: $network (maxMsToLive: $maxMsToLive)")
                     launch { send(NetworkStatus.Unstable) }
                 }
 
                 override fun onLost(network: Network) {
                     super.onLost(network)
+                    Timber.w("Network lost: $network")
                     launch { send(NetworkStatus.Unavailable) }
                 }
 
                 override fun onUnavailable() {
                     super.onUnavailable()
+                    Timber.w("Network unavailable")
                     launch { send(NetworkStatus.Unavailable) }
                 }
 
@@ -57,6 +62,7 @@ class ConnectivityObserver(
                     super.onCapabilitiesChanged(network, networkCapabilities)
                     val status = if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
                         val downBandwidth = networkCapabilities.linkDownstreamBandwidthKbps
+                        Timber.v("Network capabilities changed: Validated, Bandwidth: ${downBandwidth}Kbps")
                         // if bandwidth is very low, consider it unstable/slow
                         if (downBandwidth in 1..160) {
                             NetworkStatus.Unstable
@@ -64,6 +70,7 @@ class ConnectivityObserver(
                             NetworkStatus.Available
                         }
                     } else {
+                        Timber.v("Network capabilities changed: Not Validated")
                         // If not validated, it might still be "available" but no actual internet
                         NetworkStatus.Unavailable
                     }

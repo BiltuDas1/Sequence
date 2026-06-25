@@ -1,17 +1,18 @@
 package com.github.biltudas1.sequence.webrtc
 
 import android.content.Context
-import android.util.Log
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.utils.CallAudioManager
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import androidx.compose.runtime.mutableStateOf
+import com.github.biltudas1.sequence.util.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import org.webrtc.*
+import timber.log.Timber
 
 object CallManager {
     private var webRTCClient: WebRTCClient? = null
@@ -43,8 +44,12 @@ object CallManager {
         isExternal: Boolean,
         accessToken: String?
     ) {
-        if (activeRoomId != null) return
+        if (activeRoomId != null) {
+            Timber.w("initCall called while another call is active: $activeRoomId")
+            return
+        }
         
+        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redact(email)}, External: $isExternal")
         activeRoomId = roomId
         activeCallerName = name
         activeCallerEmail = email
@@ -63,6 +68,7 @@ object CallManager {
             }
 
             override fun onSdpCreated(description: SessionDescription) {
+                Timber.d("onSdpCreated: ${description.type}")
                 if (description.type == SessionDescription.Type.OFFER) {
                     signalingClient?.sendOffer(description.description)
                 } else if (description.type == SessionDescription.Type.ANSWER) {
@@ -71,17 +77,18 @@ object CallManager {
             }
 
             override fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long) {
+                Timber.d("onDataUsageCollected: STUN($stunSent/$stunRecv) TURN($turnSent/$turnRecv)")
                 scope?.launch(Dispatchers.IO) {
                     dataStoreManager.addDataUsage(stunSent, stunRecv, turnSent, turnRecv)
                 }
             }
 
             override fun onConnectionStateChange(state: PeerConnection.IceConnectionState) {
-                Log.i("CallManager", "ICE Connection State Change: $state")
+                Timber.i("ICE Connection State Change: $state")
                 if (state == PeerConnection.IceConnectionState.DISCONNECTED || state == PeerConnection.IceConnectionState.FAILED) {
                     // Check if peer joined at all before terminating immediately
                     if (hasPeerJoined.value) {
-                        Log.w("CallManager", "Peer connection lost/failed. Terminating call.")
+                        Timber.w("Peer connection lost/failed. Terminating call.")
                         terminateCall(context)
                     }
                 }
@@ -93,10 +100,12 @@ object CallManager {
             accessToken = accessToken,
             listener = object : SignalingClient.SignalingListener {
                 override fun onConnected() {
+                    Timber.i("Signaling connected")
                     isSignalingConnected.value = true
                 }
 
                 override fun onPeerJoined() {
+                    Timber.i("onPeerJoined event")
                     hasPeerJoined.value = true
                     isRemoteBusy.value = false
                     if (startTime == 0L) startTime = System.currentTimeMillis()
@@ -107,11 +116,12 @@ object CallManager {
                 }
 
                 override fun onPeerLeft() {
-                    Log.i("CallManager", "Peer left")
+                    Timber.i("onPeerLeft event")
                     terminateCall(context)
                 }
 
                 override fun onUserBusy() {
+                    Timber.i("onUserBusy event")
                     isRemoteBusy.value = true
                     if (!hasPeerJoined.value) {
                         audioManager?.startBusy()
@@ -119,6 +129,7 @@ object CallManager {
                 }
 
                 override fun onOfferReceived(description: String) {
+                    Timber.i("onOfferReceived event")
                     hasPeerJoined.value = true
                     isRemoteBusy.value = false
                     if (startTime == 0L) startTime = System.currentTimeMillis()
@@ -130,10 +141,12 @@ object CallManager {
                 }
 
                 override fun onAnswerReceived(description: String) {
+                    Timber.i("onAnswerReceived event")
                     webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, description))
                 }
 
                 override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String) {
+                    Timber.v("onIceCandidateReceived: $sdpMid")
                     webRTCClient?.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, sdp))
                 }
             }
@@ -186,12 +199,16 @@ object CallManager {
 
     fun terminateCall(context: Context) {
         val roomId = activeRoomId
-        if (roomId == null) return
+        if (roomId == null) {
+            Timber.d("terminateCall called but no activeRoomId")
+            return
+        }
         
-        Log.i("CallManager", "Terminating call")
+        Timber.i("Terminating call for room: $roomId")
         activeRoomId = null 
 
         val duration = if (startTime > 0) System.currentTimeMillis() - startTime else 0
+        Timber.d("Call duration: ${duration}ms")
         startTime = 0
         
         CoroutineScope(Dispatchers.IO).launch {

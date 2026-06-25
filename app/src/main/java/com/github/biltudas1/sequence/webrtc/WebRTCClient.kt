@@ -4,10 +4,11 @@ import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
-import android.util.Log
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
+import com.github.biltudas1.sequence.util.AppLogger
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
+import timber.log.Timber
 
 class WebRTCClient(
     context: Context,
@@ -45,31 +46,45 @@ class WebRTCClient(
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
 
+        Timber.d("Initializing PeerConnection with quality: $quality")
+        iceServers.forEach { server ->
+            Timber.v("ICE Server: ${server.urls.joinToString(", ")} [Redacted Creds]")
+        }
+
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
+                Timber.v("onIceCandidate: ${candidate.sdpMid}")
                 listener.onIceCandidate(candidate)
             }
 
             override fun onAddStream(stream: MediaStream) {
-                Log.d("WebRTCClient", "onAddStream")
+                Timber.d("onAddStream: ${stream.id}")
             }
 
-            override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {}
+            override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+                Timber.v("onIceCandidatesRemoved: ${p0?.size}")
+            }
             override fun onSignalingChange(state: PeerConnection.SignalingState?) {
-                Log.d("WebRTCClient", "onSignalingChange: $state")
+                Timber.d("onSignalingChange: $state")
             }
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
-                Log.d("WebRTCClient", "onIceConnectionChange: $state")
+                Timber.i("onIceConnectionChange: $state")
                 state?.let { listener.onConnectionStateChange(it) }
             }
-            override fun onIceConnectionReceivingChange(p1: Boolean) {}
-            override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
-                Log.d("WebRTCClient", "onIceGatheringChange: $state")
+            override fun onIceConnectionReceivingChange(p1: Boolean) {
+                Timber.v("onIceConnectionReceivingChange: $p1")
             }
-            override fun onRemoveStream(p0: MediaStream?) {}
-            override fun onDataChannel(p0: DataChannel?) {}
+            override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
+                Timber.d("onIceGatheringChange: $state")
+            }
+            override fun onRemoveStream(p0: MediaStream?) {
+                Timber.d("onRemoveStream")
+            }
+            override fun onDataChannel(p0: DataChannel?) {
+                Timber.d("onDataChannel: ${p0?.label()}")
+            }
             override fun onRenegotiationNeeded() {
-                Log.d("WebRTCClient", "onRenegotiationNeeded")
+                Timber.d("onRenegotiationNeeded")
             }
         })
 
@@ -133,12 +148,15 @@ class WebRTCClient(
     }
 
     fun createOffer() {
+        Timber.d("Creating Offer")
         peerConnection?.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(p0: SessionDescription?) {
                 if (p0 == null) return
+                Timber.d("Offer Created Successfully")
                 val mungedDescription = modifySdpForQuality(p0)
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
+                        Timber.d("Local Description (Offer) Set Success")
                         listener.onSdpCreated(mungedDescription)
                     }
                 }, mungedDescription)
@@ -147,12 +165,15 @@ class WebRTCClient(
     }
 
     fun createAnswer() {
+        Timber.d("Creating Answer")
         peerConnection?.createAnswer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(p0: SessionDescription?) {
                 if (p0 == null) return
+                Timber.d("Answer Created Successfully")
                 val mungedDescription = modifySdpForQuality(p0)
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
+                        Timber.d("Local Description (Answer) Set Success")
                         listener.onSdpCreated(mungedDescription)
                     }
                 }, mungedDescription)
@@ -161,10 +182,12 @@ class WebRTCClient(
     }
 
     fun setRemoteDescription(description: SessionDescription) {
+        Timber.d("Setting Remote Description: ${description.type}")
         peerConnection?.setRemoteDescription(object : SimpleSdpObserver() {
             override fun onSetSuccess() {
-                Log.d("WebRTCClient", "setRemoteDescription Success")
+                Timber.i("setRemoteDescription Success")
                 synchronized(pendingIceCandidates) {
+                    Timber.d("Adding ${pendingIceCandidates.size} pending ICE candidates")
                     for (candidate in pendingIceCandidates) {
                         peerConnection?.addIceCandidate(candidate)
                     }
@@ -176,8 +199,10 @@ class WebRTCClient(
 
     fun addIceCandidate(candidate: IceCandidate) {
         if (peerConnection?.remoteDescription != null) {
+            Timber.v("Adding ICE candidate immediately: ${candidate.sdpMid}")
             peerConnection?.addIceCandidate(candidate)
         } else {
+            Timber.v("Queueing ICE candidate: ${candidate.sdpMid}")
             synchronized(pendingIceCandidates) {
                 pendingIceCandidates.add(candidate)
             }
@@ -185,6 +210,7 @@ class WebRTCClient(
     }
 
     fun close() {
+        Timber.i("Closing WebRTCClient")
         val pc = peerConnection ?: return
         peerConnection = null
         
@@ -213,6 +239,7 @@ class WebRTCClient(
                     }
                 }
             }
+            Timber.d("Final Stats - STUN: S=$stunSent R=$stunRecv, TURN: S=$turnSent R=$turnRecv")
             listener.onDataUsageCollected(stunSent, stunRecv, turnSent, turnRecv)
             
             // Dispose WebRTC objects on Main thread to avoid threading issues
@@ -220,8 +247,9 @@ class WebRTCClient(
                 try {
                     pc.close()
                     pc.dispose()
+                    Timber.d("PeerConnection disposed")
                 } catch (e: Exception) {
-                    Log.e("WebRTCClient", "Error disposing PeerConnection", e)
+                    Timber.e(e, "Error disposing PeerConnection")
                 }
             }
         }
@@ -238,7 +266,7 @@ class WebRTCClient(
     open class SimpleSdpObserver : SdpObserver {
         override fun onCreateSuccess(p0: SessionDescription?) {}
         override fun onSetSuccess() {}
-        override fun onCreateFailure(p0: String?) { Log.e("WebRTCClient", "SDP Create Failure: $p0") }
-        override fun onSetFailure(p0: String?) { Log.e("WebRTCClient", "SDP Set Failure: $p0") }
+        override fun onCreateFailure(p0: String?) { Timber.e("SDP Create Failure: $p0") }
+        override fun onSetFailure(p0: String?) { Timber.e("SDP Set Failure: $p0") }
     }
 }

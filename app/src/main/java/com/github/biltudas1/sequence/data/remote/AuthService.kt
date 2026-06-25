@@ -1,10 +1,10 @@
 package com.github.biltudas1.sequence.data.remote
 
-import android.util.Log
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.model.*
 import com.github.biltudas1.sequence.util.AppConstants
+import com.github.biltudas1.sequence.util.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -15,6 +15,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import timber.log.Timber
 
 class ForbiddenException(message: String) : Exception(message)
 
@@ -37,7 +38,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
 
                 executeRequest<ApiResponse<ServerVersionData>>(request, serverConfig)
             } catch (e: Exception) {
-                Log.e("AuthService", "Version check error", e)
+                Timber.e(e, "Version check error")
                 Result.failure(e)
             }
         }
@@ -106,7 +107,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
 
                 executeRequest<RES>(request, serverConfig)
             } catch (e: Exception) {
-                Log.e("AuthService", "GET error", e)
+                Timber.e(e, "GET error at $path")
                 Result.failure(e)
             }
         }
@@ -136,7 +137,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
 
                 executeRequest<RES>(request, serverConfig)
             } catch (e: Exception) {
-                Log.e("AuthService", "POST error", e)
+                Timber.e(e, "POST error at $path")
                 Result.failure(e)
             }
         }
@@ -148,7 +149,9 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
             val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
             response.use { resp ->
                 val bodyString = resp.body.string()
-                Log.d("AuthService", "Response [${resp.code}] from ${request.url}: $bodyString")
+                val redactedUrl = request.url.toString().replace(Regex("token=[^&]*"), "token=REDACTED")
+                Timber.d("Response [${resp.code}] from $redactedUrl")
+                Timber.v("Response body: $bodyString")
 
                 if (resp.isSuccessful) {
                     val parsed = json.decodeFromString<RES>(bodyString)
@@ -158,6 +161,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                         Result.success(parsed)
                     }
                 } else if (resp.code == 401 || (bodyString.contains("expired", true) && bodyString.contains("token", true))) {
+                    Timber.w("401 Unauthorized or expired token at ${request.url}")
                     // Only attempt refresh if the request had a token. 
                     // Prevents infinite loops if refresh/login themselves return 401.
                     if (request.header("Authorization") == null) {
@@ -169,14 +173,17 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                         }
                     }
 
+                    Timber.i("Attempting token refresh...")
                     val newAccessToken = tryRefresh(serverConfig)
                     if (newAccessToken != null) {
+                        Timber.i("Token refresh successful. Retrying request.")
                         val newRequest = request.newBuilder()
                             .header("Authorization", "Bearer $newAccessToken")
                             .build()
-                        return executeRequestWithoutRetry(newRequest)
+                        return executeRequestWithoutRetry<RES>(newRequest)
                     }
                     
+                    Timber.e("Token refresh failed.")
                     try {
                         val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)
                         Result.failure(Exception(errorResponse.message))

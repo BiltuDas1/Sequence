@@ -4,7 +4,6 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
@@ -13,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import timber.log.Timber
 
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -24,7 +24,7 @@ class CallActionReceiver : BroadcastReceiver() {
         notificationManager.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
 
         if (action == MyFirebaseMessagingService.ACTION_ACCEPT) {
-            Log.d("CallActionReceiver", "Call Accepted: $roomId")
+            Timber.d("Call Accepted: $roomId")
             
             // Mark room as accepted to stop background busy signals
             MyFirebaseMessagingService.markRoomAccepted(roomId)
@@ -42,10 +42,10 @@ class CallActionReceiver : BroadcastReceiver() {
             try {
                 context.startActivity(launchIntent)
             } catch (e: Exception) {
-                Log.e("CallActionReceiver", "Failed to start activity", e)
+                Timber.e(e, "Failed to start activity")
             }
         } else if (action == MyFirebaseMessagingService.ACTION_REJECT) {
-            Log.d("CallActionReceiver", "Call Rejected: $roomId")
+            Timber.d("Call Rejected: $roomId")
             
             val dataStoreManager = DataStoreManager.getInstance(context)
             val authService = AuthService(OkHttpClient(), dataStoreManager)
