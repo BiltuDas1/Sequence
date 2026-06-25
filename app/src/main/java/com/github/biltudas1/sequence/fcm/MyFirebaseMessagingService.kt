@@ -9,6 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import com.github.biltudas1.sequence.util.AppLogger
 import timber.log.Timber
 import androidx.core.app.NotificationCompat
 import com.github.biltudas1.sequence.MainActivity
@@ -75,7 +76,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        Timber.i("Message received. Data: ${message.data}")
+        val redactedData = message.data.mapValues { (key, value) ->
+            if (key.contains("token", true) || key.contains("email", true)) AppLogger.redact(value) else value
+        }
+        Timber.i("FCM Message received. Data: $redactedData")
         
         val roomId = message.data["roomId"]
         val action = message.data["action"]
@@ -256,6 +260,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
+        Timber.i("New FCM Token generated: ${AppLogger.redact(token)}")
         val dataStoreManager = DataStoreManager.getInstance(applicationContext)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
         serviceScope.launch {

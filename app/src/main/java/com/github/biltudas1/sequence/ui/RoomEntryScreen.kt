@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.ui.theme.SurfaceContainerHigh
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import timber.log.Timber
 
 @Composable
 fun RoomEntryScreen(
@@ -33,12 +34,16 @@ fun RoomEntryScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions.all { it.value }) {
+            Timber.i("Permissions granted for joining room: $roomId")
             if (roomId.isNotBlank() && serverConfig != null) {
                 val protocol = if (serverConfig!!.useWss) "wss" else "ws"
                 val baseUrl = serverConfig!!.cleanEndpoint
                 val fullUrl = "$protocol://$baseUrl/room/$roomId"
+                Timber.d("Joining room URL: $fullUrl")
                 onJoinRoom(roomId, fullUrl)
             }
+        } else {
+            Timber.w("Permissions denied for joining room")
         }
     }
 

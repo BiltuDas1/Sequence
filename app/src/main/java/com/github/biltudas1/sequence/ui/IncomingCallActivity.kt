@@ -49,12 +49,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import timber.log.Timber
 import kotlin.math.sqrt
 
 class IncomingCallActivity : ComponentActivity() {
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        Timber.d("onNewIntent: cancel=${intent.getBooleanExtra("cancel", false)}")
         if (intent.getBooleanExtra("cancel", false)) {
             finishAndRemoveTask()
         }
@@ -62,8 +64,10 @@ class IncomingCallActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Timber.i("onCreate IncomingCallActivity")
         
         if (intent.getBooleanExtra("cancel", false)) {
+            Timber.d("Finish immediately due to cancel flag")
             finishAndRemoveTask()
             return
         }

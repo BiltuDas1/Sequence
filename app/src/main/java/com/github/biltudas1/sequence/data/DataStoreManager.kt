@@ -5,17 +5,15 @@ import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
-import com.github.biltudas1.sequence.data.model.AppTheme
-import com.github.biltudas1.sequence.data.model.AudioQualityLevel
-import com.github.biltudas1.sequence.data.model.DataUsage
-import com.github.biltudas1.sequence.data.model.ServerConfig
-import com.github.biltudas1.sequence.data.model.WebRTCConfig
+import com.github.biltudas1.sequence.data.model.*
+import com.github.biltudas1.sequence.util.AppLogger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import timber.log.Timber
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "server_config")
 
@@ -139,6 +137,7 @@ class DataStoreManager private constructor(private val context: Context) {
     val privacyModeFlow: Flow<Boolean> = context.dataStore.data.map { it[PRIVACY_MODE] ?: false }
 
     suspend fun saveServerConfig(config: ServerConfig) {
+        Timber.i("Saving Server Config: endpoint=${config.cleanEndpoint}, useHttps=${config.useHttps}")
         context.dataStore.edit { preferences ->
             preferences[ENDPOINT] = config.endpoint.encrypt()
             preferences[USERNAME] = config.username.encrypt()
@@ -222,6 +221,7 @@ class DataStoreManager private constructor(private val context: Context) {
     }
 
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
+        Timber.i("Saving new JWT tokens. AccessToken: ${AppLogger.redact(accessToken)}")
         context.dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN] = accessToken.encrypt()
             preferences[REFRESH_TOKEN] = refreshToken.encrypt()
@@ -229,6 +229,7 @@ class DataStoreManager private constructor(private val context: Context) {
     }
 
     suspend fun clearTokens() {
+        Timber.i("Clearing JWT tokens")
         context.dataStore.edit { preferences ->
             preferences.remove(ACCESS_TOKEN)
             preferences.remove(REFRESH_TOKEN)
@@ -236,6 +237,7 @@ class DataStoreManager private constructor(private val context: Context) {
     }
 
     suspend fun notifySessionExpired() {
+        Timber.w("Session expired notification triggered")
         clearTokens()
         _sessionExpiredEvent.emit(Unit)
     }

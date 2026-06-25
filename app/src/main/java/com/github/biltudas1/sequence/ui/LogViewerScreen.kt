@@ -37,7 +37,35 @@ fun LogViewerScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val logs by remember { mutableStateOf(AppLogger.logs) }
+    var logs by remember { mutableStateOf(AppLogger.logs) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        AppLogger.newLogFlow.collect {
+            logs = AppLogger.logs
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Clear Logs") },
+            text = { Text("Are you sure you want to clear all logs? This will delete the underlying log file.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    AppLogger.clearLogs()
+                    showDeleteDialog = false
+                }) {
+                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -53,19 +81,27 @@ fun LogViewerScreen(
                 },
                 actions = {
                     IconButton(onClick = {
+                        showDeleteDialog = true
+                    }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Clear Logs")
+                    }
+                    IconButton(onClick = {
                         try {
+                            val logFile = AppLogger.getLogFile() ?: return@IconButton
+                            if (!logFile.exists()) return@IconButton
+
                             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                            val fileName = "sequence-logs-$timeStamp.log"
-                            val logsDir = File(context.cacheDir, "logs")
-                            if (!logsDir.exists()) logsDir.mkdirs()
+                            val exportFileName = "sequence-logs-$timeStamp.log"
+                            val cacheDir = File(context.cacheDir, "logs")
+                            if (!cacheDir.exists()) cacheDir.mkdirs()
                             
-                            val logFile = File(logsDir, fileName)
-                            logFile.writeText(logs.joinToString("\n"))
+                            val exportFile = File(cacheDir, exportFileName)
+                            logFile.copyTo(exportFile, overwrite = true)
 
                             val contentUri = FileProvider.getUriForFile(
                                 context,
                                 "com.github.biltudas1.sequence.fileprovider",
-                                logFile
+                                exportFile
                             )
 
                             val shareIntent = Intent().apply {

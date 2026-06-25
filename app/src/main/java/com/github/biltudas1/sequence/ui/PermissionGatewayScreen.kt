@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat
 import com.github.biltudas1.sequence.ui.theme.DeepGreen
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
+import timber.log.Timber
 
 @Composable
 fun PermissionGatewayScreen(
@@ -62,12 +63,15 @@ fun PermissionGatewayScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                Timber.d("PermissionGatewayScreen: Refreshing permission states on resume")
                 hasMicPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
                 hasPhoneStatePermission = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     hasNotificationPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
                 }
                 isBatteryOptimizedIgnored = PermissionUtils.isIgnoringBatteryOptimizations(context)
+                
+                Timber.d("Permissions: Mic=$hasMicPermission, Phone=$hasPhoneStatePermission, Notifications=$hasNotificationPermission, BatteryOptimizedIgnored=$isBatteryOptimizedIgnored")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -75,14 +79,17 @@ fun PermissionGatewayScreen(
     }
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        Timber.i("Microphone permission result: $isGranted")
         hasMicPermission = isGranted
     }
     
     val phoneStateLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        Timber.i("Phone State permission result: $isGranted")
         hasPhoneStatePermission = isGranted
     }
 
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        Timber.i("Notification permission result: $isGranted")
         hasNotificationPermission = isGranted
     }
 
@@ -161,7 +168,10 @@ fun PermissionGatewayScreen(
 
             Button(
                 onClick = { 
-                    if (allGranted) onAllPermissionsGranted()
+                    if (allGranted) {
+                        Timber.i("All permissions granted. Continuing...")
+                        onAllPermissionsGranted()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().height(64.dp),
                 enabled = allGranted

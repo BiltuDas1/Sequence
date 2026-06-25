@@ -32,6 +32,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
+import timber.log.Timber
+import com.github.biltudas1.sequence.util.AppLogger
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,20 +137,26 @@ fun LoginScreen(
                     }
                     if (serverConfig.isValid()) {
                         isLoading = true
+                        Timber.i("Starting Google Sign-In process")
                         scope.launch {
                             val credential = googleAuthManager.signIn()
                             if (credential != null) {
+                                Timber.i("Google Sign-In successful. Email: ${AppLogger.redact(credential.id)}")
                                 // 1. Try Login
+                                Timber.d("Attempting login to server: ${serverConfig.cleanEndpoint}")
                                 var loginResult = authService.loginUser(serverConfig, credential.idToken)
                                 
                                 if (loginResult.isFailure && loginResult.exceptionOrNull()?.message?.contains("User doesn't exist", ignoreCase = true) == true) {
+                                    Timber.i("User doesn't exist. Attempting registration.")
                                     // 2. User doesn't exist, try Register
                                     val regResult = authService.registerUser(serverConfig, credential.idToken)
                                     if (regResult.isSuccess) {
+                                        Timber.i("Registration successful. Retrying login.")
                                         // 3. Register success, now Login to get JWT
                                         loginResult = authService.loginUser(serverConfig, credential.idToken)
                                     } else {
                                         val error = regResult.exceptionOrNull()?.message ?: "Registration failed"
+                                        Timber.e("Registration failed: $error")
                                         Toast.makeText(context, error, Toast.LENGTH_LONG).show()
                                         googleAuthManager.signOut()
                                         isLoading = false
@@ -159,6 +167,7 @@ fun LoginScreen(
                                 if (loginResult.isSuccess) {
                                     val loginData = loginResult.getOrNull()?.data
                                     if (loginData != null) {
+                                        Timber.i("Login successful. Saving session.")
                                         dataStoreManager.saveTokens(
                                             accessToken = loginData.jwt.access_token,
                                             refreshToken = loginData.jwt.refresh_token
@@ -169,9 +178,10 @@ fun LoginScreen(
                                         // Fetch and send FCM Token
                                         try {
                                             val fcmToken = FirebaseMessaging.getInstance().token.await()
+                                            Timber.d("Fetched FCM Token: ${AppLogger.redact(fcmToken)}")
                                             authService.updateFcmToken(serverConfig, loginData.jwt.access_token, fcmToken)
                                         } catch (e: Exception) {
-                                            Log.e("LoginScreen", "Failed to update FCM token", e)
+                                            Timber.e(e, "Failed to update FCM token")
                                         }
 
                                         Toast.makeText(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT).show()
@@ -179,15 +189,18 @@ fun LoginScreen(
                                     }
                                 } else {
                                     val error = loginResult.exceptionOrNull()?.message ?: "Login failed"
+                                    Timber.e("Login failed: $error")
                                     Toast.makeText(context, error, Toast.LENGTH_LONG).show()
                                     googleAuthManager.signOut()
                                 }
                             } else {
+                                Timber.w("Google Sign-In returned null credential")
                                 Toast.makeText(context, "Google Sign-In failed", Toast.LENGTH_SHORT).show()
                             }
                             isLoading = false
                         }
                     } else {
+                        Timber.w("Login attempt with invalid server config")
                         Toast.makeText(
                             context,
                             "Please configure server settings first",

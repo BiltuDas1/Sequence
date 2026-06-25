@@ -2,12 +2,12 @@ package com.github.biltudas1.sequence.worker
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Log
 import androidx.work.*
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.VersionService
 import com.github.biltudas1.sequence.util.NotificationHelper
 import okhttp3.OkHttpClient
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
 class UpdateWorker(context: Context, workerParams: WorkerParameters) :
@@ -19,20 +19,25 @@ class UpdateWorker(context: Context, workerParams: WorkerParameters) :
 
         return try {
             val currentVersion = getCurrentVersionName(applicationContext)
+            Timber.d("Checking for updates. Current version: $currentVersion")
             val latestRelease = versionService.getLatestRelease(currentVersion = currentVersion)
             
             if (latestRelease != null) {
+                Timber.d("Latest release: ${latestRelease.tag_name}")
                 if (isNewerVersion(latestRelease.tag_name, currentVersion)) {
+                    Timber.i("New version found: ${latestRelease.tag_name}. Showing notification.")
                     NotificationHelper.showUpdateNotification(
                         applicationContext,
                         latestRelease.tag_name,
                         latestRelease.html_url
                     )
+                } else {
+                    Timber.d("Already on the latest version.")
                 }
             }
             Result.success()
         } catch (e: Exception) {
-            Log.e("UpdateWorker", "Error checking for updates: ${e.message}")
+            Timber.e(e, "Error checking for updates")
             Result.retry()
         }
     }
