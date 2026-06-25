@@ -75,6 +75,17 @@ object CallManager {
                     dataStoreManager.addDataUsage(stunSent, stunRecv, turnSent, turnRecv)
                 }
             }
+
+            override fun onConnectionStateChange(state: PeerConnection.IceConnectionState) {
+                Log.i("CallManager", "ICE Connection State Change: $state")
+                if (state == PeerConnection.IceConnectionState.DISCONNECTED || state == PeerConnection.IceConnectionState.FAILED) {
+                    // Check if peer joined at all before terminating immediately
+                    if (hasPeerJoined.value) {
+                        Log.w("CallManager", "Peer connection lost/failed. Terminating call.")
+                        terminateCall(context)
+                    }
+                }
+            }
         })
 
         signalingClient = SignalingClient(
