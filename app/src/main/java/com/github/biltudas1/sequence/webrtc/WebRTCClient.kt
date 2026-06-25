@@ -25,6 +25,7 @@ class WebRTCClient(
         fun onIceCandidate(candidate: IceCandidate)
         fun onSdpCreated(description: SessionDescription)
         fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long)
+        fun onConnectionStateChange(state: PeerConnection.IceConnectionState)
     }
 
     init {
@@ -59,6 +60,7 @@ class WebRTCClient(
             }
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                 Log.d("WebRTCClient", "onIceConnectionChange: $state")
+                state?.let { listener.onConnectionStateChange(it) }
             }
             override fun onIceConnectionReceivingChange(p1: Boolean) {}
             override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
