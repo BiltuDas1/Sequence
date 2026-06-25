@@ -10,13 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
@@ -42,7 +39,6 @@ fun ServerConfigDialog(
     var useWss by remember { mutableStateOf(config.useWss) }
 
     var isTesting by remember { mutableStateOf(false) }
-    var testResult by remember { mutableStateOf<String?>(null) }
     var isValidated by remember { mutableStateOf(config.isValid()) }
     var isError by remember { mutableStateOf(false) }
 
@@ -65,7 +61,6 @@ fun ServerConfigDialog(
             isTesting = true
             isValidated = false
             isError = false
-            testResult = null
             scope.launch {
                 val result = authService.getServerVersion(currentConfig)
                 isTesting = false
@@ -74,9 +69,7 @@ fun ServerConfigDialog(
                     val major = VersionUtils.extractMajorVersion(versionData.version)
                     if (major == AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
                         isValidated = true
-                        val msg = "Server version ${versionData.version} is compatible"
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                        testResult = null
+                        Toast.makeText(context, "Server version ${versionData.version} is compatible", Toast.LENGTH_SHORT).show()
                     } else if (major != null) {
                         isError = true
                         val msg = if (major > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
@@ -85,19 +78,19 @@ fun ServerConfigDialog(
                             context.getString(R.string.server_outdated, versionData.version)
                         }
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                        testResult = null // Hide from dialog as requested
                     } else {
                         isError = true
-                        testResult = "Invalid server version format: ${versionData.version}"
+                        Toast.makeText(context, "Invalid server version format: ${versionData.version}", Toast.LENGTH_LONG).show()
                     }
                 } else {
                     isError = true
-                    testResult = result.exceptionOrNull()?.message ?: "Connection failed"
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Connection failed"
+                    Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
                 }
             }
         } else {
-            testResult = "Please enter a valid endpoint"
             isError = true
+            Toast.makeText(context, "Please enter a valid endpoint", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -186,16 +179,6 @@ fun ServerConfigDialog(
                         useWss = it 
                         isValidated = false
                     })
-                }
-
-                testResult?.let {
-                    Text(
-                        text = it,
-                        color = if (isError) MaterialTheme.colorScheme.error else Color(0xFF4CAF50),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
                 }
             }
         },

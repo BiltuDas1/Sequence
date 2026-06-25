@@ -41,4 +41,6 @@
     <string name="mono">Mono</string>
     <string name="on">On</string>
     <string name="off">Off</string>
+    <string name="no_internet">No internet connection</string>
+    <string name="unstable_internet">Unstable internet connection</string>
 </resources>

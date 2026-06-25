@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,13 +19,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
@@ -33,6 +34,7 @@ import com.github.biltudas1.sequence.ui.components.SettingsCategoryItem
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
+import com.github.biltudas1.sequence.util.NetworkStatus
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -40,6 +42,7 @@ import okhttp3.OkHttpClient
 @Composable
 fun SettingsScreen(
     isServerIncompatible: Boolean,
+    networkStatus: NetworkStatus,
     onBackClick: () -> Unit,
     onAboutClick: () -> Unit,
     onCallSettingsClick: () -> Unit,
@@ -57,7 +60,8 @@ fun SettingsScreen(
     val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
     val scope = rememberCoroutineScope()
 
-    val serverIncompatibleText = stringResource(com.github.biltudas1.sequence.R.string.server_incompatible)
+    val serverIncompatibleText = stringResource(R.string.server_incompatible)
+    val noInternetText = stringResource(R.string.no_internet)
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
@@ -144,7 +148,13 @@ fun SettingsScreen(
                         title = "App Updates",
                         description = "Check for updates: $updateInterval",
                         icon = Icons.Default.SystemUpdate,
-                        onClick = { showUpdateIntervalDialog = true }
+                        onClick = { 
+                            if (networkStatus == NetworkStatus.Unavailable) {
+                                Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                            } else {
+                                showUpdateIntervalDialog = true 
+                            }
+                        }
                     )
                 }
                 item {

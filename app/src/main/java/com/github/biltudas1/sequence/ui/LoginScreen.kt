@@ -27,6 +27,7 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
+import com.github.biltudas1.sequence.util.NetworkStatus
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -37,6 +38,7 @@ import okhttp3.OkHttpClient
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     isServerIncompatible: Boolean,
+    networkStatus: NetworkStatus,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -50,6 +52,7 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var showConfigDialog by remember { mutableStateOf(false) }
     val serverIncompatibleText = stringResource(R.string.server_incompatible)
+    val noInternetText = stringResource(R.string.no_internet)
 
     Scaffold(
         topBar = {
@@ -122,6 +125,10 @@ fun LoginScreen(
             // Google Sign-In Button
             Button(
                 onClick = {
+                    if (networkStatus == NetworkStatus.Unavailable) {
+                        Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
                     if (isServerIncompatible) {
                         Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
                         return@Button
@@ -188,13 +195,16 @@ fun LoginScreen(
                         ).show()
                     }
                 },
+                enabled = networkStatus != NetworkStatus.Unavailable,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(64.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {

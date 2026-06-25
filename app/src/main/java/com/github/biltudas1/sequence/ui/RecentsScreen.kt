@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.ui
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -18,19 +19,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.CallLogRepository
 import com.github.biltudas1.sequence.data.local.CallLogEntity
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import com.github.biltudas1.sequence.util.NetworkStatus
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun RecentsScreen(
+    networkStatus: NetworkStatus,
     onCallClick: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -39,6 +44,7 @@ fun RecentsScreen(
     val callLogs by repository.allCallLogs.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     
+    val noInternetText = stringResource(R.string.no_internet)
     var expandedLogId by remember { mutableStateOf<Long?>(null) }
     var logToDelete by remember { mutableStateOf<CallLogEntity?>(null) }
 
@@ -59,10 +65,17 @@ fun RecentsScreen(
                 RecentCallItem(
                     log = log,
                     isExpanded = expandedLogId == log.id,
+                    networkStatus = networkStatus,
                     onExpandClick = {
                         expandedLogId = if (expandedLogId == log.id) null else log.id
                     },
-                    onCallClick = { onCallClick(log.email, log.name ?: log.email) },
+                    onCallClick = { 
+                        if (networkStatus == NetworkStatus.Unavailable) {
+                            Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                        } else {
+                            onCallClick(log.email, log.name ?: log.email)
+                        }
+                    },
                     onDeleteClick = { logToDelete = log },
                     onInfoClick = { /* TODO: Info screen */ }
                 )
@@ -100,6 +113,7 @@ fun RecentsScreen(
 fun RecentCallItem(
     log: CallLogEntity,
     isExpanded: Boolean,
+    networkStatus: NetworkStatus,
     onExpandClick: () -> Unit,
     onCallClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -173,8 +187,15 @@ fun RecentCallItem(
                     )
                 }
                 
-                IconButton(onClick = onCallClick) {
-                    Icon(Icons.Default.Call, contentDescription = "Call", tint = Color(0xFF4CAF50))
+                IconButton(
+                    onClick = onCallClick,
+                    enabled = networkStatus != NetworkStatus.Unavailable
+                ) {
+                    Icon(
+                        Icons.Default.Call, 
+                        contentDescription = "Call", 
+                        tint = if (networkStatus == NetworkStatus.Unavailable) Color.Gray else Color(0xFF4CAF50)
+                    )
                 }
             }
 
@@ -223,8 +244,9 @@ fun RecentCallItem(
                         RecentsActionButton(
                             icon = Icons.Default.Call,
                             label = "Call",
-                            color = Color(0xFF4CAF50),
-                            onClick = onCallClick
+                            color = if (networkStatus == NetworkStatus.Unavailable) Color.Gray else Color(0xFF4CAF50),
+                            onClick = onCallClick,
+                            enabled = networkStatus != NetworkStatus.Unavailable
                         )
                         RecentsActionButton(
                             icon = Icons.Default.Delete,
@@ -250,14 +272,15 @@ fun RecentsActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     color: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .clip(CircleShape)
-            .clickable { onClick() }
+            .clickable(enabled = true) { onClick() } // Clickable always true for Toast, but icon visual changes
             .padding(8.dp)
     ) {
         Surface(

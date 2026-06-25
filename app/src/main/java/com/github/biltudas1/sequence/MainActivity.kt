@@ -17,8 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -37,7 +36,10 @@ import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.*
+import com.github.biltudas1.sequence.ui.components.NetworkStatusDisplay
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
+import com.github.biltudas1.sequence.util.ConnectivityObserver
+import com.github.biltudas1.sequence.util.NetworkStatus
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
@@ -97,11 +99,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val connectivityObserver = remember { ConnectivityObserver(context) }
+                val networkStatus by connectivityObserver.observe().collectAsStateWithLifecycle(initialValue = NetworkStatus.Available)
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val navController = rememberNavController()
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        NetworkStatusDisplay(status = networkStatus)
+                        
+                        val navController = rememberNavController()
 
                     val sessionExpiredText = stringResource(R.string.session_expired)
                     LaunchedEffect(Unit) {
@@ -327,11 +335,20 @@ class MainActivity : ComponentActivity() {
                                     animationSpec = tween(400)
                                 )
                             },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.background)
+                                .then(
+                                    if (networkStatus != NetworkStatus.Available) {
+                                        Modifier.consumeWindowInsets(WindowInsets.statusBars)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
                         ) {
                             composable(AppConstants.Routes.LOGIN) {
                                 LoginScreen(
                                     isServerIncompatible = isServerIncompatible,
+                                    networkStatus = networkStatus,
                                     onLoginSuccess = {
                                         navController.navigate(AppConstants.Routes.PERMISSIONS) {
                                             popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
@@ -353,6 +370,7 @@ class MainActivity : ComponentActivity() {
                                 val privacyModeRestrictionText = stringResource(R.string.privacy_mode_restriction)
                                 MainScreen(
                                     isServerIncompatible = isServerIncompatible,
+                                    networkStatus = networkStatus,
                                     onContactClick = { contact ->
                                         if (isServerIncompatible) {
                                             Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
@@ -458,6 +476,7 @@ class MainActivity : ComponentActivity() {
                             composable(AppConstants.Routes.SETTINGS) {
                                 SettingsScreen(
                                     isServerIncompatible = isServerIncompatible,
+                                    networkStatus = networkStatus,
                                     onBackClick = {
                                         navController.popBackStack()
                                     },
@@ -480,6 +499,7 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(AppConstants.Routes.CALL_SETTINGS) {
                                 CallSettingsScreen(
+                                    networkStatus = networkStatus,
                                     onBackClick = { navController.popBackStack() },
                                     onWebRTCConfigClick = { navController.navigate(AppConstants.Routes.WEBRTC_CONFIG) },
                                     onAudioQualityClick = { navController.navigate(AppConstants.Routes.AUDIO_QUALITY) }
@@ -559,4 +579,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }
