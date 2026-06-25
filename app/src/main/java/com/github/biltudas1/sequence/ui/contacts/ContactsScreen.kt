@@ -27,12 +27,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.data.remote.model.UserData
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
+import com.github.biltudas1.sequence.util.NetworkStatus
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -40,6 +42,7 @@ import okhttp3.OkHttpClient
 @Composable
 fun ContactsScreen(
     isServerIncompatible: Boolean,
+    networkStatus: NetworkStatus,
     onContactClick: (UserData) -> Unit,
     onSettingsClick: () -> Unit,
     showAddDialogExternally: Boolean = false,
@@ -57,7 +60,8 @@ fun ContactsScreen(
 
     val scope = rememberCoroutineScope()
 
-    val serverIncompatibleText = stringResource(com.github.biltudas1.sequence.R.string.server_incompatible)
+    val serverIncompatibleText = stringResource(R.string.server_incompatible)
+    val noInternetText = stringResource(R.string.no_internet)
 
     var isLoading by remember { mutableStateOf(false) }
     var contactToDelete by remember { mutableStateOf<UserData?>(null) }
@@ -67,6 +71,9 @@ fun ContactsScreen(
 
     val refreshContacts = {
         scope.launch {
+            if (networkStatus == NetworkStatus.Unavailable) {
+                return@launch
+            }
             if (isServerIncompatible) {
                 Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
                 return@launch
@@ -134,10 +141,17 @@ fun ContactsScreen(
                             ContactItem(
                                 contact = contact,
                                 isExpanded = expandedContactId == contact.id,
+                                networkStatus = networkStatus,
                                 onExpandClick = {
                                     expandedContactId = if (expandedContactId == contact.id) null else contact.id
                                 },
-                                onCallClick = { onContactClick(contact) },
+                                onCallClick = { 
+                                    if (networkStatus == NetworkStatus.Unavailable) {
+                                        Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onContactClick(contact) 
+                                    }
+                                },
                                 onDeleteClick = { contactToDelete = contact },
                                 onInfoClick = { /* TODO: Info screen */ }
                             )
@@ -163,6 +177,10 @@ fun ContactsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        if (networkStatus == NetworkStatus.Unavailable) {
+                            Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                            return@TextButton
+                        }
                         scope.launch {
                             if (accessToken != null && emailToAdd.isNotBlank()) {
                                 val result = repository.addContact(serverConfig, accessToken!!, emailToAdd)
@@ -195,6 +213,10 @@ fun ContactsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        if (networkStatus == NetworkStatus.Unavailable) {
+                            Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                            return@TextButton
+                        }
                         val contact = contactToDelete!!
                         contactToDelete = null
                         scope.launch {
@@ -224,6 +246,7 @@ fun ContactsScreen(
 fun ContactItem(
     contact: UserData,
     isExpanded: Boolean,
+    networkStatus: NetworkStatus,
     onExpandClick: () -> Unit,
     onCallClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -232,7 +255,7 @@ fun ContactItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(), // Snap expand (spring)
+            .animateContentSize(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         onClick = onExpandClick
@@ -274,8 +297,8 @@ fun ContactItem(
             
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = EnterTransition.None, // snappier expand
-                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)) // smooth shrink
+                enter = EnterTransition.None,
+                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
             ) {
                 Column {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -287,7 +310,7 @@ fun ContactItem(
                         ContactActionButton(
                             icon = Icons.Default.Call,
                             label = "Call",
-                            color = Color(0xFF4CAF50),
+                            color = if (networkStatus == NetworkStatus.Unavailable) Color.Gray else Color(0xFF4CAF50),
                             onClick = onCallClick
                         )
                         ContactActionButton(

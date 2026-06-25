@@ -24,12 +24,14 @@ import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
+import com.github.biltudas1.sequence.util.NetworkStatus
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     isServerIncompatible: Boolean,
+    networkStatus: NetworkStatus,
     onContactClick: (UserData) -> Unit,
     onDialerCallClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
@@ -139,15 +141,18 @@ fun MainScreen(
             Box(modifier = Modifier.weight(1f)) {
                 when (lastSelectedTab) {
                     0 -> DialerScreen(
+                        networkStatus = networkStatus,
                         onCallClick = onDialerCallClick
                     )
                     1 -> RecentsScreen(
+                        networkStatus = networkStatus,
                         onCallClick = { email, name ->
                             onContactClick(UserData(id = "", email = email, first_name = name, last_name = "", created_at = ""))
                         }
                     )
                     2 -> ContactsScreen(
                         isServerIncompatible = isServerIncompatible,
+                        networkStatus = networkStatus,
                         onContactClick = onContactClick,
                         onSettingsClick = onSettingsClick,
                         showAddDialogExternally = showAddContactDialog,
