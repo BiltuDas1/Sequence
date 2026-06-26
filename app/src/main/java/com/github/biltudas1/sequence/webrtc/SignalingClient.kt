@@ -19,6 +19,7 @@ class SignalingClient(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var heartbeatJob: Job? = null
     private var lastMessageTime = System.currentTimeMillis()
+    private var isPeerJoined = false
     private val HEARTBEAT_INTERVAL = 5000L
     private val HEARTBEAT_TIMEOUT = 15000L
 
@@ -34,6 +35,7 @@ class SignalingClient(
 
     fun start() {
         Timber.i("Starting connection to: $serverUrl")
+        isPeerJoined = false
         val request = try {
             Request.Builder()
                 .url(serverUrl)
@@ -62,7 +64,15 @@ class SignalingClient(
                 // Log.i("SignalingClient", "Received Message: $text")
                 try {
                     val json = JSONObject(text)
-                    when (json.optString("type")) {
+                    val type = json.optString("type")
+                    
+                    // Once we receive any signal from/about a peer, we consider the call active 
+                    // and start enforcing heartbeat timeouts to detect disconnections.
+                    if (type == "peer-joined" || type == "offer" || type == "answer" || type == "candidate") {
+                        isPeerJoined = true
+                    }
+
+                    when (type) {
                         "ping" -> {
                             sendPong()
                         }
@@ -120,7 +130,9 @@ class SignalingClient(
             while (isActive) {
                 delay(HEARTBEAT_INTERVAL)
                 val now = System.currentTimeMillis()
-                if (now - lastMessageTime > HEARTBEAT_TIMEOUT) {
+                // Only enforce the timeout if the peer has joined the room.
+                // This prevents the caller from timing out while waiting for FCM delivery.
+                if (isPeerJoined && now - lastMessageTime > HEARTBEAT_TIMEOUT) {
                     Timber.w("Heartbeat timeout! Closing connection.")
                     listener.onPeerLeft()
                     stop()
