@@ -235,6 +235,10 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
             val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
             response.use { resp ->
                 val bodyString = resp.body.string()
+                val redactedUrl = request.url.toString().replace(Regex("token=[^&]*"), "token=REDACTED")
+                Timber.d("Retry Response [${resp.code}] from $redactedUrl")
+                Timber.v("Retry Response body: $bodyString")
+
                 if (resp.isSuccessful) {
                     val parsed = json.decodeFromString<RES>(bodyString)
                     if (parsed is ApiResponse<*> && !parsed.status) {
