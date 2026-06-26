@@ -7,6 +7,7 @@ import android.content.Intent
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
+import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -19,6 +20,8 @@ class CallActionReceiver : BroadcastReceiver() {
         val action = intent.action
         val roomId = intent.getStringExtra("roomId") ?: return
         
+        CallRingtonePlayer.stop(context)
+
         // Dismiss notification using the consistent ID
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)

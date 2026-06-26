@@ -17,6 +17,7 @@ import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.IncomingCallActivity
+import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -30,7 +31,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
-        const val CHANNEL_ID = "voice_call_v5"
+        const val CHANNEL_ID = "voice_call_v6"
         const val MISSED_CALL_CHANNEL_ID = "missed_call"
         const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
         const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
@@ -52,15 +53,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            val attributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-
             val callChannel = NotificationChannel(CHANNEL_ID, "Voice Calls", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Incoming voice calls"
-                setSound(soundUri, attributes)
+                setSound(null, null) // Silent channel, we play manually for control
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 500, 500, 500, 500, 500, 500)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -136,6 +131,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     }
 
                     showIncomingCallNotification(roomId, callerName, callerEmail)
+                    CallRingtonePlayer.start(this)
                 }
                 else -> {
                     Timber.i("Received unknown action: $action")
@@ -211,7 +207,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        // Stop ringtone if notification is swiped away
+        val deleteIntent = Intent(this, CallActionReceiver::class.java).apply {
+            action = ACTION_REJECT // Treat swipe as reject for logic purposes
+            putExtra("roomId", roomId)
+        }
+        val deletePendingIntent = PendingIntent.getBroadcast(
+            this, 3, deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         
         val person = androidx.core.app.Person.Builder()
             .setName(callerName)
@@ -227,9 +231,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setContentIntent(fullScreenPendingIntent)
+            .setDeleteIntent(deletePendingIntent)
             .setAutoCancel(true)
             .setOngoing(true)
-            .setSound(soundUri, android.media.AudioManager.STREAM_RING)
+            .setSound(null) // Manual sound handling
             .setColor(0xFF2E7D32.toInt())
             .setColorized(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -256,6 +261,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun handleCallCancelled(roomId: String, callerName: String) {
+        CallRingtonePlayer.stop(this)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(CALL_NOTIFICATION_ID)
 
