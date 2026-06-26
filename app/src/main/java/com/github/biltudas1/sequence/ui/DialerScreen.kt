@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import com.github.biltudas1.sequence.util.NetworkStatus
+import com.github.biltudas1.sequence.util.ToastUtils
 
 @Composable
 fun DialerScreen(
@@ -66,7 +67,7 @@ fun DialerScreen(
         Button(
             onClick = { 
                 if (networkStatus == NetworkStatus.Unavailable) {
-                    Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                    ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                     return@Button
                 }
                 if (email.isNotBlank()) onCallClick(email) 

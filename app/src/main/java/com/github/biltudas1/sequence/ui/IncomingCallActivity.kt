@@ -4,6 +4,10 @@ import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -54,12 +58,40 @@ import kotlin.math.sqrt
 
 class IncomingCallActivity : ComponentActivity() {
     
+    private var ringtone: Ringtone? = null
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Timber.d("onNewIntent: cancel=${intent.getBooleanExtra("cancel", false)}")
         if (intent.getBooleanExtra("cancel", false)) {
+            stopRingtone()
             finishAndRemoveTask()
         }
+    }
+
+    private fun stopRingtone() {
+        try {
+            ringtone?.stop()
+            ringtone = null
+            
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            
+            // Reset audio mode and speaker
+            audioManager.mode = AudioManager.MODE_NORMAL
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice()
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.isSpeakerphoneOn = false
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error stopping ringtone")
+        }
+    }
+
+    override fun onDestroy() {
+        stopRingtone()
+        super.onDestroy()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,6 +102,32 @@ class IncomingCallActivity : ComponentActivity() {
             Timber.d("Finish immediately due to cancel flag")
             finishAndRemoveTask()
             return
+        }
+
+        // Play ringtone manually to ensure it's heard
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            
+            // Set mode to RINGTONE which often helps with dual-routing
+            audioManager.mode = AudioManager.MODE_RINGTONE
+            
+            // Force speaker on. On many devices, in RINGTONE mode, 
+            // this enables BOTH speaker and headset if connected.
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            ringtone = RingtoneManager.getRingtone(applicationContext, uri)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone?.isLooping = true
+            }
+            ringtone?.audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            ringtone?.play()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to play ringtone")
         }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -102,6 +160,7 @@ class IncomingCallActivity : ComponentActivity() {
                     callerName = callerName,
                     callerEmail = callerEmail,
                     onAccept = {
+                        stopRingtone()
                         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                         nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
                         val launchIntent = Intent(this, MainActivity::class.java).apply {
@@ -114,6 +173,7 @@ class IncomingCallActivity : ComponentActivity() {
                         finishAndRemoveTask()
                     },
                     onReject = {
+                        stopRingtone()
                         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                         nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
                         val dataStoreManager = DataStoreManager.getInstance(applicationContext)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
@@ -55,8 +56,9 @@ fun PermissionGatewayScreen(
         )
     }
     var isBatteryOptimizedIgnored by remember { mutableStateOf(PermissionUtils.isIgnoringBatteryOptimizations(context)) }
+    var canDrawOverlays by remember { mutableStateOf(PermissionUtils.canDrawOverlays(context)) }
 
-    val allGranted = hasMicPermission && hasPhoneStatePermission && hasNotificationPermission && isBatteryOptimizedIgnored
+    val allGranted = hasMicPermission && hasPhoneStatePermission && hasNotificationPermission && isBatteryOptimizedIgnored && canDrawOverlays
 
     // Refresh when returning to foreground
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -70,8 +72,9 @@ fun PermissionGatewayScreen(
                     hasNotificationPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
                 }
                 isBatteryOptimizedIgnored = PermissionUtils.isIgnoringBatteryOptimizations(context)
+                canDrawOverlays = PermissionUtils.canDrawOverlays(context)
                 
-                Timber.d("Permissions: Mic=$hasMicPermission, Phone=$hasPhoneStatePermission, Notifications=$hasNotificationPermission, BatteryOptimizedIgnored=$isBatteryOptimizedIgnored")
+                Timber.d("Permissions: Mic=$hasMicPermission, Phone=$hasPhoneStatePermission, Notifications=$hasNotificationPermission, BatteryOptimizedIgnored=$isBatteryOptimizedIgnored, Overlays=$canDrawOverlays")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -157,6 +160,19 @@ fun PermissionGatewayScreen(
                 isGranted = isBatteryOptimizedIgnored,
                 onClick = {
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                }
+            )
+
+            PermissionItem(
+                title = "Display Over Other Apps",
+                description = "Required to show the call screen when the app is in the background.",
+                icon = Icons.Default.Call,
+                isGranted = canDrawOverlays,
+                onClick = {
+                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
                         data = Uri.parse("package:${context.packageName}")
                     }
                     context.startActivity(intent)

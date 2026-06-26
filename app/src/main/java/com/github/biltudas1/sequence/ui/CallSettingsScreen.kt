@@ -24,6 +24,7 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.SettingsCategoryItem
 import com.github.biltudas1.sequence.util.NetworkStatus
+import com.github.biltudas1.sequence.util.ToastUtils
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -121,7 +122,7 @@ fun CallSettingsScreen(
                             checked = privacyMode,
                             onCheckedChange = { enabled ->
                                 if (networkStatus == NetworkStatus.Unavailable) {
-                                    Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                                    ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                                     return@Switch
                                 }
                                 scope.launch {
@@ -134,7 +135,7 @@ fun CallSettingsScreen(
                                         if (result.isFailure) {
                                             // Revert if failed
                                             dataStoreManager.savePrivacyMode(originalValue)
-                                            Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to update privacy mode", Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, result.exceptionOrNull()?.message ?: "Failed to update privacy mode", Toast.LENGTH_SHORT)
                                         }
                                     }
                                 }
