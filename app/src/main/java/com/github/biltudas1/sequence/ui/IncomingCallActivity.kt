@@ -48,6 +48,7 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
+import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -71,19 +72,8 @@ class IncomingCallActivity : ComponentActivity() {
 
     private fun stopRingtone() {
         try {
-            ringtone?.stop()
+            CallRingtonePlayer.stop(this)
             ringtone = null
-            
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            
-            // Reset audio mode and speaker
-            audioManager.mode = AudioManager.MODE_NORMAL
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                audioManager.clearCommunicationDevice()
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.isSpeakerphoneOn = false
-            }
         } catch (e: Exception) {
             Timber.e(e, "Error stopping ringtone")
         }
@@ -104,31 +94,10 @@ class IncomingCallActivity : ComponentActivity() {
             return
         }
 
-        // Play ringtone manually to ensure it's heard
-        try {
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            
-            // Set mode to RINGTONE which often helps with dual-routing
-            audioManager.mode = AudioManager.MODE_RINGTONE
-            
-            // Force speaker on. On many devices, in RINGTONE mode, 
-            // this enables BOTH speaker and headset if connected.
-            @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = true
-
-            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ringtone = RingtoneManager.getRingtone(applicationContext, uri)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ringtone?.isLooping = true
-            }
-            ringtone?.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            ringtone?.play()
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to play ringtone")
-        }
+        // Ensure audio is routed to speaker
+        CallRingtonePlayer.ensureSpeaker(this)
+        // Ensure it's playing (covers cases where activity starts after service)
+        CallRingtonePlayer.start(this)
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
