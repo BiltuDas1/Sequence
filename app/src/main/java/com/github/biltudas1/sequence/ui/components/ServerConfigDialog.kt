@@ -19,6 +19,7 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.utils.LastCharPasswordVisualTransformation
 import com.github.biltudas1.sequence.util.AppConstants
+import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -69,7 +70,7 @@ fun ServerConfigDialog(
                     val major = VersionUtils.extractMajorVersion(versionData.version)
                     if (major == AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
                         isValidated = true
-                        Toast.makeText(context, "Server version ${versionData.version} is compatible", Toast.LENGTH_SHORT).show()
+                        ToastUtils.show(context, "Server version ${versionData.version} is compatible", Toast.LENGTH_SHORT)
                     } else if (major != null) {
                         isError = true
                         val msg = if (major > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
@@ -77,20 +78,20 @@ fun ServerConfigDialog(
                         } else {
                             context.getString(R.string.server_outdated, versionData.version)
                         }
-                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        ToastUtils.show(context, msg, Toast.LENGTH_LONG)
                     } else {
                         isError = true
-                        Toast.makeText(context, "Invalid server version format: ${versionData.version}", Toast.LENGTH_LONG).show()
+                        ToastUtils.show(context, "Invalid server version format: ${versionData.version}", Toast.LENGTH_LONG)
                     }
                 } else {
                     isError = true
                     val errorMsg = result.exceptionOrNull()?.message ?: "Connection failed"
-                    Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                    ToastUtils.show(context, errorMsg, Toast.LENGTH_LONG)
                 }
             }
         } else {
             isError = true
-            Toast.makeText(context, "Please enter a valid endpoint", Toast.LENGTH_SHORT).show()
+            ToastUtils.show(context, "Please enter a valid endpoint", Toast.LENGTH_SHORT)
         }
     }
 

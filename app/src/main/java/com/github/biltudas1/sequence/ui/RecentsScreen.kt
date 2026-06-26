@@ -29,6 +29,7 @@ import com.github.biltudas1.sequence.data.CallLogRepository
 import com.github.biltudas1.sequence.data.local.CallLogEntity
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import com.github.biltudas1.sequence.util.NetworkStatus
+import com.github.biltudas1.sequence.util.ToastUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -71,7 +72,7 @@ fun RecentsScreen(
                     },
                     onCallClick = { 
                         if (networkStatus == NetworkStatus.Unavailable) {
-                            Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                            ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                         } else {
                             onCallClick(log.email, log.name ?: log.email)
                         }

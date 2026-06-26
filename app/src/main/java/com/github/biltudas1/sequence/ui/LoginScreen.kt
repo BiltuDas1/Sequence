@@ -28,6 +28,7 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.util.NetworkStatus
+import com.github.biltudas1.sequence.util.ToastUtils
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -128,11 +129,11 @@ fun LoginScreen(
             Button(
                 onClick = {
                     if (networkStatus == NetworkStatus.Unavailable) {
-                        Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                        ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                         return@Button
                     }
                     if (isServerIncompatible) {
-                        Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                        ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                         return@Button
                     }
                     if (serverConfig.isValid()) {
@@ -157,7 +158,7 @@ fun LoginScreen(
                                     } else {
                                         val error = regResult.exceptionOrNull()?.message ?: "Registration failed"
                                         Timber.e("Registration failed: $error")
-                                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                                        ToastUtils.show(context, error, Toast.LENGTH_LONG)
                                         googleAuthManager.signOut()
                                         isLoading = false
                                         return@launch
@@ -184,28 +185,28 @@ fun LoginScreen(
                                             Timber.e(e, "Failed to update FCM token")
                                         }
 
-                                        Toast.makeText(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT).show()
+                                        ToastUtils.show(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT)
                                         onLoginSuccess()
                                     }
                                 } else {
                                     val error = loginResult.exceptionOrNull()?.message ?: "Login failed"
                                     Timber.e("Login failed: $error")
-                                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                                    ToastUtils.show(context, error, Toast.LENGTH_LONG)
                                     googleAuthManager.signOut()
                                 }
                             } else {
                                 Timber.w("Google Sign-In returned null credential")
-                                Toast.makeText(context, "Google Sign-In failed", Toast.LENGTH_SHORT).show()
+                                ToastUtils.show(context, "Google Sign-In failed", Toast.LENGTH_SHORT)
                             }
                             isLoading = false
                         }
                     } else {
                         Timber.w("Login attempt with invalid server config")
-                        Toast.makeText(
+                        ToastUtils.show(
                             context,
                             "Please configure server settings first",
                             Toast.LENGTH_SHORT
-                        ).show()
+                        )
                     }
                 },
                 enabled = networkStatus != NetworkStatus.Unavailable,

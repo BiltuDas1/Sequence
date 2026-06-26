@@ -35,6 +35,7 @@ import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.util.NetworkStatus
+import com.github.biltudas1.sequence.util.ToastUtils
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -150,7 +151,7 @@ fun SettingsScreen(
                         icon = Icons.Default.SystemUpdate,
                         onClick = { 
                             if (networkStatus == NetworkStatus.Unavailable) {
-                                Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                                ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                             } else {
                                 showUpdateIntervalDialog = true 
                             }

@@ -35,6 +35,7 @@ import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.data.remote.model.UserData
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import com.github.biltudas1.sequence.util.NetworkStatus
+import com.github.biltudas1.sequence.util.ToastUtils
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -75,7 +76,7 @@ fun ContactsScreen(
                 return@launch
             }
             if (isServerIncompatible) {
-                Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                 return@launch
             }
             if (accessToken != null && serverConfig.isValid()) {
@@ -84,7 +85,7 @@ fun ContactsScreen(
                 if (result.isFailure) {
                     val msg = result.exceptionOrNull()?.message ?: "Sync failed"
                     if (!msg.contains("resolve host", ignoreCase = true)) {
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        ToastUtils.show(context, msg, Toast.LENGTH_SHORT)
                     }
                 }
                 isLoading = false
@@ -147,7 +148,7 @@ fun ContactsScreen(
                                 },
                                 onCallClick = { 
                                     if (networkStatus == NetworkStatus.Unavailable) {
-                                        Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                                        ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                                     } else {
                                         onContactClick(contact) 
                                     }
@@ -178,7 +179,7 @@ fun ContactsScreen(
                 TextButton(
                     onClick = {
                         if (networkStatus == NetworkStatus.Unavailable) {
-                            Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                            ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                             return@TextButton
                         }
                         scope.launch {
@@ -188,7 +189,7 @@ fun ContactsScreen(
                                     onAddDialogDismiss()
                                     emailToAdd = ""
                                 } else {
-                                    Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to add", Toast.LENGTH_SHORT).show()
+                                    ToastUtils.show(context, result.exceptionOrNull()?.message ?: "Failed to add", Toast.LENGTH_SHORT)
                                 }
                             }
                         }
@@ -214,7 +215,7 @@ fun ContactsScreen(
                 TextButton(
                     onClick = {
                         if (networkStatus == NetworkStatus.Unavailable) {
-                            Toast.makeText(context, noInternetText, Toast.LENGTH_SHORT).show()
+                            ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                             return@TextButton
                         }
                         val contact = contactToDelete!!
@@ -223,7 +224,7 @@ fun ContactsScreen(
                             if (accessToken != null) {
                                 val result = repository.removeContact(serverConfig, accessToken!!, contact.email)
                                 if (result.isFailure) {
-                                    Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to remove", Toast.LENGTH_SHORT).show()
+                                    ToastUtils.show(context, result.exceptionOrNull()?.message ?: "Failed to remove", Toast.LENGTH_SHORT)
                                 }
                             }
                         }

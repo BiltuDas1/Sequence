@@ -44,6 +44,7 @@ import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
+import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import kotlinx.coroutines.launch
@@ -118,7 +119,7 @@ class MainActivity : ComponentActivity() {
                     val sessionExpiredText = stringResource(R.string.session_expired)
                     LaunchedEffect(Unit) {
                         dataStoreManager.sessionExpiredEvent.collect {
-                            Toast.makeText(context, sessionExpiredText, Toast.LENGTH_LONG).show()
+                            ToastUtils.show(context, sessionExpiredText, Toast.LENGTH_LONG)
                             navController.navigate(AppConstants.Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                                 launchSingleTop = true
@@ -184,10 +185,10 @@ class MainActivity : ComponentActivity() {
                                 Timber.i("Server Version: $serverVersion (Major: $serverMajor), Expected Major: ${AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION}")
                                 if (serverMajor != null) {
                                     if (serverMajor > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
-                                        Toast.makeText(context, context.getString(R.string.client_outdated, serverVersion), Toast.LENGTH_LONG).show()
+                                        ToastUtils.show(context, context.getString(R.string.client_outdated, serverVersion), Toast.LENGTH_LONG)
                                         isServerIncompatible = true
                                     } else if (serverMajor < AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
-                                        Toast.makeText(context, context.getString(R.string.server_outdated, serverVersion), Toast.LENGTH_LONG).show()
+                                        ToastUtils.show(context, context.getString(R.string.server_outdated, serverVersion), Toast.LENGTH_LONG)
                                         isServerIncompatible = true
                                     } else {
                                         isServerIncompatible = false
@@ -214,7 +215,7 @@ class MainActivity : ComponentActivity() {
                             navController.navigate("webrtc_call/$rId?serverUrl=$url")
                             pendingNavigationUrl = null
                         } else {
-                            Toast.makeText(context, micPermissionRequiredText, Toast.LENGTH_LONG).show()
+                            ToastUtils.show(context, micPermissionRequiredText, Toast.LENGTH_LONG)
                         }
                     }
 
@@ -376,16 +377,16 @@ class MainActivity : ComponentActivity() {
                                     networkStatus = networkStatus,
                                     onContactClick = { contact ->
                                         if (isServerIncompatible) {
-                                            Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
                                         if (contact.email == ownEmail) {
-                                            Toast.makeText(context, "You cannot call yourself", Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
-                                            Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
                                         scope.launch {
@@ -415,9 +416,9 @@ class MainActivity : ComponentActivity() {
                                                 } else {
                                                     val exception = result.exceptionOrNull()
                                                     if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
-                                                        Toast.makeText(context, privacyModeRestrictionText, Toast.LENGTH_LONG).show()
+                                                        ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
                                                     } else {
-                                                        Toast.makeText(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT).show()
+                                                        ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
                                                     }
                                                 }
                                             }
@@ -425,16 +426,16 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onDialerCallClick = { email ->
                                         if (isServerIncompatible) {
-                                            Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
                                         if (email == ownEmail) {
-                                            Toast.makeText(context, "You cannot call yourself", Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
-                                            Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
                                         scope.launch {
@@ -463,9 +464,9 @@ class MainActivity : ComponentActivity() {
                                                 } else {
                                                     val exception = result.exceptionOrNull()
                                                     if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
-                                                        Toast.makeText(context, privacyModeRestrictionText, Toast.LENGTH_LONG).show()
+                                                        ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
                                                     } else {
-                                                        Toast.makeText(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT).show()
+                                                        ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
                                                     }
                                                 }
                                             }
@@ -544,12 +545,12 @@ class MainActivity : ComponentActivity() {
                                 RoomEntryScreen(
                                     onJoinRoom = { rId, url -> 
                                         if (isServerIncompatible) {
-                                            Toast.makeText(context, serverIncompatibleText, Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                                             return@RoomEntryScreen
                                         }
                                         val callStatusManager = CallStatusManager(context)
                                         if (callStatusManager.isUserOnAnotherCall()) {
-                                            Toast.makeText(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT).show()
+                                            ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                         } else {
                                             navigateToCallWithPermission(rId, url, roomCallText, "")
                                         }

@@ -30,7 +30,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
-        const val CHANNEL_ID = "voice_call_v3"
+        const val CHANNEL_ID = "voice_call_v5"
         const val MISSED_CALL_CHANNEL_ID = "missed_call"
         const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
         const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
@@ -62,8 +62,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 description = "Incoming voice calls"
                 setSound(soundUri, attributes)
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+                vibrationPattern = longArrayOf(0, 500, 500, 500, 500, 500, 500, 500)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setShowBadge(true)
             }
             notificationManager.createNotificationChannel(callChannel)
 
@@ -76,6 +77,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        
+        // Acquire wake lock to ensure processing happens
+        val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        val wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Sequence:CallWakeLock")
+        wakeLock.acquire(10000) // 10 seconds
+
         val redactedData = message.data.mapValues { (key, value) ->
             if (key.contains("token", true) || key.contains("email", true)) AppLogger.redact(value) else value
         }
@@ -205,8 +212,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        
+        val person = androidx.core.app.Person.Builder()
+            .setName(callerName)
+            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this, R.drawable.ic_logo))
+            .setImportant(true)
+            .build()
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Incoming Voice Call")
             .setContentText("Incoming call from $callerName")
@@ -216,12 +229,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentIntent(fullScreenPendingIntent)
             .setAutoCancel(true)
             .setOngoing(true)
-            .setSound(soundUri)
+            .setSound(soundUri, android.media.AudioManager.STREAM_RING)
+            .setColor(0xFF2E7D32.toInt())
+            .setColorized(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(R.drawable.ic_logo, "Accept", acceptPendingIntent)
-            .addAction(R.drawable.ic_logo, "Reject", rejectPendingIntent)
-            .build()
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
+        // Use CallStyle for Android 12+ (API 31+) for better UX and ringtone handling
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            notificationBuilder.setStyle(
+                NotificationCompat.CallStyle.forIncomingCall(
+                    person,
+                    rejectPendingIntent,
+                    acceptPendingIntent
+                )
+            )
+        } else {
+            // Manual actions for older versions
+            notificationBuilder.addAction(R.drawable.ic_logo, "Accept", acceptPendingIntent)
+            notificationBuilder.addAction(R.drawable.ic_logo, "Reject", rejectPendingIntent)
+        }
+
+        val notification = notificationBuilder.build()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(CALL_NOTIFICATION_ID, notification)
     }
