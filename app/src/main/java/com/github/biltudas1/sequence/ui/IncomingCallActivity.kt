@@ -2,8 +2,10 @@ package com.github.biltudas1.sequence.ui
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.Ringtone
@@ -60,6 +62,15 @@ import kotlin.math.sqrt
 class IncomingCallActivity : ComponentActivity() {
     
     private var ringtone: Ringtone? = null
+    
+    private val cancelReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == MyFirebaseMessagingService.ACTION_CANCEL_CALL) {
+                Timber.d("Received cancel broadcast, finishing activity")
+                finishAndRemoveTask()
+            }
+        }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -80,6 +91,11 @@ class IncomingCallActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            unregisterReceiver(cancelReceiver)
+        } catch (e: Exception) {
+            // Already unregistered or not registered
+        }
         stopRingtone()
         super.onDestroy()
     }
@@ -87,6 +103,14 @@ class IncomingCallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Timber.i("onCreate IncomingCallActivity")
+        
+        // Register cancel receiver
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(cancelReceiver, IntentFilter(MyFirebaseMessagingService.ACTION_CANCEL_CALL), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(cancelReceiver, IntentFilter(MyFirebaseMessagingService.ACTION_CANCEL_CALL))
+        }
         
         if (intent.getBooleanExtra("cancel", false)) {
             Timber.d("Finish immediately due to cancel flag")

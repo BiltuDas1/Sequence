@@ -35,6 +35,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val MISSED_CALL_CHANNEL_ID = "missed_call"
         const val ACTION_ACCEPT = "com.github.biltudas1.sequence.ACCEPT_CALL"
         const val ACTION_REJECT = "com.github.biltudas1.sequence.REJECT_CALL"
+        const val ACTION_CANCEL_CALL = "com.github.biltudas1.sequence.CANCEL_CALL"
         const val CALL_NOTIFICATION_ID = 1
         
         private val acceptedRooms = ConcurrentHashMap.newKeySet<String>()
@@ -271,13 +272,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             repository.markAsMissed(roomId)
         }
 
-        // Send cancel broadcast to close IncomingCallActivity if it's open
-        val cancelIntent = Intent(this, IncomingCallActivity::class.java).apply {
-            putExtra("cancel", true)
+        // Send broadcast to close IncomingCallActivity if it's open
+        val cancelBroadcast = Intent(ACTION_CANCEL_CALL).apply {
             putExtra("roomId", roomId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            `package` = packageName
         }
-        startActivity(cancelIntent)
+        sendBroadcast(cancelBroadcast)
 
         // Don't try to start an activity from background when cancelled (it's blocked)
         // Just show a missed call notification.

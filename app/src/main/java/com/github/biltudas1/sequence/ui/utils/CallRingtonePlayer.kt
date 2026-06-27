@@ -12,7 +12,14 @@ object CallRingtonePlayer {
     private var ringtone: Ringtone? = null
 
     fun start(context: Context) {
-        if (ringtone?.isPlaying == true) {
+        if (ringtone != null) {
+            if (ringtone?.isPlaying == false) {
+                try {
+                    ringtone?.play()
+                } catch (e: Exception) {
+                    Timber.e(e, "CallRingtonePlayer: Failed to resume play")
+                }
+            }
             return
         }
         
@@ -24,18 +31,20 @@ object CallRingtonePlayer {
             // Instead, we use the Ringtone object's internal stream management.
 
             val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ringtone = RingtoneManager.getRingtone(context.applicationContext, uri)
+            val newRingtone = RingtoneManager.getRingtone(context.applicationContext, uri)
             
             // USAGE_NOTIFICATION_RINGTONE is designed by Android to play 
             // on BOTH the speaker and the headphones automatically.
-            ringtone?.audioAttributes = AudioAttributes.Builder()
+            newRingtone?.audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ringtone?.isLooping = true
+                newRingtone?.isLooping = true
             }
+            
+            ringtone = newRingtone
             ringtone?.play()
             
             // After starting play, we can try to nudge the speaker on.

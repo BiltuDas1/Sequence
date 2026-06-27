@@ -5,6 +5,7 @@ import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.utils.CallAudioManager
+import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import androidx.compose.runtime.mutableStateOf
 import com.github.biltudas1.sequence.util.AppLogger
@@ -55,6 +56,9 @@ object CallManager {
         activeCallerEmail = email
         activeServerUrl = serverUrl
         isExternalCall = isExternal
+        
+        // Stop any incoming ringtone immediately when a call starts initializing
+        CallRingtonePlayer.stop(context)
         
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         audioManager = CallAudioManager(context)
