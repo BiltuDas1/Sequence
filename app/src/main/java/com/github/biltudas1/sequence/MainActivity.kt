@@ -41,6 +41,7 @@ import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.util.ConnectivityObserver
 import com.github.biltudas1.sequence.util.NetworkStatus
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
+import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
@@ -265,6 +266,8 @@ class MainActivity : ComponentActivity() {
                             // If coming from the Accept notification button, stop busy loop
                             if (intent.getStringExtra("action") == MyFirebaseMessagingService.ACTION_ACCEPT) {
                                 MyFirebaseMessagingService.markRoomAccepted(rId)
+                                // Stop the ringtone!
+                                CallRingtonePlayer.stop(context)
                                 // Dismiss notification manually since we bypassed the receiver
                                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                                 nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
