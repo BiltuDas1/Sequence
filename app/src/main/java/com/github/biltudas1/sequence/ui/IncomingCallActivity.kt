@@ -161,6 +161,7 @@ class IncomingCallActivity : ComponentActivity() {
                             putExtra("roomId", roomId)
                             putExtra("callerName", callerName)
                             putExtra("callerEmail", callerEmail)
+                            putExtra("action", MyFirebaseMessagingService.ACTION_ACCEPT)
                         }
                         startActivity(launchIntent)
                         finishAndRemoveTask()

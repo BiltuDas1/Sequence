@@ -38,6 +38,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 putExtra("roomId", roomId)
                 putExtra("callerName", intent.getStringExtra("callerName"))
                 putExtra("callerEmail", intent.getStringExtra("callerEmail"))
+                putExtra("action", MyFirebaseMessagingService.ACTION_ACCEPT)
             }
             
             // 2. Wrap it in a PendingIntent to let the system handle the transition better
