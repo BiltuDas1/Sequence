@@ -27,13 +27,13 @@ class CallAudioManager(private val context: Context) {
     private fun play(resId: Int, loop: Boolean) {
         stopAny()
         try {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            
             mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
+                setAudioAttributes(audioAttributes)
                 val afd = context.resources.openRawResourceFd(resId)
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                 afd.close()
