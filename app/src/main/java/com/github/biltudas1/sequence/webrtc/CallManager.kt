@@ -173,6 +173,10 @@ object CallManager {
             } else iceServers
 
             webRTCClient?.initPeerConnection(finalIceServers, audioQuality)
+            
+            // Ensure we start with the current speaker state (default: earpiece)
+            webRTCClient?.setSpeakerphoneOn(isSpeakerOn.value)
+
             signalingClient?.start()
             
             // Start foreground service immediately for persistent notification

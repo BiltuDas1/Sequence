@@ -1,6 +1,7 @@
 package com.github.biltudas1.sequence.ui.utils
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import com.github.biltudas1.sequence.R
 import timber.log.Timber
@@ -26,8 +27,18 @@ class CallAudioManager(private val context: Context) {
     private fun play(resId: Int, loop: Boolean) {
         stopAny()
         try {
-            mediaPlayer = MediaPlayer.create(context, resId).apply {
+            mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                val afd = context.resources.openRawResourceFd(resId)
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
                 isLooping = loop
+                prepare()
                 start()
             }
         } catch (e: Exception) {
