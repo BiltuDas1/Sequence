@@ -132,19 +132,17 @@ class MainActivity : ComponentActivity() {
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()
 
-                    DisposableEffect(Unit) {
-                        val callEndListener = {
-                            lastHandledRoomId = null
-                        }
-                        com.github.biltudas1.sequence.webrtc.CallManager.onCallEnded = callEndListener
-                        onDispose {
-                            com.github.biltudas1.sequence.webrtc.CallManager.onCallEnded = null
-                        }
-                    }
 
                     // Dynamically show over lock screen only for calls
                     LaunchedEffect(currentRoute) {
                         val isCallScreen = currentRoute?.contains("webrtc_call") == true
+                        
+                        // Reset lastHandledRoomId when we leave the call screen to allow re-entry
+                        // for the same room ID (e.g. if the room is reused or call is restarted)
+                        if (!isCallScreen) {
+                            lastHandledRoomId = null
+                        }
+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                             setShowWhenLocked(isCallScreen)
                             setTurnScreenOn(isCallScreen)
