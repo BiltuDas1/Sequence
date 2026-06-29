@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
                     val scope = rememberCoroutineScope()
+                    var isCalling by remember { mutableStateOf(false) }
 
 
                     // Dynamically show over lock screen only for calls
@@ -142,6 +143,7 @@ class MainActivity : ComponentActivity() {
                         // for the same room ID (e.g. if the room is reused or call is restarted)
                         if (!isCallScreen) {
                             lastHandledRoomId = null
+                            isCalling = false
                         }
 
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -215,6 +217,7 @@ class MainActivity : ComponentActivity() {
                             navController.navigate("webrtc_call/$rId?serverUrl=$url")
                             pendingNavigationUrl = null
                         } else {
+                            isCalling = false
                             ToastUtils.show(context, micPermissionRequiredText, Toast.LENGTH_LONG)
                         }
                     }
@@ -378,6 +381,7 @@ class MainActivity : ComponentActivity() {
                                     isServerIncompatible = isServerIncompatible,
                                     networkStatus = networkStatus,
                                     onContactClick = { contact ->
+                                        if (isCalling) return@MainScreen
                                         if (isServerIncompatible) {
                                             ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                                             return@MainScreen
@@ -391,6 +395,7 @@ class MainActivity : ComponentActivity() {
                                             ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
+                                        isCalling = true
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
                                                 val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, contact.email)
@@ -416,6 +421,7 @@ class MainActivity : ComponentActivity() {
                                                         navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false)
                                                     }
                                                 } else {
+                                                    isCalling = false
                                                     val exception = result.exceptionOrNull()
                                                     if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
                                                         ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
@@ -423,10 +429,13 @@ class MainActivity : ComponentActivity() {
                                                         ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
                                                     }
                                                 }
+                                            } else {
+                                                isCalling = false
                                             }
                                         }
                                     },
                                     onDialerCallClick = { email ->
+                                        if (isCalling) return@MainScreen
                                         if (isServerIncompatible) {
                                             ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                                             return@MainScreen
@@ -440,6 +449,7 @@ class MainActivity : ComponentActivity() {
                                             ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                             return@MainScreen
                                         }
+                                        isCalling = true
                                         scope.launch {
                                             if (accessToken != null && serverConfig != null) {
                                                 val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, email)
@@ -464,6 +474,7 @@ class MainActivity : ComponentActivity() {
                                                         navigateToCallWithPermission(rId, fullUrl, email, email, isExternal = false)
                                                     }
                                                 } else {
+                                                    isCalling = false
                                                     val exception = result.exceptionOrNull()
                                                     if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
                                                         ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
@@ -471,6 +482,8 @@ class MainActivity : ComponentActivity() {
                                                         ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
                                                     }
                                                 }
+                                            } else {
+                                                isCalling = false
                                             }
                                         }
                                     },
@@ -556,6 +569,7 @@ class MainActivity : ComponentActivity() {
                                 val roomCallText = stringResource(R.string.room_call)
                                 RoomEntryScreen(
                                     onJoinRoom = { rId, url -> 
+                                        if (isCalling) return@RoomEntryScreen
                                         if (isServerIncompatible) {
                                             ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
                                             return@RoomEntryScreen
@@ -564,6 +578,7 @@ class MainActivity : ComponentActivity() {
                                         if (callStatusManager.isUserOnAnotherCall()) {
                                             ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                         } else {
+                                            isCalling = true
                                             navigateToCallWithPermission(rId, url, roomCallText, "")
                                         }
                                     }
