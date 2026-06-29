@@ -30,6 +30,8 @@
     <string name="valid_server">Server connection valid</string>
     <string name="invalid_endpoint">Invalid endpoint format</string>
     <string name="connection_failed">Connection failed</string>
+    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="camera_permission_required">Camera permission is required to scan QR codes</string>
     <string name="privacy_mode_restriction">Callee has privacy mode enabled and you are not in their contacts.</string>
 
     <!-- Audio Quality Levels -->

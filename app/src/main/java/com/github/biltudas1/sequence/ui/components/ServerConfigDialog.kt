@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +26,7 @@ import com.github.biltudas1.sequence.util.VersionUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.core.net.toUri
 
 @Composable
 fun ServerConfigDialog(
@@ -42,6 +45,7 @@ fun ServerConfigDialog(
     var isTesting by remember { mutableStateOf(false) }
     var isValidated by remember { mutableStateOf(config.isValid()) }
     var isError by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -107,6 +111,37 @@ fun ServerConfigDialog(
         lastPasswordLength = password.length
     }
 
+    if (showScanner) {
+        QRCodeScannerDialog(
+            onDismiss = { showScanner = false },
+            onResult = { result ->
+                showScanner = false
+                try {
+                    if (result.startsWith("seq://")) {
+                        val uri = result.toUri()
+                        endpoint = uri.host ?: endpoint
+                        uri.getQueryParameter("u")?.let { username = it }
+                        uri.getQueryParameter("p")?.let { password = it }
+                        uri.getQueryParameter("https")?.let { value ->
+                            useHttps = value == "1" || value.lowercase() == "true"
+                        }
+                        uri.getQueryParameter("wss")?.let { value ->
+                            useWss = value == "1" || value.lowercase() == "true"
+                        }
+                        isValidated = false
+                        testConnection()
+                    } else {
+                        endpoint = result
+                        isValidated = false
+                        testConnection()
+                    }
+                } catch (e: Exception) {
+                    ToastUtils.show(context, "Failed to parse QR code", Toast.LENGTH_SHORT)
+                }
+            }
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Server Configuration") },
@@ -132,6 +167,14 @@ fun ServerConfigDialog(
                             }
                         },
                     singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = { showScanner = true }) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = stringResource(R.string.scan_qr_code)
+                            )
+                        }
+                    },
                     isError = isError && endpoint.isBlank()
                 )
                 OutlinedTextField(

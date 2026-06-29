@@ -74,6 +74,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         
+        val dataStoreManager = DataStoreManager.getInstance(applicationContext)
+        val tokenFlow = dataStoreManager.accessTokenFlow
+        
+        // Use runBlocking for a quick synchronous check in this background thread
+        // or launch a job if we can afford the delay, but we need to know IF we should show notification.
+        val isLoggedIn = runBlocking { tokenFlow.firstOrNull() != null }
+        
+        if (!isLoggedIn) {
+            Timber.w("FCM Message received but user is not logged in. Ignoring.")
+            return
+        }
+
         // Acquire wake lock to ensure processing happens
         val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         val wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Sequence:CallWakeLock")

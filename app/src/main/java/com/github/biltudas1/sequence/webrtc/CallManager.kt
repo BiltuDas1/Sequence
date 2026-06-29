@@ -175,6 +175,8 @@ object CallManager {
             webRTCClient?.initPeerConnection(finalIceServers, audioQuality)
             
             // Ensure we start with the current speaker state (default: earpiece)
+            // and request audio focus so the system routes audio correctly to earpiece
+            CallStatusManager(context).requestCallAudioFocus()
             webRTCClient?.setSpeakerphoneOn(isSpeakerOn.value)
 
             signalingClient?.start()

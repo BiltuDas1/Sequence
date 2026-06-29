@@ -48,6 +48,7 @@ import com.github.biltudas1.sequence.util.AppConstants
 import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
 import com.github.biltudas1.sequence.worker.UpdateWorker
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -496,6 +497,16 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onLogoutClick = {
                                         scope.launch {
+                                            val currentToken = dataStoreManager.accessTokenFlow.firstOrNull()
+                                            val currentConfig = dataStoreManager.serverConfigFlow.firstOrNull()
+                                            
+                                            if (currentToken != null && currentConfig != null && currentConfig.isValid()) {
+                                                Timber.i("Unregistering FCM token from server before logout")
+                                                // We don't wait for this to finish to avoid blocking the user
+                                                // but we try to send it.
+                                                authService.updateFcmToken(currentConfig, currentToken, null)
+                                            }
+
                                             dataStoreManager.clearTokens()
                                             contactRepository.clearLocalData()
                                         }
