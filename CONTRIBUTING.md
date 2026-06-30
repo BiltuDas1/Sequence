@@ -2,6 +2,8 @@
 
 ## Development Workflow
 
+For detailed instructions on how to set up your local environment and build the project, please refer to the [Local Development Guide](docs/DEVELOPMENT.md).
+
 ### Setup Custom Hooks
 
 Use the following command to apply the custom hook, it blocks the commit if the commit message is not following a specific standard
