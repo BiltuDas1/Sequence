@@ -58,7 +58,7 @@ fun SettingsScreen(
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
     val appTheme by dataStoreManager.appThemeFlow.collectAsStateWithLifecycle(initialValue = com.github.biltudas1.sequence.data.model.AppTheme.SYSTEM)
-    val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = Triple(null, null, 0L))
+    val versionCache by dataStoreManager.versionCacheFlow.collectAsStateWithLifecycle(initialValue = DataStoreManager.VersionCache(null, null, null, 0L))
     val scope = rememberCoroutineScope()
 
     val serverIncompatibleText = stringResource(R.string.server_incompatible)
@@ -66,7 +66,7 @@ fun SettingsScreen(
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val currentVersion = packageInfo.versionName ?: ""
-    val hasUpdate = versionCache.first?.removePrefix("v") != null && versionCache.first?.removePrefix("v") != currentVersion.removePrefix("v")
+    val hasUpdate = versionCache.tag?.removePrefix("v") != null && versionCache.tag?.removePrefix("v") != currentVersion.removePrefix("v")
     val updateColor = if (LocalIsDarkTheme.current) DarkOrange else Crimson
 
     var showConfigDialog by remember { mutableStateOf(false) }

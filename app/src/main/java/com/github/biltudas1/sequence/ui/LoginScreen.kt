@@ -178,6 +178,7 @@ fun LoginScreen(
 
                                         // Fetch and send FCM Token
                                         try {
+                                            @Suppress("DEPRECATION")
                                             val fcmToken = FirebaseMessaging.getInstance().token.await()
                                             Timber.d("Fetched FCM Token: ${AppLogger.redact(fcmToken)}")
                                             authService.updateFcmToken(serverConfig, loginData.jwt.access_token, fcmToken)

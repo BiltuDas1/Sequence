@@ -31,7 +31,9 @@ import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DarkOrange
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
 import com.github.biltudas1.sequence.util.AppConstants
+import com.github.biltudas1.sequence.util.UpdateDownloadManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
@@ -45,12 +47,26 @@ fun AboutScreen(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     val versionName = packageInfo.versionName
     
     val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val versionService = remember { VersionService(OkHttpClient(), dataStoreManager) }
+    val downloadManager = remember { UpdateDownloadManager(context) }
+    
+    val downloadInfo by downloadManager.downloadInfoFlow.collectAsState(initial = null)
+    val versionCache by dataStoreManager.versionCacheFlow.collectAsState(initial = null)
     var latestRelease by remember { mutableStateOf<com.github.biltudas1.sequence.data.remote.model.GitHubRelease?>(null) }
+
+    LaunchedEffect(downloadInfo) {
+        if (downloadInfo?.status == "COMPLETED") {
+            val filePath = downloadInfo?.filePath
+            if (filePath == null || !java.io.File(filePath).exists()) {
+                downloadManager.clearDownload()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -261,8 +277,45 @@ fun AboutScreen(
                 
                 if (isUpdateAvailable && latestRelease != null) {
                     Spacer(modifier = Modifier.height(24.dp))
+                    
+                    val downloadUrl = latestRelease?.assets?.find { it.name.lowercase().endsWith(".apk") }?.browser_download_url
+                        ?: versionCache?.apkUrl
+
+                    val status = downloadInfo?.status ?: "IDLE"
+                    val progress = (downloadInfo?.progress ?: 0f) * 100
+                    
+                    val buttonText = when (status) {
+                        "DOWNLOADING" -> "Downloading... ${progress.toInt()}%"
+                        "PAUSED" -> "Resume Download"
+                        "COMPLETED" -> "Install Update"
+                        "FAILED" -> "Retry Download"
+                        else -> stringResource(R.string.download_update)
+                    }
+
                     Button(
-                        onClick = { uriHandler.openUri(latestRelease!!.html_url) },
+                        onClick = { 
+                            when (status) {
+                                "IDLE", "FAILED" -> {
+                                    downloadUrl?.let { url ->
+                                        scope.launch { downloadManager.startDownload(url, latestVersion) }
+                                    } ?: uriHandler.openUri(latestRelease!!.html_url)
+                                }
+                                "DOWNLOADING" -> {
+                                    scope.launch { downloadManager.pauseDownload() }
+                                }
+                                "PAUSED" -> {
+                                    scope.launch { downloadManager.resumeDownload(downloadInfo!!) }
+                                }
+                                "COMPLETED" -> {
+                                    val filePath = downloadInfo?.filePath
+                                    if (filePath != null && java.io.File(filePath).exists()) {
+                                        downloadManager.installUpdate(filePath)
+                                    } else {
+                                        scope.launch { downloadManager.clearDownload() }
+                                    }
+                                }
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = updateColor,
                             contentColor = if (LocalIsDarkTheme.current) Color.Black else Color.White
@@ -273,13 +326,13 @@ fun AboutScreen(
                         shape = RoundedCornerShape(24.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Download,
+                            imageVector = if (status == "COMPLETED") Icons.Default.Download else Icons.Default.Download, // Could use different icons
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.download_update),
+                            text = buttonText,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )

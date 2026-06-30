@@ -45,6 +45,7 @@ class DataStoreManager private constructor(private val context: Context) {
         private val WEBRTC_CONFIG = stringPreferencesKey("webrtc_config")
         private val LATEST_VERSION = stringPreferencesKey("latest_version")
         private val LATEST_RELEASE_URL = stringPreferencesKey("latest_release_url")
+        private val LATEST_APK_URL = stringPreferencesKey("latest_apk_url")
         private val LAST_VERSION_CHECK = longPreferencesKey("last_version_check")
         
         private val STUN_BYTES_SENT = longPreferencesKey("stun_bytes_sent")
@@ -57,6 +58,14 @@ class DataStoreManager private constructor(private val context: Context) {
         private val LAST_SELECTED_TAB = intPreferencesKey("last_selected_tab")
         private val USER_EMAIL = stringPreferencesKey("user_email")
         private val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
+
+        private val DOWNLOAD_STATUS = stringPreferencesKey("download_status")
+        private val DOWNLOAD_PROGRESS = floatPreferencesKey("download_progress")
+        private val DOWNLOADED_BYTES = longPreferencesKey("downloaded_bytes")
+        private val TOTAL_BYTES = longPreferencesKey("total_bytes")
+        private val DOWNLOAD_URL = stringPreferencesKey("download_url")
+        private val DOWNLOAD_FILE_PATH = stringPreferencesKey("download_file_path")
+        private val DOWNLOAD_VERSION_TAG = stringPreferencesKey("download_version_tag")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -85,13 +94,21 @@ class DataStoreManager private constructor(private val context: Context) {
     val accessTokenFlow: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN]?.decrypt() }
     val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN]?.decrypt() }
 
-    val versionCacheFlow: Flow<Triple<String?, String?, Long>> = context.dataStore.data.map { preferences ->
-        Triple(
-            preferences[LATEST_VERSION],
-            preferences[LATEST_RELEASE_URL],
-            preferences[LAST_VERSION_CHECK] ?: 0L
+    val versionCacheFlow: Flow<VersionCache> = context.dataStore.data.map { preferences ->
+        VersionCache(
+            tag = preferences[LATEST_VERSION],
+            htmlUrl = preferences[LATEST_RELEASE_URL],
+            apkUrl = preferences[LATEST_APK_URL],
+            lastCheck = preferences[LAST_VERSION_CHECK] ?: 0L
         )
     }
+
+    data class VersionCache(
+        val tag: String?,
+        val htmlUrl: String?,
+        val apkUrl: String?,
+        val lastCheck: Long
+    )
 
     val dataUsageFlow: Flow<DataUsage> = context.dataStore.data.map { preferences ->
         DataUsage(
@@ -136,6 +153,29 @@ class DataStoreManager private constructor(private val context: Context) {
 
     val privacyModeFlow: Flow<Boolean> = context.dataStore.data.map { it[PRIVACY_MODE] ?: false }
 
+    data class DownloadInfo(
+        val status: String,
+        val progress: Float,
+        val downloadedBytes: Long,
+        val totalBytes: Long,
+        val url: String?,
+        val filePath: String?,
+        val versionTag: String?
+    )
+
+    val downloadInfoFlow: Flow<DownloadInfo> = context.dataStore.data
+        .map { preferences ->
+            DownloadInfo(
+                status = preferences[DOWNLOAD_STATUS] ?: "IDLE",
+                progress = preferences[DOWNLOAD_PROGRESS] ?: 0f,
+                downloadedBytes = preferences[DOWNLOADED_BYTES] ?: 0L,
+                totalBytes = preferences[TOTAL_BYTES] ?: 0L,
+                url = preferences[DOWNLOAD_URL],
+                filePath = preferences[DOWNLOAD_FILE_PATH],
+                versionTag = preferences[DOWNLOAD_VERSION_TAG]
+            )
+        }
+
     suspend fun saveServerConfig(config: ServerConfig) {
         Timber.i("Saving Server Config: endpoint=${config.cleanEndpoint}, useHttps=${config.useHttps}")
         context.dataStore.edit { preferences ->
@@ -153,10 +193,11 @@ class DataStoreManager private constructor(private val context: Context) {
         }
     }
 
-    suspend fun saveVersionCache(tag: String, url: String, timestamp: Long) {
+    suspend fun saveVersionCache(tag: String, htmlUrl: String, apkUrl: String?, timestamp: Long) {
         context.dataStore.edit { preferences ->
             preferences[LATEST_VERSION] = tag
-            preferences[LATEST_RELEASE_URL] = url
+            preferences[LATEST_RELEASE_URL] = htmlUrl
+            if (apkUrl != null) preferences[LATEST_APK_URL] = apkUrl
             preferences[LAST_VERSION_CHECK] = timestamp
         }
     }
@@ -217,6 +258,38 @@ class DataStoreManager private constructor(private val context: Context) {
     suspend fun savePrivacyMode(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PRIVACY_MODE] = enabled
+        }
+    }
+
+    suspend fun saveDownloadStatus(status: String) {
+        context.dataStore.edit { preferences -> preferences[DOWNLOAD_STATUS] = status }
+    }
+
+    suspend fun saveDownloadProgress(progress: Float, downloaded: Long, total: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[DOWNLOAD_PROGRESS] = progress
+            preferences[DOWNLOADED_BYTES] = downloaded
+            preferences[TOTAL_BYTES] = total
+        }
+    }
+
+    suspend fun saveDownloadDetails(url: String, filePath: String, versionTag: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DOWNLOAD_URL] = url
+            preferences[DOWNLOAD_FILE_PATH] = filePath
+            preferences[DOWNLOAD_VERSION_TAG] = versionTag
+        }
+    }
+
+    suspend fun clearDownloadData() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(DOWNLOAD_STATUS)
+            preferences.remove(DOWNLOAD_PROGRESS)
+            preferences.remove(DOWNLOADED_BYTES)
+            preferences.remove(TOTAL_BYTES)
+            preferences.remove(DOWNLOAD_URL)
+            preferences.remove(DOWNLOAD_FILE_PATH)
+            preferences.remove(DOWNLOAD_VERSION_TAG)
         }
     }
 
