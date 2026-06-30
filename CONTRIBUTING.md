@@ -2,7 +2,8 @@
 
 ## Development Workflow
 
-For detailed instructions on how to set up your local environment and build the project, please refer to the [Local Development Guide](docs/DEVELOPMENT.md).
+- For detailed instructions on how to set up your local environment and build the project, please refer to the [Local Development Guide](docs/DEVELOPMENT.md).
+- To understand the project structure and communication flow, refer to the [Architecture Overview](docs/ARCHITECTURE.md).
 
 ### Setup Custom Hooks
 
