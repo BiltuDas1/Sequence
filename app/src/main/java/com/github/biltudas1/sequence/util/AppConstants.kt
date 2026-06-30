@@ -34,6 +34,7 @@ object AppConstants {
         const val TOKEN_REFRESH = "token/refresh"
         const val USERS_FCM_TOKEN = "users/fcm-token"
         const val USERS_PRIVACY = "users/privacy"
+        const val USERS_LOGOUT = "users/logout"
         const val VOICECALL_SEND = "voicecall/send"
         const val VOICECALL_END = "voicecall/end"
         const val VOICECALL_BUSY = "voicecall/busy"

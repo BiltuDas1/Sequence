@@ -32,6 +32,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.auth.GoogleAuthManager
 import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
@@ -45,13 +46,16 @@ import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
 import com.github.biltudas1.sequence.ui.utils.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
+import com.github.biltudas1.sequence.util.AppLogger
 import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
 import com.github.biltudas1.sequence.util.UpdateDownloadManager
+import com.google.firebase.messaging.FirebaseMessaging
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import java.io.File
 
@@ -200,6 +204,39 @@ class MainActivity : ComponentActivity() {
                     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
                     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
                     val ownEmail by dataStoreManager.userEmailFlow.collectAsStateWithLifecycle(initialValue = null)
+
+                    LaunchedEffect(accessToken, serverConfig) {
+                        val token = accessToken
+                        val config = serverConfig
+                        if (token != null && token != "UNDEFINED" && config != null && config.isValid()) {
+                            Timber.i("AccessToken or ServerConfig changed. Checking FCM token sync.")
+                            try {
+                                @Suppress("DEPRECATION")
+                                val fcmToken = FirebaseMessaging.getInstance().token.await()
+                                val currentSavedToken = dataStoreManager.fcmTokenFlow.firstOrNull()
+                                
+                                Timber.i("Checking FCM token. Current: ${AppLogger.redact(fcmToken)}, Saved: ${AppLogger.redact(currentSavedToken)}")
+                                
+                                // FORCE sync if we don't have a saved token (which happens after login)
+                                val shouldUpdate = fcmToken != currentSavedToken || currentSavedToken == null
+                                
+                                if (shouldUpdate) {
+                                    Timber.i("FCM token changed, not yet sent, or freshly logged in. Updating server...")
+                                    val result = authService.updateFcmToken(config, token, fcmToken)
+                                    if (result.isSuccess) {
+                                        Timber.i("FCM token updated successfully on server")
+                                        dataStoreManager.saveFcmToken(fcmToken)
+                                    } else {
+                                        Timber.e(result.exceptionOrNull(), "Server rejected FCM token update")
+                                    }
+                                } else {
+                                    Timber.d("FCM token is already up to date on server")
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "Failed to check/refresh FCM token")
+                            }
+                        }
+                    }
 
                     var isServerIncompatible by remember { mutableStateOf(false) }
                     val serverIncompatibleText = stringResource(R.string.server_incompatible)
@@ -539,18 +576,24 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onLogoutClick = {
                                         scope.launch {
+                                            val refreshToken = dataStoreManager.refreshTokenFlow.firstOrNull()
                                             val currentToken = dataStoreManager.accessTokenFlow.firstOrNull()
                                             val currentConfig = dataStoreManager.serverConfigFlow.firstOrNull()
                                             
                                             if (currentToken != null && currentConfig != null && currentConfig.isValid()) {
-                                                Timber.i("Unregistering FCM token from server before logout")
-                                                // We don't wait for this to finish to avoid blocking the user
-                                                // but we try to send it.
-                                                authService.updateFcmToken(currentConfig, currentToken, null)
+                                                Timber.i("Logging out from server")
+                                                
+                                                // 1. Call logout API
+                                                authService.logoutUser(currentConfig, currentToken, refreshToken)
                                             }
 
-                                            dataStoreManager.clearTokens()
+                                            // 3. Clear local session and data
+                                            dataStoreManager.clearSession()
                                             contactRepository.clearLocalData()
+
+                                            // 4. Sign out from Google (Credential Manager)
+                                            val googleAuthManager = GoogleAuthManager(context)
+                                            googleAuthManager.signOut()
                                         }
                                     }
                                 )
