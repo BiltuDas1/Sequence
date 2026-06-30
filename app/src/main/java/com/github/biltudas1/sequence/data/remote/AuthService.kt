@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -54,6 +55,10 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
 
     suspend fun loginUser(serverConfig: ServerConfig, idToken: String): Result<ApiResponse<LoginData>> {
         return performPost(serverConfig, AppConstants.Api.USERS_LOGIN, null, LoginRequest(idToken))
+    }
+
+    suspend fun logoutUser(serverConfig: ServerConfig, accessToken: String?, refreshToken: String?): Result<ApiResponse<Unit>> {
+        return performPost(serverConfig, AppConstants.Api.USERS_LOGOUT, accessToken, LogoutRequest(refreshToken))
     }
 
     suspend fun addContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<UserData>> {
@@ -220,6 +225,25 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                 val newTokens = refreshResult.getOrNull()?.data
                 if (newTokens != null) {
                     dataStoreManager.saveTokens(newTokens.access_token, newTokens.refresh_token)
+                    
+                    // Update FCM token with new access token if available
+                    try {
+                        dataStoreManager.fcmTokenFlow.firstOrNull()?.let { fcmToken ->
+                            Timber.i("Syncing FCM token after refresh")
+                            val protocol = if (serverConfig.useHttps) "https" else "http"
+                            val fcmUrl = "$protocol://${serverConfig.cleanEndpoint}/${AppConstants.Api.USERS_FCM_TOKEN}"
+                            val fcmBody = json.encodeToString(FcmTokenRequest(fcmToken)).toRequestBody(mediaType)
+                            val fcmRequest = Request.Builder()
+                                .url(fcmUrl)
+                                .post(fcmBody)
+                                .addHeader("Authorization", "Bearer ${newTokens.access_token}")
+                                .build()
+                            executeRequestWithoutRetry<ApiResponse<Unit>>(fcmRequest)
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to update FCM token during refresh")
+                    }
+
                     return newTokens.access_token
                 }
             } else {

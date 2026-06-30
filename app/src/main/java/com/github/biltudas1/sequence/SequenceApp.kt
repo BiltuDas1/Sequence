@@ -3,6 +3,7 @@ package com.github.biltudas1.sequence
 import android.app.Application
 import androidx.work.Configuration
 import com.github.biltudas1.sequence.util.AppLogger
+import com.google.firebase.FirebaseApp
 import timber.log.Timber
 
 class SequenceApp : Application(), Configuration.Provider {
@@ -14,6 +15,13 @@ class SequenceApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         AppLogger.init(this)
+
+        // Initialize Firebase explicitly to prevent IllegalStateException
+        try {
+            FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize Firebase")
+        }
         
         // Ensure ML Kit is initialized
         try {

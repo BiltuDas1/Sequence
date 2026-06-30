@@ -305,6 +305,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notificationManager.notify(System.currentTimeMillis().toInt(), missedCallNotification)
     }
 
+    @Deprecated("Overriding deprecated member in FirebaseMessagingService")
     @Suppress("DEPRECATION")
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -315,7 +316,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
             val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
             if (serverConfig != null && serverConfig.isValid() && accessToken != null) {
-                authService.updateFcmToken(serverConfig, accessToken, token)
+                val result = authService.updateFcmToken(serverConfig, accessToken, token)
+                if (result.isSuccess) {
+                    Timber.i("FCM token updated on server via onNewToken")
+                    dataStoreManager.saveFcmToken(token)
+                } else {
+                    Timber.e(result.exceptionOrNull(), "Failed to update FCM token on server via onNewToken")
+                }
             }
         }
     }

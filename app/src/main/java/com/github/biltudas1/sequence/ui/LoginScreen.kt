@@ -176,16 +176,6 @@ fun LoginScreen(
                                         dataStoreManager.saveUserEmail(loginData.email)
                                         dataStoreManager.savePrivacyMode(loginData.privacy_mode)
 
-                                        // Fetch and send FCM Token
-                                        try {
-                                            @Suppress("DEPRECATION")
-                                            val fcmToken = FirebaseMessaging.getInstance().token.await()
-                                            Timber.d("Fetched FCM Token: ${AppLogger.redact(fcmToken)}")
-                                            authService.updateFcmToken(serverConfig, loginData.jwt.access_token, fcmToken)
-                                        } catch (e: Exception) {
-                                            Timber.e(e, "Failed to update FCM token")
-                                        }
-
                                         ToastUtils.show(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT)
                                         onLoginSuccess()
                                     }

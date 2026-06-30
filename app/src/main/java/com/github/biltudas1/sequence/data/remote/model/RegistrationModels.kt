@@ -1,5 +1,6 @@
 package com.github.biltudas1.sequence.data.remote.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -33,8 +34,8 @@ data class LoginRequest(
 data class LoginData(
     val id: String,
     val email: String,
-    val firstname: String? = null,
-    val lastname: String? = null,
+    @SerialName("first_name") val firstname: String? = null,
+    @SerialName("last_name") val lastname: String? = null,
     val privacy_mode: Boolean = false,
     val jwt: JwtTokens
 )
@@ -51,6 +52,11 @@ data class RefreshRequest(
 )
 
 @Serializable
+data class LogoutRequest(
+    val refresh_token: String? = null
+)
+
+@Serializable
 data class AddContactRequest(
     val email: String
 )
@@ -62,12 +68,13 @@ data class RemoveContactRequest(
 
 @Serializable
 data class FcmTokenRequest(
-    val fcmToken: String?
+    val fcmToken: String?,
+    @SerialName("fcm_token") val fcmTokenAlt: String? = fcmToken
 )
 
 @Serializable
 data class PrivacyModeRequest(
-    val privacyMode: Boolean
+    @SerialName("privacy_mode") val privacyMode: Boolean
 )
 
 @Serializable

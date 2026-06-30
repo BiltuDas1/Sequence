@@ -7,12 +7,18 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.github.biltudas1.sequence.data.model.*
 import com.github.biltudas1.sequence.util.AppLogger
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
 import timber.log.Timber
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "server_config")
@@ -24,6 +30,19 @@ class DataStoreManager private constructor(private val context: Context) {
 
     private val _sessionExpiredEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpiredEvent: SharedFlow<Unit> = _sessionExpiredEvent.asSharedFlow()
+
+    // Version Cache File in internal cache partition
+    private val versionCacheFile = File(context.cacheDir, "version_cache.json")
+    private val _versionCacheFlow = MutableStateFlow(loadVersionCache())
+    val versionCacheFlow: Flow<VersionCache> = _versionCacheFlow.asStateFlow()
+
+    @Serializable
+    data class VersionCache(
+        val tag: String? = null,
+        val htmlUrl: String? = null,
+        val apkUrl: String? = null,
+        val lastCheck: Long = 0L
+    )
 
     companion object {
         @Volatile
@@ -43,10 +62,6 @@ class DataStoreManager private constructor(private val context: Context) {
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         private val WEBRTC_CONFIG = stringPreferencesKey("webrtc_config")
-        private val LATEST_VERSION = stringPreferencesKey("latest_version")
-        private val LATEST_RELEASE_URL = stringPreferencesKey("latest_release_url")
-        private val LATEST_APK_URL = stringPreferencesKey("latest_apk_url")
-        private val LAST_VERSION_CHECK = longPreferencesKey("last_version_check")
         
         private val STUN_BYTES_SENT = longPreferencesKey("stun_bytes_sent")
         private val STUN_BYTES_RECEIVED = longPreferencesKey("stun_bytes_received")
@@ -58,6 +73,7 @@ class DataStoreManager private constructor(private val context: Context) {
         private val LAST_SELECTED_TAB = intPreferencesKey("last_selected_tab")
         private val USER_EMAIL = stringPreferencesKey("user_email")
         private val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
+        private val FCM_TOKEN = stringPreferencesKey("fcm_token")
 
         private val DOWNLOAD_STATUS = stringPreferencesKey("download_status")
         private val DOWNLOAD_PROGRESS = floatPreferencesKey("download_progress")
@@ -94,21 +110,19 @@ class DataStoreManager private constructor(private val context: Context) {
     val accessTokenFlow: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN]?.decrypt() }
     val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN]?.decrypt() }
 
-    val versionCacheFlow: Flow<VersionCache> = context.dataStore.data.map { preferences ->
-        VersionCache(
-            tag = preferences[LATEST_VERSION],
-            htmlUrl = preferences[LATEST_RELEASE_URL],
-            apkUrl = preferences[LATEST_APK_URL],
-            lastCheck = preferences[LAST_VERSION_CHECK] ?: 0L
-        )
+    private fun loadVersionCache(): VersionCache {
+        return try {
+            if (versionCacheFile.exists()) {
+                val jsonStr = versionCacheFile.readText()
+                json.decodeFromString<VersionCache>(jsonStr)
+            } else {
+                VersionCache()
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to load version cache from internal cache partition")
+            VersionCache()
+        }
     }
-
-    data class VersionCache(
-        val tag: String?,
-        val htmlUrl: String?,
-        val apkUrl: String?,
-        val lastCheck: Long
-    )
 
     val dataUsageFlow: Flow<DataUsage> = context.dataStore.data.map { preferences ->
         DataUsage(
@@ -150,8 +164,8 @@ class DataStoreManager private constructor(private val context: Context) {
     val lastSelectedTabFlow: Flow<Int> = context.dataStore.data.map { it[LAST_SELECTED_TAB] ?: 0 }
 
     val userEmailFlow: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL]?.decrypt() }
-
     val privacyModeFlow: Flow<Boolean> = context.dataStore.data.map { it[PRIVACY_MODE] ?: false }
+    val fcmTokenFlow: Flow<String?> = context.dataStore.data.map { it[FCM_TOKEN]?.decrypt() }
 
     data class DownloadInfo(
         val status: String,
@@ -194,11 +208,14 @@ class DataStoreManager private constructor(private val context: Context) {
     }
 
     suspend fun saveVersionCache(tag: String, htmlUrl: String, apkUrl: String?, timestamp: Long) {
-        context.dataStore.edit { preferences ->
-            preferences[LATEST_VERSION] = tag
-            preferences[LATEST_RELEASE_URL] = htmlUrl
-            if (apkUrl != null) preferences[LATEST_APK_URL] = apkUrl
-            preferences[LAST_VERSION_CHECK] = timestamp
+        val cache = VersionCache(tag, htmlUrl, apkUrl, timestamp)
+        _versionCacheFlow.value = cache
+        withContext(Dispatchers.IO) {
+            try {
+                versionCacheFile.writeText(json.encodeToString(cache))
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save version cache to internal cache partition")
+            }
         }
     }
 
@@ -261,6 +278,16 @@ class DataStoreManager private constructor(private val context: Context) {
         }
     }
 
+    suspend fun saveFcmToken(token: String?) {
+        context.dataStore.edit { preferences ->
+            if (token == null) {
+                preferences.remove(FCM_TOKEN)
+            } else {
+                preferences[FCM_TOKEN] = token.encrypt()
+            }
+        }
+    }
+
     suspend fun saveDownloadStatus(status: String) {
         context.dataStore.edit { preferences -> preferences[DOWNLOAD_STATUS] = status }
     }
@@ -301,17 +328,20 @@ class DataStoreManager private constructor(private val context: Context) {
         }
     }
 
-    suspend fun clearTokens() {
-        Timber.i("Clearing JWT tokens")
+    suspend fun clearSession() {
+        Timber.i("Clearing entire session data")
         context.dataStore.edit { preferences ->
             preferences.remove(ACCESS_TOKEN)
             preferences.remove(REFRESH_TOKEN)
+            preferences.remove(USER_EMAIL)
+            preferences.remove(PRIVACY_MODE)
+            preferences.remove(FCM_TOKEN)
         }
     }
 
     suspend fun notifySessionExpired() {
         Timber.w("Session expired notification triggered")
-        clearTokens()
+        clearSession()
         _sessionExpiredEvent.emit(Unit)
     }
 
