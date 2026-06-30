@@ -1,13 +1,27 @@
 package com.github.biltudas1.sequence
 
 import android.app.Application
+import androidx.work.Configuration
 import com.github.biltudas1.sequence.util.AppLogger
 import timber.log.Timber
 
-class SequenceApp : Application() {
+class SequenceApp : Application(), Configuration.Provider {
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
+            .build()
+
     override fun onCreate() {
         super.onCreate()
         AppLogger.init(this)
+        
+        // Ensure ML Kit is initialized
+        try {
+            com.google.mlkit.common.sdkinternal.MlKitContext.initializeIfNeeded(this)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize ML Kit")
+        }
+
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
             Timber.plant(AppLogger.InMemoryTree())

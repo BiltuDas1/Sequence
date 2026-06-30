@@ -23,6 +23,7 @@ ksp = "2.3.8"
 #mlkit-barcode-scanning = "17.3.0"
 camerax = "1.6.1"
 guava = "33.6.0-android"
+zxing = "3.5.4"
 
 [libraries]
 androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
@@ -64,6 +65,7 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
