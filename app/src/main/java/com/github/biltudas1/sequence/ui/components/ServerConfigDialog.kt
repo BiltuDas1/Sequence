@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,6 +47,7 @@ fun ServerConfigDialog(
     var isValidated by remember { mutableStateOf(config.isValid()) }
     var isError by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
+    var showDisplayQR by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -119,7 +121,8 @@ fun ServerConfigDialog(
                 try {
                     if (result.startsWith("seq://")) {
                         val uri = result.toUri()
-                        endpoint = uri.host ?: endpoint
+                        val rawEndpoint = result.substringBefore("?").removePrefix("seq://")
+                        endpoint = if (rawEndpoint.isNotBlank()) rawEndpoint else (uri.host ?: endpoint)
                         uri.getQueryParameter("u")?.let { username = it }
                         uri.getQueryParameter("p")?.let { password = it }
                         uri.getQueryParameter("https")?.let { value ->
@@ -142,9 +145,31 @@ fun ServerConfigDialog(
         )
     }
 
+    if (showDisplayQR) {
+        val cleanEndpoint = endpoint.trim()
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .removePrefix("wss://")
+            .removePrefix("ws://")
+            .removeSuffix("/")
+        
+        val qrContent = "seq://$cleanEndpoint" +
+                "?u=${java.net.URLEncoder.encode(username.trim(), "UTF-8")}" +
+                "&p=${java.net.URLEncoder.encode(password.trim(), "UTF-8")}" +
+                "&https=${if (useHttps) 1 else 0}" +
+                "&wss=${if (useWss) 1 else 0}"
+        
+        QRCodeDisplayDialog(
+            content = qrContent,
+            onDismiss = { showDisplayQR = false }
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Server Configuration") },
+        title = {
+            Text("Server Configuration")
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -227,26 +252,42 @@ fun ServerConfigDialog(
             }
         },
         confirmButton = {
-            if (isTesting) {
-                TextButton(onClick = { }, enabled = false) {
-                    Text(stringResource(R.string.testing) + ".".repeat(dotCount))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (endpoint.isNotBlank()) {
+                    IconButton(
+                        onClick = { showDisplayQR = true },
+                        modifier = Modifier.offset(x = (-12).dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.QrCode,
+                            contentDescription = "Show QR Code"
+                        )
+                    }
                 }
-            } else if (isValidated) {
-                TextButton(onClick = {
-                    onSave(ServerConfig(endpoint, username, password, useHttps, useWss))
-                }) {
-                    Text("Save")
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
                 }
-            } else {
-                TextButton(onClick = { testConnection() }) {
-                    Text("Test Connection")
+                if (isTesting) {
+                    TextButton(onClick = { }, enabled = false) {
+                        Text(stringResource(R.string.testing) + ".".repeat(dotCount))
+                    }
+                } else if (isValidated) {
+                    TextButton(onClick = {
+                        onSave(ServerConfig(endpoint, username, password, useHttps, useWss))
+                    }) {
+                        Text("Save")
+                    }
+                } else {
+                    TextButton(onClick = { testConnection() }) {
+                        Text("Test Connection")
+                    }
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        dismissButton = null
     )
 }
