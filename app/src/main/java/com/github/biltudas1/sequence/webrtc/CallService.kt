@@ -169,7 +169,7 @@ class CallService : Service() {
             .build()
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(name)
             .setContentText("Ongoing Call")
             .setContentIntent(pendingIntent)

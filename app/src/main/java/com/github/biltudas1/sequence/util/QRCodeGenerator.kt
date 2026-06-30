@@ -3,20 +3,27 @@ package com.github.biltudas1.sequence.util
 import android.graphics.Bitmap
 import android.graphics.Color
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
 import com.google.zxing.common.BitMatrix
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 
 object QRCodeGenerator {
     @Throws(WriterException::class)
     fun generateQRCode(content: String, size: Int = 512): Bitmap? {
+        val hints = mapOf(
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
+            EncodeHintType.MARGIN to 1
+        )
         val bitMatrix: BitMatrix
         try {
             bitMatrix = MultiFormatWriter().encode(
                 content,
                 BarcodeFormat.QR_CODE,
                 size,
-                size
+                size,
+                hints
             )
         } catch (e: WriterException) {
             return null

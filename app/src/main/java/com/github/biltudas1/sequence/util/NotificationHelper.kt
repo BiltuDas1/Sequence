@@ -51,14 +51,14 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_logo)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Install Update")
             .setContentText("Sequence $latestVersion is downloaded and ready to install.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .addAction(R.drawable.ic_logo, "Install Now", installPendingIntent)
+            .addAction(R.drawable.ic_notification, "Install Now", installPendingIntent)
             .build()
 
         notificationManager.notify(UPDATE_NOTIFICATION_ID, notification)
@@ -90,7 +90,7 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_logo)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Update Available")
             .setContentText("Sequence $latestVersion is ready to download.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
