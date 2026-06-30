@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -75,6 +77,11 @@
             android:foregroundServiceType="microphone"
             android:exported="false" />
 
+        <service
+            android:name=".service.UpdateDownloadService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.github.biltudas1.sequence.fileprovider"
@@ -87,6 +94,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <receiver
+            android:name=".service.UpdateInstallReceiver"
+            android:exported="false" />
 
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"

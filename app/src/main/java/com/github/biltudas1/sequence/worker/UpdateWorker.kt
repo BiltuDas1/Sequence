@@ -6,6 +6,7 @@ import androidx.work.*
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.VersionService
 import com.github.biltudas1.sequence.util.NotificationHelper
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -25,12 +26,27 @@ class UpdateWorker(context: Context, workerParams: WorkerParameters) :
             if (latestRelease != null) {
                 Timber.d("Latest release: ${latestRelease.tag_name}")
                 if (isNewerVersion(latestRelease.tag_name, currentVersion)) {
-                    Timber.i("New version found: ${latestRelease.tag_name}. Showing notification.")
-                    NotificationHelper.showUpdateNotification(
-                        applicationContext,
-                        latestRelease.tag_name,
-                        latestRelease.html_url
-                    )
+                    val downloadInfo = dataStoreManager.downloadInfoFlow.first()
+                    val filePath = downloadInfo.filePath
+                    
+                    if (downloadInfo.status == "COMPLETED" && 
+                        downloadInfo.versionTag == latestRelease.tag_name && 
+                        filePath != null && java.io.File(filePath).exists()) {
+                        
+                        Timber.i("New version already downloaded: ${latestRelease.tag_name}. Showing install notification.")
+                        NotificationHelper.showInstallNotification(
+                            applicationContext,
+                            latestRelease.tag_name,
+                            downloadInfo.filePath
+                        )
+                    } else {
+                        Timber.i("New version found: ${latestRelease.tag_name}. Showing update notification.")
+                        NotificationHelper.showUpdateNotification(
+                            applicationContext,
+                            latestRelease.tag_name,
+                            latestRelease.html_url
+                        )
+                    }
                 } else {
                     Timber.d("Already on the latest version.")
                 }

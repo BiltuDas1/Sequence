@@ -78,7 +78,15 @@ data class PrivacyModeData(
 @Serializable
 data class GitHubRelease(
     val tag_name: String,
-    val html_url: String
+    val html_url: String,
+    val assets: List<GitHubAsset> = emptyList()
+)
+
+@Serializable
+data class GitHubAsset(
+    val name: String,
+    val browser_download_url: String,
+    val size: Long
 )
 
 @Serializable

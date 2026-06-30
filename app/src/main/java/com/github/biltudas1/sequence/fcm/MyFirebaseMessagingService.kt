@@ -305,6 +305,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notificationManager.notify(System.currentTimeMillis().toInt(), missedCallNotification)
     }
 
+    @Suppress("DEPRECATION")
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Timber.i("New FCM Token generated: ${AppLogger.redact(token)}")

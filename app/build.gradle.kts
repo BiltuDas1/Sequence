@@ -23,8 +23,8 @@ android {
         applicationId = "com.github.biltudas1.sequence"
         minSdk = 24
         targetSdk = 37
-        versionCode = 39
-        versionName = "0.14.0a13"
+        versionCode = 40
+        versionName = "0.15.0a1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -98,7 +98,7 @@ dependencies {
     implementation(libs.guava)
     ksp(libs.androidx.room.compiler)
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.messaging.ktx)
+    implementation(libs.firebase.messaging)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

@@ -47,10 +47,13 @@ import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
 import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
+import com.github.biltudas1.sequence.util.UpdateDownloadManager
 import com.github.biltudas1.sequence.worker.UpdateWorker
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -98,7 +101,32 @@ class MainActivity : ComponentActivity() {
                 val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
                 val contactRepository = remember { ContactRepository(context, authService) }
 
+                val updateDownloadManager = remember { UpdateDownloadManager(context) }
+                val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
+                val currentVersion = packageInfo.versionName ?: ""
+
                 val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
+
+                LaunchedEffect(Unit) {
+                    val downloadInfo = dataStoreManager.downloadInfoFlow.first()
+                    // Cleanup if updated or file missing
+                    if (downloadInfo.status == "COMPLETED") {
+                        val fileExists = downloadInfo.filePath?.let { File(it).exists() } ?: false
+                        val isSameVersion = downloadInfo.versionTag?.removePrefix("v") == currentVersion.removePrefix("v")
+                        
+                        if (isSameVersion || !fileExists) {
+                            if (isSameVersion) {
+                                downloadInfo.filePath?.let { path -> File(path).delete() }
+                            }
+                            dataStoreManager.clearDownloadData()
+                        }
+                    }
+                    // Auto-resume if interrupted
+                    val latestInfo = dataStoreManager.downloadInfoFlow.first()
+                    if (latestInfo.status == "DOWNLOADING") {
+                        updateDownloadManager.resumeDownload(latestInfo)
+                    }
+                }
                 LaunchedEffect(updateInterval) {
                     UpdateWorker.schedule(context, updateInterval)
                     if (updateInterval != "Never") {
@@ -241,8 +269,9 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(destinationPage, accessToken, currentRoute) {
                         if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
                             Timber.i("Navigation target detected: $destinationPage")
-                            if (destinationPage == "about" && currentRoute != AppConstants.Routes.ABOUT) {
-                                targetPage.value = null
+                            val target = destinationPage
+                            targetPage.value = null
+                            if (target == "about" && currentRoute != AppConstants.Routes.ABOUT) {
                                 navController.navigate(AppConstants.Routes.ABOUT)
                             }
                         }
