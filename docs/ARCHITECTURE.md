@@ -57,6 +57,9 @@ sequenceDiagram
 
 ### Brief Explanation:
 
-1.  **Offer/Answer Exchange**: The Caller creates an Session Description Protocol (SDP) offer and sends it to the Callee through the signaling server. The Callee responds with an SDP answer. This step negotiates media capabilities.
-2.  **ICE Candidate Gathering**: Both peers interact with STUN/TURN servers to discover their network paths. These "ICE candidates" are exchanged via the signaling server.
-3.  **Peer-to-Peer Connection**: Once candidates are exchanged and a viable path is found, a direct peer-to-peer connection is established, and the audio stream begins.
+1. **Call Request:** The caller initiates a call via an HTTP POST request to the signaling server.
+2. **Device Wakeup:** The server triggers an FCM push notification. This wakes up the receiver's device via `MyFirebaseMessagingService`, acquiring a wake lock and displaying the incoming call UI, even if the app is closed.
+3. **Connection & Signaling:** Once the receiver accepts, their app connects to the signaling WebSocket. The server notifies the caller that the peer has joined.
+4. **WebRTC Negotiation:** The clients use the WebSocket to exchange WebRTC Session Description Protocol (SDP) Offers and Answers, followed by ICE candidates to punch through network NATs.
+5. **Peer-to-Peer Audio Active:** A direct, encrypted (DTLS/SRTP) WebRTC audio stream is established between the two devices. The WebSocket remains open strictly to monitor the connection state.
+6. **Call Termination:** When either user hangs up, their device closes the WebSocket. The server detects this drop and broadcasts a `peer-left` event to the remaining user, triggering a clean teardown of the UI and WebRTC clients on both sides.
