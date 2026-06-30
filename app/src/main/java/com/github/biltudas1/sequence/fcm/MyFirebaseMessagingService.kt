@@ -232,12 +232,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         
         val person = androidx.core.app.Person.Builder()
             .setName(callerName)
-            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this, R.drawable.ic_logo))
+            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this, R.drawable.ic_notification))
             .setImportant(true)
             .build()
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Incoming Voice Call")
             .setContentText("Incoming call from $callerName")
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -264,8 +264,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             )
         } else {
             // Manual actions for older versions
-            notificationBuilder.addAction(R.drawable.ic_logo, "Accept", acceptPendingIntent)
-            notificationBuilder.addAction(R.drawable.ic_logo, "Reject", rejectPendingIntent)
+            notificationBuilder.addAction(R.drawable.ic_notification, "Accept", acceptPendingIntent)
+            notificationBuilder.addAction(R.drawable.ic_notification, "Reject", rejectPendingIntent)
         }
 
         val notification = notificationBuilder.build()
@@ -295,7 +295,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         // Just show a missed call notification.
 
         val missedCallNotification = NotificationCompat.Builder(this, MISSED_CALL_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Missed Call")
             .setContentText("You missed a call from $callerName")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

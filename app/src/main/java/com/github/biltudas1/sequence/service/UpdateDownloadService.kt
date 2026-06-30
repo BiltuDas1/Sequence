@@ -191,7 +191,7 @@ class UpdateDownloadService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_logo)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("App Update")
             .setContentText(if (showProgress) "Downloading update... $progress%" else "Preparing download...")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -224,7 +224,7 @@ class UpdateDownloadService : Service() {
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_logo)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("App Update")
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -263,7 +263,7 @@ class UpdateDownloadService : Service() {
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_logo)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("App Update")
             .setContentText("Download complete. Ready to install.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -271,7 +271,7 @@ class UpdateDownloadService : Service() {
             .setOngoing(false)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .addAction(R.drawable.ic_logo, "Install Now", installPendingIntent)
+            .addAction(R.drawable.ic_notification, "Install Now", installPendingIntent)
 
         notificationManager.notify(COMPLETE_NOTIFICATION_ID, builder.build())
     }

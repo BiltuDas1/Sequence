@@ -11,8 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.util.QRCodeGenerator
 import timber.log.Timber
 
@@ -67,6 +69,20 @@ fun QRCodeDisplayDialog(
                             contentDescription = "QR Code",
                             modifier = Modifier.fillMaxSize()
                         )
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .background(Color.White, RoundedCornerShape(0.1.dp))
+                                .padding(0.1.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_logo),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     } ?: CircularProgressIndicator()
                 }
 
