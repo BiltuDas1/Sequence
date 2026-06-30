@@ -14,7 +14,15 @@ The project is useful for users who need a reliable, low latency audio communica
 
 ## Getting Started
 
-To start using Sequence, enter the URL of your signaling server in the configuration settings. Once connected, you can select a contact from your list or use the dialer to initiate a call. Note that a compatible signaling server must be active to facilitate the connection.
+Sequence is an open-source Android client that requires a backend signaling server to negotiate connections.
+
+**For Users / Self-Hosters:**
+To run your own secure, private signaling server, we provide a highly optimized Docker image. For more information Please see our [Self-Hosting & Infrastructure Guide](docs/SELF_HOSTING.md).
+
+**For Developers:**
+If you want to compile the Android app, test features, or contribute to the codebase, please read the [Local Development Guide](docs/DEVELOPMENT.md).
+
+To understand the complex interaction between Firebase pushes, WebSockets, and WebRTC, please review the [Sequence Architecture & Call Flow](docs/ARCHITECTURE.md).
 
 ## Help and Support
 
