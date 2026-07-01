@@ -23,8 +23,8 @@ android {
         applicationId = "com.github.biltudas1.sequence"
         minSdk = 24
         targetSdk = 37
-        versionCode = 44
-        versionName = "0.15.0b1"
+        versionCode = 45
+        versionName = "0.15.0a5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
