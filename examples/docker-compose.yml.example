@@ -1,0 +1,13 @@
+services:
+  sequence:
+    image: ghcr.io/biltudas1/sequence:latest
+    container_name: sequence-server
+    ports:
+      - "8888:8888"
+    environment:
+      - DOCS=1
+      - HOST_ADDRESS=http://localhost:8888
+    volumes:
+      - ./data:/data
+    read_only: true
+    restart: unless-stopped
