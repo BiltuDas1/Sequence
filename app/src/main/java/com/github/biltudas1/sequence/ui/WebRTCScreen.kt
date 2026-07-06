@@ -23,6 +23,7 @@ fun WebRTCScreen(
     callerName: String,
     callerEmail: String,
     isExternal: Boolean,
+    creationTime: Long? = null,
     accessToken: String?,
     onCallStopped: () -> Unit
 ) {
@@ -41,7 +42,7 @@ fun WebRTCScreen(
 
     LaunchedEffect(roomId) {
         if (CallManager.activeRoomId == null) {
-            CallManager.initCall(context, roomId, serverUrl, callerName, callerEmail, isExternal, accessToken)
+            CallManager.initCall(context, roomId, serverUrl, callerName, callerEmail, isExternal, accessToken, creationTime)
         }
     }
 

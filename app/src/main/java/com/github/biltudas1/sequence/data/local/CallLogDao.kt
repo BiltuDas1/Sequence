@@ -19,6 +19,9 @@ interface CallLogDao {
 
     @Query("SELECT * FROM call_logs WHERE roomId = :roomId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getCallLogByRoomId(roomId: String): CallLogEntity?
+
+    @Query("SELECT * FROM call_logs WHERE creationTime = :creationTime LIMIT 1")
+    suspend fun getCallLogByCreationTime(creationTime: Long): CallLogEntity?
     
     @Update
     suspend fun updateCallLog(callLog: CallLogEntity)

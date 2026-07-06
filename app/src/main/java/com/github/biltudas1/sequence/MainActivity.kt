@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private val incomingCallerEmail = mutableStateOf("")
     private val incomingServerUrl = mutableStateOf<String?>(null)
     private val incomingIsExternal = mutableStateOf(false)
+    private val incomingCreationTime = mutableStateOf<Long?>(null)
     private val targetPage = mutableStateOf<String?>(null)
     private var lastHandledRoomId: String? = null
 
@@ -87,6 +88,8 @@ class MainActivity : ComponentActivity() {
             incomingCallerEmail.value = intent.getStringExtra("callerEmail") ?: ""
             incomingServerUrl.value = intent.getStringExtra("serverUrl")
             incomingIsExternal.value = intent.getStringExtra("isExternal")?.toBoolean() ?: false
+            val creationTime = if (intent.hasExtra("creationTime")) intent.getLongExtra("creationTime", -1) else null
+            incomingCreationTime.value = if (creationTime == -1L) null else creationTime
         }
         targetPage.value = target
     }
@@ -287,13 +290,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    fun navigateToCallWithPermission(rId: String, url: String, name: String = "", email: String = "", isExternal: Boolean = false) {
+                    fun navigateToCallWithPermission(rId: String, url: String, name: String = "", email: String = "", isExternal: Boolean = false, creationTime: Long? = null) {
                         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             val encodedName = java.net.URLEncoder.encode(name, "UTF-8")
                             val encodedEmail = java.net.URLEncoder.encode(email, "UTF-8")
                             val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
-                            Timber.i("Navigating to webrtc_call. Room: $rId, External: $isExternal")
-                            navController.navigate("webrtc_call/$rId?serverUrl=$encodedUrl&name=$encodedName&email=$encodedEmail&isExternal=$isExternal")
+                            val cTime = creationTime ?: -1L
+                            Timber.i("Navigating to webrtc_call. Room: $rId, External: $isExternal, creationTime: $cTime")
+                            navController.navigate("webrtc_call/$rId?serverUrl=$encodedUrl&name=$encodedName&email=$encodedEmail&isExternal=$isExternal&creationTime=$cTime")
                         } else {
                             pendingNavigationUrl = rId to url
                             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -310,6 +314,10 @@ class MainActivity : ComponentActivity() {
                             targetPage.value = null
                             if (target == "about" && currentRoute != AppConstants.Routes.ABOUT) {
                                 navController.navigate(AppConstants.Routes.ABOUT)
+                            } else if (target == "recents") {
+                                scope.launch {
+                                    dataStoreManager.saveLastSelectedTab(1)
+                                }
                             }
                         }
                     }
@@ -363,10 +371,12 @@ class MainActivity : ComponentActivity() {
                                 Timber.i("Incoming call effect triggered for Room: $rId. URL: $urlToUse, External: $isExternal")
                                 
                                 lastHandledRoomId = rId
+                                val cTime = incomingCreationTime.value
                                 // Use a local copy to navigate and clear the state immediately
                                 incomingRoomId.value = null
                                 incomingServerUrl.value = null
-                                navigateToCallWithPermission(rId, urlToUse, name, email, isExternal = isExternal)
+                                incomingCreationTime.value = null
+                                navigateToCallWithPermission(rId, urlToUse, name, email, isExternal = isExternal, creationTime = cTime)
                             } else {
                                 Timber.i("Already in a call, clearing incomingRoomId")
                                 incomingRoomId.value = null
@@ -662,6 +672,8 @@ class MainActivity : ComponentActivity() {
                                 val rawName = backStackEntry.arguments?.getString("name") ?: ""
                                 val rawEmail = backStackEntry.arguments?.getString("email") ?: ""
                                 val isExternal = backStackEntry.arguments?.getString("isExternal")?.toBoolean() ?: false
+                                val creationTime = backStackEntry.arguments?.getString("creationTime")?.toLongOrNull()
+                                val cTimeFinal = if (creationTime == -1L) null else creationTime
 
                                 val sUrl = try { java.net.URLDecoder.decode(rawUrl, "UTF-8") } catch (e: Exception) { rawUrl }
                                 val decodedName = try { java.net.URLDecoder.decode(rawName, "UTF-8") } catch (e: Exception) { rawName }
@@ -675,6 +687,7 @@ class MainActivity : ComponentActivity() {
                                     callerName = decodedName,
                                     callerEmail = decodedEmail,
                                     isExternal = isExternal,
+                                    creationTime = cTimeFinal,
                                     accessToken = accessToken,
                                     onCallStopped = {
                                         Timber.i("onCallStopped triggered. isExternal: $isExternal")

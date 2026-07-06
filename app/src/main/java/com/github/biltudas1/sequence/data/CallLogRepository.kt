@@ -13,8 +13,25 @@ class CallLogRepository(context: Context) {
     val allCallLogs: Flow<List<CallLogEntity>> = callLogDao.getAllCallLogs()
 
     suspend fun insertCallLog(callLog: CallLogEntity) {
-        Timber.d("insertCallLog: ${callLog.type} - ${AppLogger.redact(callLog.email)}")
-        callLogDao.insertCallLog(callLog)
+        Timber.d("insertCallLog: ${callLog.type} - ${AppLogger.redact(callLog.email)}, creationTime=${callLog.creationTime}")
+        
+        // Normalize timestamp if creationTime is provided in seconds
+        val normalizedLog = if (callLog.creationTime != null) {
+            val msTimestamp = if (callLog.creationTime < 10000000000L) callLog.creationTime * 1000 else callLog.creationTime
+            callLog.copy(timestamp = msTimestamp)
+        } else {
+            callLog
+        }
+
+        if (normalizedLog.creationTime != null) {
+            val existing = callLogDao.getCallLogByCreationTime(normalizedLog.creationTime)
+            if (existing != null) {
+                Timber.d("insertCallLog: Found existing call log with creationTime=${normalizedLog.creationTime}, updating.")
+                callLogDao.updateCallLog(normalizedLog.copy(id = existing.id))
+                return
+            }
+        }
+        callLogDao.insertCallLog(normalizedLog)
     }
 
     suspend fun deleteCallLog(callLog: CallLogEntity) {
@@ -27,24 +44,51 @@ class CallLogRepository(context: Context) {
         callLogDao.deleteAllCallLogs()
     }
 
-    suspend fun updateDuration(roomId: String, duration: Long) {
-        Timber.d("updateDuration: Room=$roomId, Duration=${duration}ms")
-        val log = callLogDao.getCallLogByRoomId(roomId)
+    suspend fun updateDuration(roomId: String, duration: Long, creationTime: Long? = null) {
+        Timber.d("updateDuration: Room=$roomId, Duration=${duration}ms, creationTime=$creationTime")
+        val log = if (creationTime != null) {
+            callLogDao.getCallLogByCreationTime(creationTime)
+        } else {
+            callLogDao.getCallLogByRoomId(roomId)
+        }
+
         if (log != null) {
             callLogDao.updateCallLog(log.copy(duration = duration))
         } else {
-            Timber.w("updateDuration: Log not found for room $roomId")
+            Timber.w("updateDuration: Log not found")
         }
     }
 
-    suspend fun markAsMissed(roomId: String) {
-        Timber.d("markAsMissed: Room=$roomId")
-        val log = callLogDao.getCallLogByRoomId(roomId)
+    suspend fun markAsMissed(roomId: String, creationTime: Long? = null, callerName: String? = null, callerEmail: String? = null) {
+        Timber.d("markAsMissed: Room=$roomId, creationTime=$creationTime")
+        val log = if (creationTime != null) {
+            callLogDao.getCallLogByCreationTime(creationTime)
+        } else {
+            callLogDao.getCallLogByRoomId(roomId)
+        }
+
         if (log != null && log.type == "INCOMING") {
             Timber.i("markAsMissed: Updating log to MISSED")
             callLogDao.updateCallLog(log.copy(type = "MISSED"))
+        } else if (log == null && callerEmail != null) {
+            Timber.i("markAsMissed: Log not found, creating new MISSED log")
+            val finalTimestamp = if (creationTime != null) {
+                if (creationTime < 10000000000L) creationTime * 1000 else creationTime
+            } else {
+                System.currentTimeMillis()
+            }
+            callLogDao.insertCallLog(
+                CallLogEntity(
+                    email = callerEmail,
+                    name = callerName,
+                    type = "MISSED",
+                    timestamp = finalTimestamp,
+                    roomId = roomId,
+                    creationTime = creationTime
+                )
+            )
         } else if (log == null) {
-            Timber.w("markAsMissed: Log not found for room $roomId")
+            Timber.w("markAsMissed: Log not found and no caller info to create one")
         }
     }
 }

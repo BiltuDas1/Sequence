@@ -100,12 +100,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val action = message.data["action"]
         val callerName = message.data["callerName"] ?: "Someone"
         val callerEmail = message.data["callerEmail"] ?: ""
+        val creationTime = message.data["callTime"]?.toLongOrNull()
         
         if (roomId != null) {
             when (action) {
                 "cancel" -> {
-                    Timber.i("Call cancelled by sender: $roomId")
-                    handleCallCancelled(roomId, callerName)
+                    Timber.i("Call cancelled by sender: $roomId, creationTime: $creationTime")
+                    handleCallCancelled(roomId, callerName, callerEmail, creationTime)
                 }
                 null, "start" -> {
                     val callStatusManager = CallStatusManager(this)
@@ -124,7 +125,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     }
                     
                     Timber.i("Incoming call request. RoomId: $roomId, IsOnAnotherCall: $isOnAnotherCall")
-                    
                     if (isOnAnotherCall) {
                         reportBusyStatus(roomId)
                     } else {
@@ -136,14 +136,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                                     email = callerEmail,
                                     name = callerName,
                                     type = "INCOMING",
-                                    timestamp = System.currentTimeMillis(),
-                                    roomId = roomId
+                                    timestamp = System.currentTimeMillis(), // Will be normalized in repository if creationTime exists
+                                    roomId = roomId,
+                                    creationTime = creationTime
                                 )
                             )
                         }
                     }
 
-                    showIncomingCallNotification(roomId, callerName, callerEmail)
+                    showIncomingCallNotification(roomId, callerName, callerEmail, creationTime)
                     CallRingtonePlayer.start(this)
                 }
                 else -> {
@@ -183,12 +184,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
-    private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String) {
+    private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String, creationTime: Long?) {
+        val msTimestamp = if (creationTime != null && creationTime < 10000000000L) creationTime * 1000 else creationTime ?: System.currentTimeMillis()
+        
         // Full screen intent for the heads-up display
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
             putExtra("callerName", callerName)
             putExtra("callerEmail", callerEmail)
+            if (creationTime != null) putExtra("creationTime", creationTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -202,6 +206,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             putExtra("roomId", roomId)
             putExtra("callerName", callerName)
             putExtra("callerEmail", callerEmail)
+            if (creationTime != null) putExtra("creationTime", creationTime)
             putExtra("action", ACTION_ACCEPT)
         }
         
@@ -214,6 +219,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val rejectIntent = Intent(this, CallActionReceiver::class.java).apply {
             action = ACTION_REJECT
             putExtra("roomId", roomId)
+            putExtra("callerName", callerName)
+            putExtra("callerEmail", callerEmail)
+            if (creationTime != null) putExtra("creationTime", creationTime)
         }
         val rejectPendingIntent = PendingIntent.getBroadcast(
             this, 2, rejectIntent,
@@ -224,6 +232,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val deleteIntent = Intent(this, CallActionReceiver::class.java).apply {
             action = ACTION_REJECT // Treat swipe as reject for logic purposes
             putExtra("roomId", roomId)
+            putExtra("callerName", callerName)
+            putExtra("callerEmail", callerEmail)
+            if (creationTime != null) putExtra("creationTime", creationTime)
         }
         val deletePendingIntent = PendingIntent.getBroadcast(
             this, 3, deleteIntent,
@@ -250,6 +261,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setSound(null) // Manual sound handling
             .setColor(0xFF2E7D32.toInt())
             .setColorized(true)
+            .setWhen(msTimestamp)
+            .setShowWhen(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
@@ -273,15 +286,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notificationManager.notify(CALL_NOTIFICATION_ID, notification)
     }
 
-    private fun handleCallCancelled(roomId: String, callerName: String) {
+    private fun handleCallCancelled(roomId: String, callerName: String, callerEmail: String, creationTime: Long?) {
+        val msTimestamp = if (creationTime != null && creationTime < 10000000000L) creationTime * 1000 else creationTime ?: System.currentTimeMillis()
+        
         CallRingtonePlayer.stop(this)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(CALL_NOTIFICATION_ID)
 
         serviceScope.launch {
             val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
-            Timber.i("Marking room $roomId as missed")
-            repository.markAsMissed(roomId)
+            Timber.i("Marking room $roomId as missed, creationTime: $creationTime")
+            repository.markAsMissed(roomId, creationTime, callerName, callerEmail)
         }
 
         // Send broadcast to close IncomingCallActivity if it's open
@@ -293,12 +308,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         // Don't try to start an activity from background when cancelled (it's blocked)
         // Just show a missed call notification.
+        
+        val recentsIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("targetPage", "recents")
+        }
+        val recentsPendingIntent = PendingIntent.getActivity(
+            this, 4, recentsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val missedCallNotification = NotificationCompat.Builder(this, MISSED_CALL_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Missed Call")
             .setContentText("You missed a call from $callerName")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setWhen(msTimestamp)
+            .setShowWhen(true)
+            .setContentIntent(recentsPendingIntent)
             .setAutoCancel(true)
             .build()
 

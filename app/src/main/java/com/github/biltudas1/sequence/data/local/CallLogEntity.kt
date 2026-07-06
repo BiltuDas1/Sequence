@@ -11,5 +11,6 @@ data class CallLogEntity(
     val type: String, // "INCOMING", "OUTGOING", "MISSED"
     val timestamp: Long,
     val duration: Long? = null,
-    val roomId: String? = null
+    val roomId: String? = null,
+    val creationTime: Long? = null
 )
