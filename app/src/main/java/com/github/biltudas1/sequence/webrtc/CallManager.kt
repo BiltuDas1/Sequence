@@ -60,6 +60,8 @@ object CallManager {
         isExternalCall = isExternal
         activeCreationTime = creationTime
         
+        isSpeakerOn.value = false // Default to earpiece for new calls
+        
         // Stop any incoming ringtone immediately when a call starts initializing
         CallRingtonePlayer.stop(context)
         
@@ -150,6 +152,7 @@ object CallManager {
                 override fun onAnswerReceived(description: String) {
                     Timber.i("onAnswerReceived event")
                     webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, description))
+                    audioManager?.stopAny()
                 }
 
                 override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String) {
@@ -178,8 +181,10 @@ object CallManager {
             webRTCClient?.initPeerConnection(finalIceServers, audioQuality)
             
             // Ensure we start with the current speaker state (default: earpiece)
-            // and request audio focus so the system routes audio correctly to earpiece
+            // and request audio focus so the system routes audio correctly to earpiece.
+            // A small delay helps some devices transition the audio mode correctly.
             CallStatusManager(context).requestCallAudioFocus()
+            delay(300)
             webRTCClient?.setSpeakerphoneOn(isSpeakerOn.value)
 
             signalingClient?.start()
@@ -190,7 +195,7 @@ object CallManager {
             // Start ringback/waiting logic
             launch {
                 delay(2000)
-                if (!hasPeerJoined.value && !isRemoteBusy.value) {
+                if (activeRoomId == roomId && !hasPeerJoined.value && !isRemoteBusy.value) {
                     if (isSignalingConnected.value) audioManager?.startRingback()
                     else audioManager?.startWaiting()
                 }
@@ -199,15 +204,27 @@ object CallManager {
     }
 
     fun toggleMute(context: Context? = null) {
-        isMuted.value = !isMuted.value
-        webRTCClient?.setMute(isMuted.value)
-        context?.let { CallService.updateNotification(it) }
+        val newValue = !isMuted.value
+        isMuted.value = newValue
+        webRTCClient?.setMute(newValue)
+        context?.let { 
+            scope?.launch {
+                CallService.updateNotification(it)
+            }
+        }
     }
 
     fun toggleSpeaker(context: Context? = null) {
-        isSpeakerOn.value = !isSpeakerOn.value
-        webRTCClient?.setSpeakerphoneOn(isSpeakerOn.value)
-        context?.let { CallService.updateNotification(it) }
+        val newValue = !isSpeakerOn.value
+        isSpeakerOn.value = newValue
+        
+        // Offload system calls to avoid UI lag
+        scope?.launch(Dispatchers.Default) {
+            webRTCClient?.setSpeakerphoneOn(newValue)
+            context?.let { 
+                CallService.updateNotification(it)
+            }
+        }
     }
 
     fun terminateCall(context: Context) {

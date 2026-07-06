@@ -83,12 +83,27 @@ class CallService : Service() {
                 updateNotification()
             }
             else -> {
-                // Initial start
-                updateNotification()
+                // Initial start - must call startForeground
+                initialForegroundStart()
             }
         }
         
         return START_NOT_STICKY
+    }
+
+    private fun initialForegroundStart() {
+        val roomId = CallManager.activeRoomId ?: return
+        val name = CallManager.activeCallerName
+        val email = CallManager.activeCallerEmail
+        val isExternal = CallManager.isExternalCall
+        val serverUrl = CallManager.activeServerUrl
+
+        val notification = createNotification(roomId, name, email, isExternal, serverUrl)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun handleEndCall() {
@@ -126,12 +141,8 @@ class CallService : Service() {
 
         val notification = createNotification(roomId, name, email, isExternal, serverUrl)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
-
+        // Only call startForeground if we are not already in foreground or need to update service type
+        // In practice, for a call service, once started, we just update the notification.
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager?.notify(NOTIFICATION_ID, notification)
     }

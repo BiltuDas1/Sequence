@@ -142,10 +142,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                                 )
                             )
                         }
+                        
+                        showIncomingCallNotification(roomId, callerName, callerEmail, creationTime)
+                        CallRingtonePlayer.start(this)
                     }
-
-                    showIncomingCallNotification(roomId, callerName, callerEmail, creationTime)
-                    CallRingtonePlayer.start(this)
                 }
                 else -> {
                     Timber.i("Received unknown action: $action")

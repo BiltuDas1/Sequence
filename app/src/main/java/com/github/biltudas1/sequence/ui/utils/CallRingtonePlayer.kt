@@ -11,6 +11,7 @@ import timber.log.Timber
 object CallRingtonePlayer {
     private var ringtone: Ringtone? = null
 
+    @Synchronized
     fun start(context: Context) {
         if (ringtone != null) {
             if (ringtone?.isPlaying == false) {
@@ -26,15 +27,9 @@ object CallRingtonePlayer {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             
-            // Do NOT set MODE_RINGTONE here as it can sometimes grab exclusive control
-            // and fail on certain headset configurations.
-            // Instead, we use the Ringtone object's internal stream management.
-
             val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             val newRingtone = RingtoneManager.getRingtone(context.applicationContext, uri)
             
-            // USAGE_NOTIFICATION_RINGTONE is designed by Android to play 
-            // on BOTH the speaker and the headphones automatically.
             newRingtone?.audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -47,8 +42,6 @@ object CallRingtonePlayer {
             ringtone = newRingtone
             ringtone?.play()
             
-            // After starting play, we can try to nudge the speaker on.
-            // This is the "standard" way to get dual-output for ringtones.
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = true
 
@@ -58,24 +51,29 @@ object CallRingtonePlayer {
         }
     }
 
+    @Synchronized
     fun stop(context: Context) {
         try {
-            ringtone?.stop()
-            ringtone = null
+            val r = ringtone
+            ringtone = null // Clear reference first
+            r?.stop()
             
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.mode = AudioManager.MODE_NORMAL
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 audioManager.clearCommunicationDevice()
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.isSpeakerphoneOn = false
             }
-            Timber.d("CallRingtonePlayer: Stopped")
+            
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = false
+            
+            Timber.d("CallRingtonePlayer: Stopped and speaker disabled")
         } catch (e: Exception) {
             Timber.e(e, "CallRingtonePlayer: Error stopping")
         }
     }
+
     
     fun ensureSpeaker(context: Context) {
         try {

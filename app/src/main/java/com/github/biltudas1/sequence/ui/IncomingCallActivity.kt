@@ -118,8 +118,6 @@ class IncomingCallActivity : ComponentActivity() {
             return
         }
 
-        // Ensure audio is routed to speaker
-        CallRingtonePlayer.ensureSpeaker(this)
         // Ensure it's playing (covers cases where activity starts after service)
         CallRingtonePlayer.start(this)
         
