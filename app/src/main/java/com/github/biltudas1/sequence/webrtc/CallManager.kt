@@ -26,6 +26,7 @@ object CallManager {
     var activeCallerEmail: String = ""
     var activeServerUrl: String = ""
     var isExternalCall: Boolean = false
+    var activeCreationTime: Long? = null
     
     var isMuted = mutableStateOf(false)
     var isSpeakerOn = mutableStateOf(false)
@@ -43,19 +44,21 @@ object CallManager {
         name: String,
         email: String,
         isExternal: Boolean,
-        accessToken: String?
+        accessToken: String?,
+        creationTime: Long? = null
     ) {
         if (activeRoomId != null) {
             Timber.w("initCall called while another call is active: $activeRoomId")
             return
         }
         
-        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redact(email)}, External: $isExternal")
+        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redact(email)}, External: $isExternal, creationTime: $creationTime")
         activeRoomId = roomId
         activeCallerName = name
         activeCallerEmail = email
         activeServerUrl = serverUrl
         isExternalCall = isExternal
+        activeCreationTime = creationTime
         
         // Stop any incoming ringtone immediately when a call starts initializing
         CallRingtonePlayer.stop(context)
@@ -221,9 +224,12 @@ object CallManager {
         Timber.d("Call duration: ${duration}ms")
         startTime = 0
         
+        val cTime = activeCreationTime
+        activeCreationTime = null
+        
         CoroutineScope(Dispatchers.IO).launch {
             val repository = com.github.biltudas1.sequence.data.CallLogRepository(context.applicationContext)
-            repository.updateDuration(roomId, duration)
+            repository.updateDuration(roomId, duration, cTime)
         }
 
         webRTCClient?.close()

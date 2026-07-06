@@ -19,6 +19,8 @@ class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
         val roomId = intent.getStringExtra("roomId") ?: return
+        val creationTime = if (intent.hasExtra("creationTime")) intent.getLongExtra("creationTime", -1) else null
+        val creationTimeFinal = if (creationTime == -1L) null else creationTime
         
         CallRingtonePlayer.stop(context)
 
@@ -38,6 +40,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 putExtra("roomId", roomId)
                 putExtra("callerName", intent.getStringExtra("callerName"))
                 putExtra("callerEmail", intent.getStringExtra("callerEmail"))
+                if (creationTimeFinal != null) putExtra("creationTime", creationTimeFinal)
                 putExtra("action", MyFirebaseMessagingService.ACTION_ACCEPT)
             }
             
@@ -54,9 +57,11 @@ class CallActionReceiver : BroadcastReceiver() {
             val dataStoreManager = DataStoreManager.getInstance(context)
             val authService = AuthService(OkHttpClient(), dataStoreManager)
             val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+            val callerName = intent.getStringExtra("callerName")
+            val callerEmail = intent.getStringExtra("callerEmail")
             
             CoroutineScope(Dispatchers.IO).launch {
-                repository.markAsMissed(roomId)
+                repository.markAsMissed(roomId, creationTimeFinal, callerName, callerEmail)
                 val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
                 val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
                 if (serverConfig != null && accessToken != null) {

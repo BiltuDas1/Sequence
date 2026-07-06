@@ -141,6 +141,8 @@ class IncomingCallActivity : ComponentActivity() {
         val roomId = intent.getStringExtra("roomId") ?: ""
         val callerName = intent.getStringExtra("callerName") ?: "Someone"
         val callerEmail = intent.getStringExtra("callerEmail") ?: ""
+        val creationTime = if (intent.hasExtra("creationTime")) intent.getLongExtra("creationTime", -1) else null
+        val creationTimeFinal = if (creationTime == -1L) null else creationTime
 
         enableEdgeToEdge()
         setContent {
@@ -161,6 +163,7 @@ class IncomingCallActivity : ComponentActivity() {
                             putExtra("roomId", roomId)
                             putExtra("callerName", callerName)
                             putExtra("callerEmail", callerEmail)
+                            if (creationTimeFinal != null) putExtra("creationTime", creationTimeFinal)
                             putExtra("action", MyFirebaseMessagingService.ACTION_ACCEPT)
                         }
                         startActivity(launchIntent)
@@ -174,7 +177,7 @@ class IncomingCallActivity : ComponentActivity() {
                         val authService = AuthService(OkHttpClient(), dataStoreManager)
                         val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
                         CoroutineScope(Dispatchers.IO).launch {
-                            repository.markAsMissed(roomId)
+                            repository.markAsMissed(roomId, creationTimeFinal, callerName, callerEmail)
                             val config = dataStoreManager.serverConfigFlow.firstOrNull()
                             val token = dataStoreManager.accessTokenFlow.firstOrNull()
                             if (config != null && token != null) {
