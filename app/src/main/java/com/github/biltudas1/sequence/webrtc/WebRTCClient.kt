@@ -1,6 +1,7 @@
 package com.github.biltudas1.sequence.webrtc
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
@@ -34,7 +35,14 @@ class WebRTCClient(
             .createInitializationOptions()
         PeerConnectionFactory.initialize(options)
 
-        val audioDeviceModule = JavaAudioDeviceModule.builder(context).createAudioDeviceModule()
+        val audioDeviceModule = JavaAudioDeviceModule.builder(context)
+            .setAudioAttributes(AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build())
+            .setUseHardwareAcousticEchoCanceler(true)
+            .setUseHardwareNoiseSuppressor(true)
+            .createAudioDeviceModule()
 
         peerConnectionFactory = PeerConnectionFactory.builder()
             .setAudioDeviceModule(audioDeviceModule)
@@ -102,22 +110,38 @@ class WebRTCClient(
         
         // Ensure audio mode is set for VoIP call detection
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        setSpeakerphoneOn(false) // Default to earpiece immediately
     }
 
     fun setSpeakerphoneOn(isEnabled: Boolean) {
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val speakerDevice = audioManager.availableCommunicationDevices.firstOrNull {
-                it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+        Timber.d("setSpeakerphoneOn: $isEnabled")
+        
+        try {
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (isEnabled) {
+                    val speakerDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    speakerDevice?.let { audioManager.setCommunicationDevice(it) }
+                } else {
+                    audioManager.clearCommunicationDevice()
+                    val earpieceDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                    }
+                    earpieceDevice?.let { audioManager.setCommunicationDevice(it) }
+                }
             }
-            if (isEnabled) {
-                speakerDevice?.let { audioManager.setCommunicationDevice(it) }
-            } else {
-                audioManager.clearCommunicationDevice()
-            }
-        } else {
+            
             @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = isEnabled
+            if (audioManager.isSpeakerphoneOn != isEnabled) {
+                audioManager.isSpeakerphoneOn = isEnabled
+            }
+            
+            Timber.d("Speakerphone toggled to: $isEnabled")
+        } catch (e: Exception) {
+            Timber.e(e, "Error setting speakerphone: $isEnabled")
         }
     }
 

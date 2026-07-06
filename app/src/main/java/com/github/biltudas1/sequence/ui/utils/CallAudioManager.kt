@@ -9,44 +9,62 @@ import timber.log.Timber
 class CallAudioManager(private val context: Context) {
     private var mediaPlayer: MediaPlayer? = null
 
+    @Synchronized
     fun startWaiting() {
         Timber.d("startWaiting: Playing ringwaiting")
         play(R.raw.ringwaiting, loop = true)
     }
 
+    @Synchronized
     fun startRingback() {
         Timber.d("startRingback: Playing ringback")
         play(R.raw.ringback, loop = true)
     }
 
+    @Synchronized
     fun startBusy() {
         Timber.d("startBusy: Playing ringbusy")
         play(R.raw.ringbusy, loop = true)
     }
 
     private fun play(resId: Int, loop: Boolean) {
-        stopAny()
+        stopAnyInternal()
         try {
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build()
             
-            mediaPlayer = MediaPlayer().apply {
+            val mp = MediaPlayer()
+            mediaPlayer = mp // Assign immediately so stopAny can find it
+            
+            mp.apply {
                 setAudioAttributes(audioAttributes)
                 val afd = context.resources.openRawResourceFd(resId)
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                 afd.close()
                 isLooping = loop
-                prepare()
-                start()
+                prepareAsync()
+                setOnPreparedListener { 
+                    try {
+                        it.start() 
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error starting MediaPlayer after prepare")
+                    }
+                }
             }
         } catch (e: Exception) {
-            Timber.e(e, "Error playing audio resource: $resId")
+            Timber.e(e, "Error setting up audio resource: $resId")
+            stopAnyInternal()
         }
     }
 
+    @Synchronized
     fun stopAny() {
+        stopAnyInternal()
+    }
+
+    private fun stopAnyInternal() {
         mediaPlayer?.let {
             try {
                 if (it.isPlaying) {
@@ -62,3 +80,4 @@ class CallAudioManager(private val context: Context) {
         mediaPlayer = null
     }
 }
+
