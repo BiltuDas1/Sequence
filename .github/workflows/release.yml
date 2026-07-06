@@ -93,10 +93,18 @@ jobs:
           tag_name: v${{ needs.check.outputs.version }}
           name: v${{ needs.check.outputs.version }}
           body_path: changelog.md
+          draft: true
           prerelease: ${{ needs.check.outputs.is_prerelease == 'true' }}
           files: app/build/outputs/apk/release/sequence-v${{ needs.check.outputs.version }}.apk
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Publish the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.check.outputs.version }}
+        run: |
+          gh release edit "$TAG" --draft=false
 
       - name: Clean Sensitive Data
         if: always()

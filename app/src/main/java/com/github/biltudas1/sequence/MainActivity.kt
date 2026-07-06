@@ -221,7 +221,7 @@ class MainActivity : ComponentActivity() {
                                 Timber.i("Checking FCM token. Current: ${AppLogger.redact(fcmToken)}, Saved: ${AppLogger.redact(currentSavedToken)}")
                                 
                                 // FORCE sync if we don't have a saved token (which happens after login)
-                                val shouldUpdate = fcmToken != currentSavedToken || currentSavedToken == null
+                                val shouldUpdate = fcmToken != currentSavedToken
                                 
                                 if (shouldUpdate) {
                                     Timber.i("FCM token changed, not yet sent, or freshly logged in. Updating server...")
