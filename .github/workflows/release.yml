@@ -72,7 +72,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Production Bundle (assembleRelease)
-        run: ./gradlew clean assembleRelease --no-daemon
+        run: ./gradlew clean assembleRelease --no-daemon -PtargetAbis=arm64-v8a,armeabi-v7a
 
       - name: Rename Output APK
         run: |

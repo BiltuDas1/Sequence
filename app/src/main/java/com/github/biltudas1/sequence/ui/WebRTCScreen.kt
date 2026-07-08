@@ -25,6 +25,7 @@ fun WebRTCScreen(
     isExternal: Boolean,
     creationTime: Long? = null,
     accessToken: String?,
+    isOutgoing: Boolean = false,
     onCallStopped: () -> Unit
 ) {
     val context = LocalContext.current
@@ -42,9 +43,10 @@ fun WebRTCScreen(
 
     LaunchedEffect(roomId) {
         if (CallManager.activeRoomId == null) {
-            CallManager.initCall(context, roomId, serverUrl, callerName, callerEmail, isExternal, accessToken, creationTime)
+            CallManager.initCall(context, roomId, serverUrl, callerName, callerEmail, isExternal, accessToken, creationTime, isOutgoing)
         }
     }
+
 
     DisposableEffect(Unit) {
         val listener = {

@@ -23,16 +23,20 @@ android {
         applicationId = "com.github.biltudas1.sequence"
         minSdk = 24
         targetSdk = 37
-        versionCode = 47
-        versionName = "0.15.0a8"
+        versionCode = 48
+        versionName = "0.15.0b2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("int", "COMPATIBLE_SERVER_MAJOR_VERSION", "2")
 
         ndk {
-            // Only bundle common ABIs to reduce APK size
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+            if (project.hasProperty("targetAbis")) {
+                val abis = project.property("targetAbis").toString().split(",")
+                abiFilters.addAll(abis)
+            } else {
+                abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+            }
         }
     }
 

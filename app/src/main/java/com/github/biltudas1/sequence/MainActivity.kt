@@ -113,31 +113,36 @@ class MainActivity : ComponentActivity() {
                 val currentVersion = packageInfo.versionName ?: ""
 
                 val updateInterval by dataStoreManager.updateIntervalFlow.collectAsStateWithLifecycle(initialValue = "Daily")
+                val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
+                val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
+                val ownEmail by dataStoreManager.userEmailFlow.collectAsStateWithLifecycle(initialValue = null)
 
-                LaunchedEffect(Unit) {
-                    val downloadInfo = dataStoreManager.downloadInfoFlow.first()
-                    // Cleanup if updated or file missing
-                    if (downloadInfo.status == "COMPLETED") {
-                        val fileExists = downloadInfo.filePath?.let { File(it).exists() } ?: false
-                        val isSameVersion = downloadInfo.versionTag?.removePrefix("v") == currentVersion.removePrefix("v")
-                        
-                        if (isSameVersion || !fileExists) {
-                            if (isSameVersion) {
-                                downloadInfo.filePath?.let { path -> File(path).delete() }
+                LaunchedEffect(accessToken) {
+                    if (accessToken != null && accessToken != "UNDEFINED") {
+                        val downloadInfo = dataStoreManager.downloadInfoFlow.first()
+                        if (downloadInfo.status == "COMPLETED") {
+                            val fileExists = downloadInfo.filePath?.let { File(it).exists() } ?: false
+                            val isSameVersion = downloadInfo.versionTag?.removePrefix("v") == currentVersion.removePrefix("v")
+
+                            if (isSameVersion || !fileExists) {
+                                if (isSameVersion) {
+                                    downloadInfo.filePath?.let { path -> File(path).delete() }
+                                }
+                                dataStoreManager.clearDownloadData()
                             }
-                            dataStoreManager.clearDownloadData()
+                        }
+                        val latestInfo = dataStoreManager.downloadInfoFlow.first()
+                        if (latestInfo.status == "DOWNLOADING") {
+                            updateDownloadManager.resumeDownload(latestInfo)
                         }
                     }
-                    // Auto-resume if interrupted
-                    val latestInfo = dataStoreManager.downloadInfoFlow.first()
-                    if (latestInfo.status == "DOWNLOADING") {
-                        updateDownloadManager.resumeDownload(latestInfo)
-                    }
                 }
-                LaunchedEffect(updateInterval) {
-                    UpdateWorker.schedule(context, updateInterval)
-                    if (updateInterval != "Never") {
-                        UpdateWorker.checkNow(context)
+                LaunchedEffect(updateInterval, accessToken) {
+                    if (accessToken != null && accessToken != "UNDEFINED") {
+                        UpdateWorker.schedule(context, updateInterval)
+                        if (updateInterval != "Never") {
+                            UpdateWorker.checkNow(context)
+                        }
                     }
                 }
 
@@ -152,552 +157,500 @@ class MainActivity : ComponentActivity() {
                         NetworkStatusDisplay(status = networkStatus)
                         
                         val navController = rememberNavController()
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = navBackStackEntry?.destination?.route
+                        val scope = rememberCoroutineScope()
+                        var isCalling by remember { mutableStateOf(false) }
 
-                    val sessionExpiredText = stringResource(R.string.session_expired)
-                    LaunchedEffect(Unit) {
-                        dataStoreManager.sessionExpiredEvent.collect {
-                            ToastUtils.show(context, sessionExpiredText, Toast.LENGTH_LONG)
-                            navController.navigate(AppConstants.Routes.LOGIN) {
-                                popUpTo(0) { inclusive = true }
-                                launchSingleTop = true
+                        val sessionExpiredText = stringResource(R.string.session_expired)
+                        LaunchedEffect(Unit) {
+                            dataStoreManager.sessionExpiredEvent.collect {
+                                ToastUtils.show(context, sessionExpiredText, Toast.LENGTH_LONG)
+                                navController.navigate(AppConstants.Routes.LOGIN) {
+                                    popUpTo(0) { inclusive = true }
+                                    launchSingleTop = true
+                                }
                             }
                         }
-                    }
 
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentRoute = navBackStackEntry?.destination?.route
-                    val scope = rememberCoroutineScope()
-                    var isCalling by remember { mutableStateOf(false) }
+                        LaunchedEffect(currentRoute) {
+                            val isCallScreen = currentRoute?.contains("webrtc_call") == true
+                            if (!isCallScreen) {
+                                lastHandledRoomId = null
+                                isCalling = false
+                            }
 
-
-                    // Dynamically show over lock screen only for calls
-                    LaunchedEffect(currentRoute) {
-                        val isCallScreen = currentRoute?.contains("webrtc_call") == true
-                        
-                        // Reset lastHandledRoomId when we leave the call screen to allow re-entry
-                        // for the same room ID (e.g. if the room is reused or call is restarted)
-                        if (!isCallScreen) {
-                            lastHandledRoomId = null
-                            isCalling = false
-                        }
-
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                            setShowWhenLocked(isCallScreen)
-                            setTurnScreenOn(isCallScreen)
-                        } else {
-                            @Suppress("DEPRECATION")
-                            if (isCallScreen) {
-                                window.addFlags(
-                                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                                            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-                                )
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                                setShowWhenLocked(isCallScreen)
+                                setTurnScreenOn(isCallScreen)
                             } else {
-                                window.clearFlags(
-                                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                                            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-                                )
-                            }
-                        }
-                    }
-
-                    val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = "UNDEFINED")
-                    val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
-                    val ownEmail by dataStoreManager.userEmailFlow.collectAsStateWithLifecycle(initialValue = null)
-
-                    LaunchedEffect(accessToken, serverConfig) {
-                        val token = accessToken
-                        val config = serverConfig
-                        if (token != null && token != "UNDEFINED" && config != null && config.isValid()) {
-                            Timber.i("AccessToken or ServerConfig changed. Checking FCM token sync.")
-                            try {
                                 @Suppress("DEPRECATION")
-                                val fcmToken = FirebaseMessaging.getInstance().token.await()
-                                val currentSavedToken = dataStoreManager.fcmTokenFlow.firstOrNull()
-                                
-                                Timber.i("Checking FCM token. Current: ${AppLogger.redact(fcmToken)}, Saved: ${AppLogger.redact(currentSavedToken)}")
-                                
-                                // FORCE sync if we don't have a saved token (which happens after login)
-                                val shouldUpdate = fcmToken != currentSavedToken
-                                
-                                if (shouldUpdate) {
-                                    Timber.i("FCM token changed, not yet sent, or freshly logged in. Updating server...")
-                                    val result = authService.updateFcmToken(config, token, fcmToken)
-                                    if (result.isSuccess) {
-                                        Timber.i("FCM token updated successfully on server")
-                                        dataStoreManager.saveFcmToken(fcmToken)
-                                    } else {
-                                        Timber.e(result.exceptionOrNull(), "Server rejected FCM token update")
-                                    }
+                                if (isCallScreen) {
+                                    window.addFlags(
+                                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                                                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                                                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                                                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+                                    )
                                 } else {
-                                    Timber.d("FCM token is already up to date on server")
+                                    window.clearFlags(
+                                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                                                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                                                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                                                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+                                    )
                                 }
-                            } catch (e: Exception) {
-                                Timber.e(e, "Failed to check/refresh FCM token")
                             }
                         }
-                    }
 
-                    var isServerIncompatible by remember { mutableStateOf(false) }
-                    val serverIncompatibleText = stringResource(R.string.server_incompatible)
-
-                    LaunchedEffect(serverConfig) {
-                        val config = serverConfig
-                        if (config != null && config.isValid()) {
-                            Timber.d("Checking server compatibility for: ${config.cleanEndpoint}")
-                            val result = authService.getServerVersion(config)
-                            val serverVersion = result.getOrNull()?.data?.version
-                            if (serverVersion != null) {
-                                val serverMajor = VersionUtils.extractMajorVersion(serverVersion)
-                                Timber.i("Server Version: $serverVersion (Major: $serverMajor), Expected Major: ${AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION}")
-                                if (serverMajor != null) {
-                                    if (serverMajor > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
-                                        ToastUtils.show(context, context.getString(R.string.client_outdated, serverVersion), Toast.LENGTH_LONG)
-                                        isServerIncompatible = true
-                                    } else if (serverMajor < AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
-                                        ToastUtils.show(context, context.getString(R.string.server_outdated, serverVersion), Toast.LENGTH_LONG)
-                                        isServerIncompatible = true
-                                    } else {
-                                        isServerIncompatible = false
+                        LaunchedEffect(accessToken, serverConfig) {
+                            val token = accessToken
+                            val config = serverConfig
+                            if (token != null && token != "UNDEFINED" && config != null && config.isValid()) {
+                                try {
+                                    @Suppress("DEPRECATION")
+                                    val fcmToken = FirebaseMessaging.getInstance().token.await()
+                                    val currentSavedToken = dataStoreManager.fcmTokenFlow.firstOrNull()
+                                    if (fcmToken != currentSavedToken) {
+                                        val result = authService.updateFcmToken(config, token, fcmToken)
+                                        if (result.isSuccess) {
+                                            dataStoreManager.saveFcmToken(fcmToken)
+                                        }
                                     }
-                                } else {
-                                    Timber.e("Failed to parse server version: $serverVersion")
-                                    isServerIncompatible = true
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Failed to check/refresh FCM token")
                                 }
+                            }
+                        }
+
+                        var isServerIncompatible by remember { mutableStateOf(false) }
+                        val serverIncompatibleText = stringResource(R.string.server_incompatible)
+
+                        LaunchedEffect(serverConfig) {
+                            val config = serverConfig
+                            if (config != null && config.isValid()) {
+                                val result = authService.getServerVersion(config)
+                                val serverVersion = result.getOrNull()?.data?.version
+                                if (serverVersion != null) {
+                                    val serverMajor = VersionUtils.extractMajorVersion(serverVersion)
+                                    if (serverMajor != null) {
+                                        if (serverMajor > AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
+                                            ToastUtils.show(context, context.getString(R.string.client_outdated, serverVersion), Toast.LENGTH_LONG)
+                                            isServerIncompatible = true
+                                        } else if (serverMajor < AppConstants.COMPATIBLE_SERVER_MAJOR_VERSION) {
+                                            ToastUtils.show(context, context.getString(R.string.server_outdated, serverVersion), Toast.LENGTH_LONG)
+                                            isServerIncompatible = true
+                                        } else {
+                                            isServerIncompatible = false
+                                        }
+                                    } else {
+                                        isServerIncompatible = true
+                                    }
+                                }
+                            }
+                        }
+
+                        var pendingNavigationRoute by remember { mutableStateOf<String?>(null) }
+                        val micPermissionRequiredText = stringResource(R.string.mic_permission_required)
+                        val audioPermissionLauncher = rememberLauncherForActivityResult(
+                            ActivityResultContracts.RequestPermission()
+                        ) { isGranted ->
+                            if (isGranted && pendingNavigationRoute != null) {
+                                navController.navigate(pendingNavigationRoute!!)
+                                pendingNavigationRoute = null
                             } else {
-                                Timber.e(result.exceptionOrNull(), "Failed to fetch server version")
+                                isCalling = false
+                                ToastUtils.show(context, micPermissionRequiredText, Toast.LENGTH_LONG)
                             }
                         }
-                    }
 
-                    // --- Permission Launchers ---
-                    
-                    var pendingNavigationUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
-                    val micPermissionRequiredText = stringResource(R.string.mic_permission_required)
-                    val audioPermissionLauncher = rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestPermission()
-                    ) { isGranted ->
-                        if (isGranted && pendingNavigationUrl != null) {
-                            val (rId, url) = pendingNavigationUrl!!
-                            navController.navigate("webrtc_call/$rId?serverUrl=$url")
-                            pendingNavigationUrl = null
-                        } else {
-                            isCalling = false
-                            ToastUtils.show(context, micPermissionRequiredText, Toast.LENGTH_LONG)
-                        }
-                    }
-
-                    fun navigateToCallWithPermission(rId: String, url: String, name: String = "", email: String = "", isExternal: Boolean = false, creationTime: Long? = null) {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                            val encodedName = java.net.URLEncoder.encode(name, "UTF-8")
-                            val encodedEmail = java.net.URLEncoder.encode(email, "UTF-8")
-                            val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
+                        fun navigateToCallWithPermission(rId: String, url: String, name: String = "", email: String = "", isExternal: Boolean = false, creationTime: Long? = null, isOutgoing: Boolean = false) {
+                            val encodedName = try { java.net.URLEncoder.encode(name, "UTF-8") } catch (e: Exception) { name }
+                            val encodedEmail = try { java.net.URLEncoder.encode(email, "UTF-8") } catch (e: Exception) { email }
+                            val encodedUrl = try { java.net.URLEncoder.encode(url, "UTF-8") } catch (e: Exception) { url }
                             val cTime = creationTime ?: -1L
-                            Timber.i("Navigating to webrtc_call. Room: $rId, External: $isExternal, creationTime: $cTime")
-                            navController.navigate("webrtc_call/$rId?serverUrl=$encodedUrl&name=$encodedName&email=$encodedEmail&isExternal=$isExternal&creationTime=$cTime")
-                        } else {
-                            pendingNavigationUrl = rId to url
-                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
+                            val route = "webrtc_call/$rId?serverUrl=$encodedUrl&name=$encodedName&email=$encodedEmail&isExternal=$isExternal&creationTime=$cTime&isOutgoing=$isOutgoing"
 
-                    val roomId by incomingRoomId
-                    val destinationPage by targetPage
-                    
-                    LaunchedEffect(destinationPage, accessToken, currentRoute) {
-                        if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
-                            Timber.i("Navigation target detected: $destinationPage")
-                            val target = destinationPage
-                            targetPage.value = null
-                            if (target == "about" && currentRoute != AppConstants.Routes.ABOUT) {
-                                navController.navigate(AppConstants.Routes.ABOUT)
-                            } else if (target == "recents") {
-                                scope.launch {
-                                    dataStoreManager.saveLastSelectedTab(1)
-                                }
-                            }
-                        }
-                    }
-
-                    LaunchedEffect(roomId, accessToken, serverConfig, currentRoute) {
-                        val rId = roomId
-                        if (rId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
-                            Timber.i("Incoming call effect check. Room: $rId, CurrentRoute: $currentRoute")
-                            
-                            val callStatusManager = CallStatusManager(context)
-                            val isAlreadyInCall = callStatusManager.isUserOnAnotherCall()
-                            val isActiveRoom = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId == rId
-
-                            // If it's a different call and we are already busy, ignore
-                            if (isAlreadyInCall && !isActiveRoom) {
-                                val currentActive = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId
-                                Timber.i("Ignoring new call while busy. Active: $currentActive, New: $rId")
-                                incomingRoomId.value = null
-                                return@LaunchedEffect
-                            }
-
-                            // If coming from the Accept notification button, stop busy loop
-                            if (intent.getStringExtra("action") == MyFirebaseMessagingService.ACTION_ACCEPT) {
-                                MyFirebaseMessagingService.markRoomAccepted(rId)
-                                // Stop the ringtone!
-                                CallRingtonePlayer.stop(context)
-                                // Dismiss notification manually since we bypassed the receiver
-                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                                nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
-                            }
-
-                            if (rId == lastHandledRoomId && incomingServerUrl.value == null) {
-                                Timber.i("Skipping duplicate incoming call navigation for Room: $rId")
-                                incomingRoomId.value = null
-                                return@LaunchedEffect
-                            }
-
-                            if (currentRoute?.contains("webrtc_call") != true) {
-                                val name = incomingCallerName.value
-                                val email = incomingCallerEmail.value
-                                
-                                // If we already have a server URL from the intent (e.g. from CallService notification)
-                                // use it, otherwise build it from serverConfig
-                                val urlToUse = incomingServerUrl.value ?: run {
-                                    val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                    val baseUrl = serverConfig!!.cleanEndpoint
-                                    "$protocol://$baseUrl/room/$rId"
-                                }
-                                val isExternal = if (incomingServerUrl.value != null) incomingIsExternal.value else false
-                                
-                                Timber.i("Incoming call effect triggered for Room: $rId. URL: $urlToUse, External: $isExternal")
-                                
-                                lastHandledRoomId = rId
-                                val cTime = incomingCreationTime.value
-                                // Use a local copy to navigate and clear the state immediately
-                                incomingRoomId.value = null
-                                incomingServerUrl.value = null
-                                incomingCreationTime.value = null
-                                navigateToCallWithPermission(rId, urlToUse, name, email, isExternal = isExternal, creationTime = cTime)
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                navController.navigate(route)
                             } else {
-                                Timber.i("Already in a call, clearing incomingRoomId")
-                                incomingRoomId.value = null
+                                pendingNavigationRoute = route
+                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
                         }
-                    }
 
-                    if (accessToken == "UNDEFINED") {
-                        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
-                    } else {
-                        val startDest = remember(accessToken) {
-                            if (accessToken == null) AppConstants.Routes.LOGIN
-                            else if (!PermissionUtils.hasAllPermissions(context)) AppConstants.Routes.PERMISSIONS
-                            else AppConstants.Routes.CONTACTS
+                        val roomId by incomingRoomId
+                        val destinationPage by targetPage
+                        
+                        LaunchedEffect(destinationPage, accessToken, currentRoute) {
+                            if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
+                                val target = destinationPage
+                                targetPage.value = null
+                                if (target == "about" && currentRoute != AppConstants.Routes.ABOUT) {
+                                    navController.navigate(AppConstants.Routes.ABOUT)
+                                } else if (target == "recents") {
+                                    scope.launch {
+                                        dataStoreManager.saveLastSelectedTab(1)
+                                    }
+                                }
+                            }
                         }
 
-                        NavHost(
-                            navController = navController,
-                            startDestination = startDest,
-                            enterTransition = {
-                                slideIntoContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.Left,
-                                    animationSpec = tween(400)
-                                )
-                            },
-                            exitTransition = {
-                                slideOutOfContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.Left,
-                                    animationSpec = tween(400)
-                                )
-                            },
-                            popEnterTransition = {
-                                slideIntoContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.Right,
-                                    animationSpec = tween(400)
-                                )
-                            },
-                            popExitTransition = {
-                                slideOutOfContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.Right,
-                                    animationSpec = tween(400)
-                                )
-                            },
-                            modifier = Modifier
-                                .background(MaterialTheme.colorScheme.background)
-                                .then(
-                                    if (networkStatus != NetworkStatus.Available) {
-                                        Modifier.consumeWindowInsets(WindowInsets.statusBars)
-                                    } else {
-                                        Modifier
+                        LaunchedEffect(roomId, accessToken, serverConfig, currentRoute) {
+                            val rId = roomId
+                            if (rId != null && accessToken != null && accessToken != "UNDEFINED" && serverConfig != null) {
+                                val callStatusManager = CallStatusManager(context)
+                                val isAlreadyInCall = callStatusManager.isUserOnAnotherCall()
+                                val isActiveRoom = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId == rId
+
+                                if (isAlreadyInCall && !isActiveRoom) {
+                                    incomingRoomId.value = null
+                                    return@LaunchedEffect
+                                }
+
+                                if (intent.getStringExtra("action") == MyFirebaseMessagingService.ACTION_ACCEPT) {
+                                    MyFirebaseMessagingService.markRoomAccepted(rId)
+                                    CallRingtonePlayer.stop(context)
+                                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                                    nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
+                                }
+
+                                if (rId == lastHandledRoomId && incomingServerUrl.value == null) {
+                                    incomingRoomId.value = null
+                                    return@LaunchedEffect
+                                }
+
+                                if (currentRoute?.contains("webrtc_call") != true) {
+                                    val name = incomingCallerName.value
+                                    val email = incomingCallerEmail.value
+                                    val urlToUse = incomingServerUrl.value ?: run {
+                                        val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                        val baseUrl = serverConfig!!.cleanEndpoint
+                                        "$protocol://$baseUrl/room/$rId"
                                     }
-                                )
-                        ) {
-                            composable(AppConstants.Routes.LOGIN) {
-                                LoginScreen(
-                                    isServerIncompatible = isServerIncompatible,
-                                    networkStatus = networkStatus,
-                                    onLoginSuccess = {
-                                        navController.navigate(AppConstants.Routes.PERMISSIONS) {
-                                            popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
+                                    val isExternal = if (incomingServerUrl.value != null) incomingIsExternal.value else false
+                                    lastHandledRoomId = rId
+                                    val cTime = incomingCreationTime.value
+                                    incomingRoomId.value = null
+                                    incomingServerUrl.value = null
+                                    incomingCreationTime.value = null
+                                    navigateToCallWithPermission(rId, urlToUse, name, email, isExternal = isExternal, creationTime = cTime, isOutgoing = false)
+                                } else {
+                                    incomingRoomId.value = null
+                                }
+                            }
+                        }
+
+                        if (accessToken == "UNDEFINED") {
+                            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                        } else {
+                            val startDest = remember(accessToken) {
+                                if (accessToken == null) AppConstants.Routes.LOGIN
+                                else if (PermissionUtils.hasAnyPermissionMissing(context)) AppConstants.Routes.PERMISSIONS
+                                else AppConstants.Routes.CONTACTS
+                            }
+
+                            NavHost(
+                                navController = navController,
+                                startDestination = startDest,
+                                enterTransition = {
+                                    slideIntoContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Left,
+                                        animationSpec = tween(400)
+                                    )
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Left,
+                                        animationSpec = tween(400)
+                                    )
+                                },
+                                popEnterTransition = {
+                                    slideIntoContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Right,
+                                        animationSpec = tween(400)
+                                    )
+                                },
+                                popExitTransition = {
+                                    slideOutOfContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Right,
+                                        animationSpec = tween(400)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .then(
+                                        if (networkStatus != NetworkStatus.Available) {
+                                            Modifier.consumeWindowInsets(WindowInsets.statusBars)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                            ) {
+                                composable(AppConstants.Routes.LOGIN) {
+                                    LoginScreen(
+                                        isServerIncompatible = isServerIncompatible,
+                                        networkStatus = networkStatus,
+                                        onLoginSuccess = {
+                                            val destination = if (PermissionUtils.hasAnyPermissionMissing(context)) {
+                                                AppConstants.Routes.PERMISSIONS
+                                            } else {
+                                                AppConstants.Routes.CONTACTS
+                                            }
+                                            navController.navigate(destination) {
+                                                popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                        }
+                                    )
+                                }
+                                composable(AppConstants.Routes.PERMISSIONS) {
+                                    PermissionGatewayScreen(onAllPermissionsGranted = {
+                                        navController.navigate(AppConstants.Routes.CONTACTS) {
+                                            popUpTo(AppConstants.Routes.PERMISSIONS) { inclusive = true }
                                             launchSingleTop = true
                                         }
-                                    }
-                                )
-                            }
-                            composable(AppConstants.Routes.PERMISSIONS) {
-                                PermissionGatewayScreen(onAllPermissionsGranted = {
-                                    navController.navigate(AppConstants.Routes.CONTACTS) {
-                                        popUpTo(AppConstants.Routes.PERMISSIONS) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                })
-                            }
-                            composable(AppConstants.Routes.CONTACTS) {
-                                val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
-                                val privacyModeRestrictionText = stringResource(R.string.privacy_mode_restriction)
-                                MainScreen(
-                                    isServerIncompatible = isServerIncompatible,
-                                    networkStatus = networkStatus,
-                                    onContactClick = { contact ->
-                                        if (isCalling) return@MainScreen
-                                        if (isServerIncompatible) {
-                                            ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
-                                            return@MainScreen
-                                        }
-                                        if (contact.email == ownEmail) {
-                                            ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
-                                            return@MainScreen
-                                        }
-                                        val callStatusManager = CallStatusManager(context)
-                                        if (callStatusManager.isUserOnAnotherCall()) {
-                                            ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
-                                            return@MainScreen
-                                        }
-                                        isCalling = true
-                                        scope.launch {
-                                            if (accessToken != null && serverConfig != null) {
-                                                val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, contact.email)
-                                                if (result.isSuccess) {
-                                                    result.getOrNull()?.data?.let { data ->
-                                                        val rId = data.roomId
-                                                        val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                                        val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                                        val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
-                                                        
-                                                        // Save Outgoing Call Log
-                                                        val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
-                                                        repository.insertCallLog(
-                                                            com.github.biltudas1.sequence.data.local.CallLogEntity(
-                                                                email = contact.email,
-                                                                name = fullName,
-                                                                type = "OUTGOING",
-                                                                timestamp = System.currentTimeMillis(),
-                                                                roomId = rId
-                                                            )
-                                                        )
-                                                        
-                                                        navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false)
-                                                    }
-                                                } else {
-                                                    isCalling = false
-                                                    val exception = result.exceptionOrNull()
-                                                    if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
-                                                        ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
-                                                    } else {
-                                                        ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
-                                                    }
-                                                }
-                                            } else {
-                                                isCalling = false
+                                    })
+                                }
+                                composable(AppConstants.Routes.CONTACTS) {
+                                    val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
+                                    val privacyModeRestrictionText = stringResource(R.string.privacy_mode_restriction)
+                                    MainScreen(
+                                        isServerIncompatible = isServerIncompatible,
+                                        networkStatus = networkStatus,
+                                        onContactClick = { contact ->
+                                            if (isCalling) return@MainScreen
+                                            if (isServerIncompatible) {
+                                                ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
+                                                return@MainScreen
                                             }
-                                        }
-                                    },
-                                    onDialerCallClick = { email ->
-                                        if (isCalling) return@MainScreen
-                                        if (isServerIncompatible) {
-                                            ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
-                                            return@MainScreen
-                                        }
-                                        if (email == ownEmail) {
-                                            ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
-                                            return@MainScreen
-                                        }
-                                        val callStatusManager = CallStatusManager(context)
-                                        if (callStatusManager.isUserOnAnotherCall()) {
-                                            ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
-                                            return@MainScreen
-                                        }
-                                        isCalling = true
-                                        scope.launch {
-                                            if (accessToken != null && serverConfig != null) {
-                                                val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, email)
-                                                if (result.isSuccess) {
-                                                    result.getOrNull()?.data?.let { data ->
-                                                        val rId = data.roomId
-                                                        val protocol = if (serverConfig!!.useWss) "wss" else "ws"
-                                                        val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
-                                                        
-                                                        // Save Outgoing Call Log
-                                                        val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
-                                                        repository.insertCallLog(
-                                                            com.github.biltudas1.sequence.data.local.CallLogEntity(
-                                                                email = email,
-                                                                name = null,
-                                                                type = "OUTGOING",
-                                                                timestamp = System.currentTimeMillis(),
-                                                                roomId = rId
-                                                            )
-                                                        )
-                                                        
-                                                        navigateToCallWithPermission(rId, fullUrl, email, email, isExternal = false)
-                                                    }
-                                                } else {
-                                                    isCalling = false
-                                                    val exception = result.exceptionOrNull()
-                                                    if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
-                                                        ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
-                                                    } else {
-                                                        ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
-                                                    }
-                                                }
-                                            } else {
-                                                isCalling = false
+                                            if (contact.email == ownEmail) {
+                                                ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
+                                                return@MainScreen
                                             }
-                                        }
-                                    },
-                                    onSettingsClick = {
-                                        navController.navigate(AppConstants.Routes.SETTINGS)
-                                    }
-                                )
-                            }
-                            composable(AppConstants.Routes.SETTINGS) {
-                                SettingsScreen(
-                                    isServerIncompatible = isServerIncompatible,
-                                    networkStatus = networkStatus,
-                                    onBackClick = {
-                                        navController.popBackStack()
-                                    },
-                                    onAboutClick = {
-                                        navController.navigate(AppConstants.Routes.ABOUT)
-                                    },
-                                    onCallSettingsClick = {
-                                        navController.navigate(AppConstants.Routes.CALL_SETTINGS)
-                                    },
-                                    onDataUsageClick = {
-                                        navController.navigate(AppConstants.Routes.DATA_USAGE)
-                                    },
-                                    onLogoutClick = {
-                                        scope.launch {
-                                            val refreshToken = dataStoreManager.refreshTokenFlow.firstOrNull()
-                                            val currentToken = dataStoreManager.accessTokenFlow.firstOrNull()
-                                            val currentConfig = dataStoreManager.serverConfigFlow.firstOrNull()
-                                            
-                                            if (currentToken != null && currentConfig != null && currentConfig.isValid()) {
-                                                Timber.i("Logging out from server")
-                                                
-                                                // 1. Call logout API
-                                                authService.logoutUser(currentConfig, currentToken, refreshToken)
+                                            val callStatusManager = CallStatusManager(context)
+                                            if (callStatusManager.isUserOnAnotherCall()) {
+                                                ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
+                                                return@MainScreen
                                             }
-
-                                            // 3. Clear local session and data
-                                            dataStoreManager.clearSession()
-                                            contactRepository.clearLocalData()
-
-                                            // 4. Sign out from Google (Credential Manager)
-                                            val googleAuthManager = GoogleAuthManager(context)
-                                            googleAuthManager.signOut()
-                                        }
-                                    }
-                                )
-                            }
-                            composable(AppConstants.Routes.CALL_SETTINGS) {
-                                CallSettingsScreen(
-                                    networkStatus = networkStatus,
-                                    onBackClick = { navController.popBackStack() },
-                                    onWebRTCConfigClick = { navController.navigate(AppConstants.Routes.WEBRTC_CONFIG) },
-                                    onAudioQualityClick = { navController.navigate(AppConstants.Routes.AUDIO_QUALITY) }
-                                )
-                            }
-                            composable(AppConstants.Routes.AUDIO_QUALITY) {
-                                AudioQualityScreen(onBackClick = {
-                                    navController.popBackStack()
-                                })
-                            }
-                            composable(AppConstants.Routes.DATA_USAGE) {
-                                DataUsageScreen(onBackClick = {
-                                    navController.popBackStack()
-                                })
-                            }
-                            composable(AppConstants.Routes.WEBRTC_CONFIG) {
-                                WebRTCConfigScreen(onBackClick = {
-                                    navController.popBackStack()
-                                })
-                            }
-                            composable(AppConstants.Routes.ABOUT) {
-                                AboutScreen(
-                                    onBackClick = {
-                                        navController.popBackStack()
-                                    },
-                                    onViewLogsClick = {
-                                        navController.navigate(AppConstants.Routes.LOGS)
-                                    }
-                                )
-                            }
-                            composable(AppConstants.Routes.LOGS) {
-                                LogViewerScreen(onBackClick = {
-                                    navController.popBackStack()
-                                })
-                            }
-                            composable(AppConstants.Routes.ROOM_ENTRY) {
-                                val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
-                                val roomCallText = stringResource(R.string.room_call)
-                                RoomEntryScreen(
-                                    onJoinRoom = { rId, url -> 
-                                        if (isCalling) return@RoomEntryScreen
-                                        if (isServerIncompatible) {
-                                            ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
-                                            return@RoomEntryScreen
-                                        }
-                                        val callStatusManager = CallStatusManager(context)
-                                        if (callStatusManager.isUserOnAnotherCall()) {
-                                            ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
-                                        } else {
                                             isCalling = true
-                                            navigateToCallWithPermission(rId, url, roomCallText, "")
+                                            scope.launch {
+                                                if (accessToken != null && serverConfig != null) {
+                                                    val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, contact.email)
+                                                    if (result.isSuccess) {
+                                                        result.getOrNull()?.data?.let { data ->
+                                                            val rId = data.roomId
+                                                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                            val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                            val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
+                                                            
+                                                            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                            repository.insertCallLog(
+                                                                com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                                    email = contact.email,
+                                                                    name = fullName,
+                                                                    type = "OUTGOING",
+                                                                    timestamp = System.currentTimeMillis(),
+                                                                    roomId = rId
+                                                                )
+                                                            )
+                                                            
+                                                            navigateToCallWithPermission(rId, fullUrl, fullName, contact.email, isExternal = false, isOutgoing = true)
+                                                        }
+                                                    } else {
+                                                        isCalling = false
+                                                        val exception = result.exceptionOrNull()
+                                                        if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
+                                                            ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
+                                                        } else {
+                                                            ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
+                                                        }
+                                                    }
+                                                } else {
+                                                    isCalling = false
+                                                }
+                                            }
+                                        },
+                                        onDialerCallClick = { email ->
+                                            if (isCalling) return@MainScreen
+                                            if (isServerIncompatible) {
+                                                ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
+                                                return@MainScreen
+                                            }
+                                            if (email == ownEmail) {
+                                                ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
+                                                return@MainScreen
+                                            }
+                                            val callStatusManager = CallStatusManager(context)
+                                            if (callStatusManager.isUserOnAnotherCall()) {
+                                                ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
+                                                return@MainScreen
+                                            }
+                                            isCalling = true
+                                            scope.launch {
+                                                if (accessToken != null && serverConfig != null) {
+                                                    val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, email)
+                                                    if (result.isSuccess) {
+                                                        result.getOrNull()?.data?.let { data ->
+                                                            val rId = data.roomId
+                                                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                            val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                            
+                                                            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                            repository.insertCallLog(
+                                                                com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                                    email = email,
+                                                                    name = null,
+                                                                    type = "OUTGOING",
+                                                                    timestamp = System.currentTimeMillis(),
+                                                                    roomId = rId
+                                                                )
+                                                            )
+                                                            
+                                                            navigateToCallWithPermission(rId, fullUrl, email, email, isExternal = false, isOutgoing = true)
+                                                        }
+                                                    } else {
+                                                        isCalling = false
+                                                        val exception = result.exceptionOrNull()
+                                                        if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
+                                                            ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
+                                                        } else {
+                                                            ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
+                                                        }
+                                                    }
+                                                } else {
+                                                    isCalling = false
+                                                }
+                                            }
+                                        },
+                                        onSettingsClick = {
+                                            navController.navigate(AppConstants.Routes.SETTINGS)
                                         }
-                                    }
-                                )
-                            }
-                            composable(AppConstants.Routes.WEBRTC_CALL) { backStackEntry ->
-                                val rId = backStackEntry.arguments?.getString("roomId") ?: ""
-                                val rawUrl = backStackEntry.arguments?.getString("serverUrl") ?: ""
-                                val rawName = backStackEntry.arguments?.getString("name") ?: ""
-                                val rawEmail = backStackEntry.arguments?.getString("email") ?: ""
-                                val isExternal = backStackEntry.arguments?.getString("isExternal")?.toBoolean() ?: false
-                                val creationTime = backStackEntry.arguments?.getString("creationTime")?.toLongOrNull()
-                                val cTimeFinal = if (creationTime == -1L) null else creationTime
-
-                                val sUrl = try { java.net.URLDecoder.decode(rawUrl, "UTF-8") } catch (e: Exception) { rawUrl }
-                                val decodedName = try { java.net.URLDecoder.decode(rawName, "UTF-8") } catch (e: Exception) { rawName }
-                                val decodedEmail = try { java.net.URLDecoder.decode(rawEmail, "UTF-8") } catch (e: Exception) { rawEmail }
-
-                                Timber.i("Entering WebRTCScreen. Room: $rId, External: $isExternal")
-
-                                WebRTCScreen(
-                                    roomId = rId,
-                                    serverUrl = sUrl,
-                                    callerName = decodedName,
-                                    callerEmail = decodedEmail,
-                                    isExternal = isExternal,
-                                    creationTime = cTimeFinal,
-                                    accessToken = accessToken,
-                                    onCallStopped = {
-                                        Timber.i("onCallStopped triggered. isExternal: $isExternal")
-                                        if (isExternal) {
-                                            finishAndRemoveTask()
-                                        } else {
+                                    )
+                                }
+                                composable(AppConstants.Routes.SETTINGS) {
+                                    SettingsScreen(
+                                        isServerIncompatible = isServerIncompatible,
+                                        networkStatus = networkStatus,
+                                        onBackClick = {
                                             navController.popBackStack()
+                                        },
+                                        onAboutClick = {
+                                            navController.navigate(AppConstants.Routes.ABOUT)
+                                        },
+                                        onCallSettingsClick = {
+                                            navController.navigate(AppConstants.Routes.CALL_SETTINGS)
+                                        },
+                                        onDataUsageClick = {
+                                            navController.navigate(AppConstants.Routes.DATA_USAGE)
+                                        },
+                                        onLogoutClick = {
+                                            scope.launch {
+                                                val refreshToken = dataStoreManager.refreshTokenFlow.firstOrNull()
+                                                val currentToken = dataStoreManager.accessTokenFlow.firstOrNull()
+                                                val currentConfig = dataStoreManager.serverConfigFlow.firstOrNull()
+                                                
+                                                if (currentToken != null && currentConfig != null && currentConfig.isValid()) {
+                                                    authService.logoutUser(currentConfig, currentToken, refreshToken)
+                                                }
+                                                dataStoreManager.clearSession()
+                                                contactRepository.clearLocalData()
+                                                val googleAuthManager = GoogleAuthManager(context)
+                                                googleAuthManager.signOut()
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
+                                composable(AppConstants.Routes.CALL_SETTINGS) {
+                                    CallSettingsScreen(
+                                        networkStatus = networkStatus,
+                                        onBackClick = { navController.popBackStack() },
+                                        onWebRTCConfigClick = { navController.navigate(AppConstants.Routes.WEBRTC_CONFIG) },
+                                        onAudioQualityClick = { navController.navigate(AppConstants.Routes.AUDIO_QUALITY) }
+                                    )
+                                }
+                                composable(AppConstants.Routes.AUDIO_QUALITY) {
+                                    AudioQualityScreen(onBackClick = {
+                                        navController.popBackStack()
+                                    })
+                                }
+                                composable(AppConstants.Routes.DATA_USAGE) {
+                                    DataUsageScreen(onBackClick = {
+                                        navController.popBackStack()
+                                    })
+                                }
+                                composable(AppConstants.Routes.WEBRTC_CONFIG) {
+                                    WebRTCConfigScreen(onBackClick = {
+                                        navController.popBackStack()
+                                    })
+                                }
+                                composable(AppConstants.Routes.ABOUT) {
+                                    AboutScreen(
+                                        onBackClick = {
+                                            navController.popBackStack()
+                                        },
+                                        onViewLogsClick = {
+                                            navController.navigate(AppConstants.Routes.LOGS)
+                                        }
+                                    )
+                                }
+                                composable(AppConstants.Routes.LOGS) {
+                                    LogViewerScreen(onBackClick = {
+                                        navController.popBackStack()
+                                    })
+                                }
+                                composable(AppConstants.Routes.ROOM_ENTRY) {
+                                    val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
+                                    val roomCallText = stringResource(R.string.room_call)
+                                    RoomEntryScreen(
+                                        onJoinRoom = { rId, url -> 
+                                            if (isCalling) return@RoomEntryScreen
+                                            if (isServerIncompatible) {
+                                                ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
+                                                return@RoomEntryScreen
+                                            }
+                                            val callStatusManager = CallStatusManager(context)
+                                            if (callStatusManager.isUserOnAnotherCall()) {
+                                                ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
+                                            } else {
+                                                isCalling = true
+                                                navigateToCallWithPermission(rId, url, roomCallText, "", isOutgoing = true)
+                                            }
+                                        }
+                                    )
+                                }
+                                composable(AppConstants.Routes.WEBRTC_CALL) { backStackEntry ->
+                                    val rId = backStackEntry.arguments?.getString("roomId") ?: ""
+                                    val rawUrl = backStackEntry.arguments?.getString("serverUrl") ?: ""
+                                    val rawName = backStackEntry.arguments?.getString("name") ?: ""
+                                    val rawEmail = backStackEntry.arguments?.getString("email") ?: ""
+                                    val isExternal = backStackEntry.arguments?.getString("isExternal")?.toBoolean() ?: false
+                                    val isOutgoing = backStackEntry.arguments?.getString("isOutgoing")?.toBoolean() ?: false
+                                    val creationTime = backStackEntry.arguments?.getString("creationTime")?.toLongOrNull()
+                                    val cTimeFinal = if (creationTime == -1L) null else creationTime
+
+                                    val sUrl = try { java.net.URLDecoder.decode(rawUrl, "UTF-8") } catch (e: Exception) { rawUrl }
+                                    val decodedName = try { java.net.URLDecoder.decode(rawName, "UTF-8") } catch (e: Exception) { rawName }
+                                    val decodedEmail = try { java.net.URLDecoder.decode(rawEmail, "UTF-8") } catch (e: Exception) { rawEmail }
+
+                                    WebRTCScreen(
+                                        roomId = rId,
+                                        serverUrl = sUrl,
+                                        callerName = decodedName,
+                                        callerEmail = decodedEmail,
+                                        isExternal = isExternal,
+                                        creationTime = cTimeFinal,
+                                        accessToken = accessToken,
+                                        isOutgoing = isOutgoing,
+                                        onCallStopped = {
+                                            if (isExternal) {
+                                                finishAndRemoveTask()
+                                            } else {
+                                                navController.popBackStack()
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -705,5 +658,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 }

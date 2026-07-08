@@ -45,14 +45,15 @@ object CallManager {
         email: String,
         isExternal: Boolean,
         accessToken: String?,
-        creationTime: Long? = null
+        creationTime: Long? = null,
+        isOutgoing: Boolean = false
     ) {
         if (activeRoomId != null) {
             Timber.w("initCall called while another call is active: $activeRoomId")
             return
         }
         
-        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redact(email)}, External: $isExternal, creationTime: $creationTime")
+        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redact(email)}, External: $isExternal, creationTime: $creationTime, isOutgoing: $isOutgoing")
         activeRoomId = roomId
         activeCallerName = name
         activeCallerEmail = email
@@ -193,15 +194,18 @@ object CallManager {
             CallService.start(context, roomId, name, email, isExternal, serverUrl)
 
             // Start ringback/waiting logic
-            launch {
-                delay(2000)
-                if (activeRoomId == roomId && !hasPeerJoined.value && !isRemoteBusy.value) {
-                    if (isSignalingConnected.value) audioManager?.startRingback()
-                    else audioManager?.startWaiting()
+            if (isOutgoing) {
+                launch {
+                    delay(2000)
+                    if (activeRoomId == roomId && !hasPeerJoined.value && !isRemoteBusy.value) {
+                        if (isSignalingConnected.value) audioManager?.startRingback()
+                        else audioManager?.startWaiting()
+                    }
                 }
             }
         }
     }
+
 
     fun toggleMute(context: Context? = null) {
         val newValue = !isMuted.value
