@@ -177,9 +177,13 @@ fun LoginScreen(
                                         dataStoreManager.savePrivacyMode(loginData.privacy_mode)
 
                                         ToastUtils.show(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT)
+                                        
+                                        // On login success, we might need to go to permissions if some are missing,
+                                        // or directly to contacts. The callback in MainActivity will handle this logic.
                                         onLoginSuccess()
                                     }
-                                } else {
+                                }
+else {
                                     val error = loginResult.exceptionOrNull()?.message ?: "Login failed"
                                     Timber.e("Login failed: $error")
                                     ToastUtils.show(context, error, Toast.LENGTH_LONG)

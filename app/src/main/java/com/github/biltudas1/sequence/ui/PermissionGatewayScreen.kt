@@ -103,8 +103,7 @@ fun PermissionGatewayScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
@@ -127,59 +126,63 @@ fun PermissionGatewayScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
 
-            PermissionItem(
-                title = "Microphone",
-                description = "Required to make and receive voice calls.",
-                icon = Icons.Default.Mic,
-                isGranted = hasMicPermission,
-                onClick = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }
-            )
-
-            PermissionItem(
-                title = "Phone State",
-                description = "Required to handle calls and manage audio focus.",
-                icon = Icons.Default.PhoneAndroid,
-                isGranted = hasPhoneStatePermission,
-                onClick = { phoneStateLauncher.launch(Manifest.permission.READ_PHONE_STATE) }
-            )
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 PermissionItem(
-                    title = "Notifications",
-                    description = "Required to notify you of incoming calls.",
-                    icon = Icons.Default.Notifications,
-                    isGranted = hasNotificationPermission,
-                    onClick = { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                    title = "Microphone",
+                    description = "Required to make and receive voice calls.",
+                    icon = Icons.Default.Mic,
+                    isGranted = hasMicPermission,
+                    onClick = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                )
+
+                PermissionItem(
+                    title = "Phone State",
+                    description = "Required to handle calls and manage audio focus.",
+                    icon = Icons.Default.PhoneAndroid,
+                    isGranted = hasPhoneStatePermission,
+                    onClick = { phoneStateLauncher.launch(Manifest.permission.READ_PHONE_STATE) }
+                )
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    PermissionItem(
+                        title = "Notifications",
+                        description = "Required to notify you of incoming calls.",
+                        icon = Icons.Default.Notifications,
+                        isGranted = hasNotificationPermission,
+                        onClick = { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                    )
+                }
+
+                PermissionItem(
+                    title = "Battery Optimization",
+                    description = "App must be set to 'Unrestricted' to receive calls reliably in the background.",
+                    icon = Icons.Default.BatteryAlert,
+                    isGranted = isBatteryOptimizedIgnored,
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    }
+                )
+
+                PermissionItem(
+                    title = "Display Over Other Apps",
+                    description = "Required to show the call screen when the app is in the background.",
+                    icon = Icons.Default.Call,
+                    isGranted = canDrawOverlays,
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    }
                 )
             }
 
-            PermissionItem(
-                title = "Battery Optimization",
-                description = "App must be set to 'Unrestricted' to receive calls reliably in the background.",
-                icon = Icons.Default.BatteryAlert,
-                isGranted = isBatteryOptimizedIgnored,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                }
-            )
-
-            PermissionItem(
-                title = "Display Over Other Apps",
-                description = "Required to show the call screen when the app is in the background.",
-                icon = Icons.Default.Call,
-                isGranted = canDrawOverlays,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                }
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(

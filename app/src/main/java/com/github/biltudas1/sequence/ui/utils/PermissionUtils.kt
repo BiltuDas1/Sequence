@@ -25,15 +25,15 @@ object PermissionUtils {
     }
 
     /**
-     * Returns true if all essential permissions are granted and battery optimization is disabled.
+     * Returns true if at least one essential permission is missing or optimizations are still active.
      */
-    fun hasAllPermissions(context: Context): Boolean {
-        val mic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val phone = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+    fun hasAnyPermissionMissing(context: Context): Boolean {
+        val mic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        val phone = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED
         val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        } else true
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        } else false
         
-        return mic && phone && notif && isIgnoringBatteryOptimizations(context) && canDrawOverlays(context)
+        return mic || phone || notif || !isIgnoringBatteryOptimizations(context) || !canDrawOverlays(context)
     }
 }

@@ -21,7 +21,7 @@ object AppConstants {
         const val WEBRTC_CONFIG = "webrtc_config"
         const val ROOM_ENTRY = "room_entry"
         const val LOGS = "logs"
-        const val WEBRTC_CALL = "webrtc_call/{roomId}?serverUrl={serverUrl}&name={name}&email={email}&isExternal={isExternal}&creationTime={creationTime}"
+        const val WEBRTC_CALL = "webrtc_call/{roomId}?serverUrl={serverUrl}&name={name}&email={email}&isExternal={isExternal}&creationTime={creationTime}&isOutgoing={isOutgoing}"
     }
 
     object Api {
