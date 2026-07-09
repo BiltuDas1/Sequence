@@ -32,6 +32,11 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
       - name: Run Maestro Tests
         uses: ReactiveCircus/android-emulator-runner@v2.38.0
         with:
@@ -41,13 +46,8 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            # Install Maestro
-            curl -Ls "https://get.maestro.mobile.dev" | bash
-            export PATH="$PATH:$HOME/.maestro/bin"
-            
             adb install app/build/outputs/apk/debug/app-debug.apk
-            
-            maestro test .maestro/
+            $HOME/.maestro/bin/maestro test .maestro/
         env:
           MAESTRO_SEQUENCE_SERVER_URI: "${{ secrets.SEQUENCE_SERVER_URI }}"
 
