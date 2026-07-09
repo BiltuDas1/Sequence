@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +40,7 @@ import com.github.biltudas1.sequence.util.AppLogger
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
+    showConfigInitially: Boolean = false,
     onLoginSuccess: () -> Unit,
     isServerIncompatible: Boolean,
     networkStatus: NetworkStatus,
@@ -53,7 +55,7 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
 
     var isLoading by remember { mutableStateOf(false) }
-    var showConfigDialog by remember { mutableStateOf(false) }
+    var showConfigDialog by remember { mutableStateOf(showConfigInitially) }
     val serverIncompatibleText = stringResource(R.string.server_incompatible)
     val noInternetText = stringResource(R.string.no_internet)
 
@@ -259,6 +261,37 @@ else {
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Email Sign-In Button (Dummy)
+            OutlinedButton(
+                onClick = {
+                    ToastUtils.show(context, "Email login is not implemented yet", Toast.LENGTH_SHORT)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Email,
+                        contentDescription = "Email Icon",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Login using Email",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 
@@ -272,7 +305,8 @@ else {
                     dataStoreManager.saveServerConfig(it)
                 }
                 showConfigDialog = false
-            }
+            },
+            autoTest = showConfigInitially
         )
     }
 }

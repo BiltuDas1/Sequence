@@ -26,14 +26,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.lifecycle.lifecycleScope
 import com.github.biltudas1.sequence.data.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.auth.GoogleAuthManager
 import com.github.biltudas1.sequence.data.model.AppTheme
+import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.*
@@ -82,6 +86,48 @@ class MainActivity : ComponentActivity() {
         val target = intent.getStringExtra("targetPage")
         val action = intent.getStringExtra("action")
         Timber.i("handleIntent: roomId=$roomId, target=$target, action=$action")
+
+        intent.data?.let { uri ->
+            if (uri.scheme == "seq") {
+                lifecycleScope.launch {
+                    val dataStoreManager = DataStoreManager.getInstance(this@MainActivity)
+                    
+                    val uriString = uri.toString()
+                    val rawEndpoint = uriString
+                        .substringBefore("?")
+                        .removePrefix("seq://")
+                        .removePrefix("seq:")
+                        .trim()
+
+                    val endpoint = if (rawEndpoint.isNotBlank()) rawEndpoint else (uri.host ?: "")
+                    
+                    val username = uri.getQueryParameter("u") ?: ""
+                    val password = uri.getQueryParameter("p") ?: ""
+                    
+                    var useHttps = true
+                    var useWss = true
+                    
+                    val secureParam = uri.getQueryParameter("secure")
+                    if (secureParam != null) {
+                        val isSecure = secureParam == "1" || secureParam.lowercase() == "true"
+                        useHttps = isSecure
+                        useWss = isSecure
+                    }
+                    
+                    uri.getQueryParameter("https")?.let { 
+                        useHttps = it == "1" || it.lowercase() == "true"
+                    }
+                    uri.getQueryParameter("wss")?.let { 
+                        useWss = it == "1" || it.lowercase() == "true"
+                    }
+                    
+                    val newConfig = ServerConfig(endpoint, username, password, useHttps, useWss)
+                    dataStoreManager.saveServerConfig(newConfig)
+                    targetPage.value = "server_config"
+                }
+            }
+        }
+
         if (roomId != null) {
             incomingRoomId.value = roomId
             incomingCallerName.value = intent.getStringExtra("callerName") ?: ""
@@ -283,7 +329,7 @@ class MainActivity : ComponentActivity() {
                         val destinationPage by targetPage
                         
                         LaunchedEffect(destinationPage, accessToken, currentRoute) {
-                            if (destinationPage != null && accessToken != null && accessToken != "UNDEFINED") {
+                            if (destinationPage != null) {
                                 val target = destinationPage
                                 targetPage.value = null
                                 if (target == "about" && currentRoute != AppConstants.Routes.ABOUT) {
@@ -291,6 +337,17 @@ class MainActivity : ComponentActivity() {
                                 } else if (target == "recents") {
                                     scope.launch {
                                         dataStoreManager.saveLastSelectedTab(1)
+                                    }
+                                } else if (target == "server_config") {
+                                    if (accessToken == null || accessToken == "UNDEFINED") {
+                                        navController.navigate("login?showConfig=true") {
+                                            popUpTo(0) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                    } else {
+                                        navController.navigate("settings?showConfig=true") {
+                                            launchSingleTop = true
+                                        }
                                     }
                                 }
                             }
@@ -387,8 +444,18 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                             ) {
-                                composable(AppConstants.Routes.LOGIN) {
+                                composable(
+                                    route = AppConstants.Routes.LOGIN,
+                                    arguments = listOf(
+                                        navArgument("showConfig") {
+                                            type = NavType.BoolType
+                                            defaultValue = false
+                                        }
+                                    )
+                                ) { backStackEntry ->
+                                    val showConfig = backStackEntry.arguments?.getBoolean("showConfig") ?: false
                                     LoginScreen(
+                                        showConfigInitially = showConfig,
                                         isServerIncompatible = isServerIncompatible,
                                         networkStatus = networkStatus,
                                         onLoginSuccess = {
@@ -528,8 +595,18 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                 }
-                                composable(AppConstants.Routes.SETTINGS) {
+                                composable(
+                                    route = AppConstants.Routes.SETTINGS,
+                                    arguments = listOf(
+                                        navArgument("showConfig") {
+                                            type = NavType.BoolType
+                                            defaultValue = false
+                                        }
+                                    )
+                                ) { backStackEntry ->
+                                    val showConfig = backStackEntry.arguments?.getBoolean("showConfig") ?: false
                                     SettingsScreen(
+                                        showConfigInitially = showConfig,
                                         isServerIncompatible = isServerIncompatible,
                                         networkStatus = networkStatus,
                                         onBackClick = {
