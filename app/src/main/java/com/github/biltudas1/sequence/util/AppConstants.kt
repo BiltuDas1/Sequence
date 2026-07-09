@@ -11,6 +11,9 @@ object AppConstants {
 
     object Routes {
         const val LOGIN = "login?showConfig={showConfig}"
+        const val EMAIL_LOGIN = "email_login"
+        const val EMAIL_REGISTER = "email_register"
+        const val REGISTRATION_SUCCESS = "registration_success"
         const val PERMISSIONS = "permissions"
         const val CONTACTS = "contacts"
         const val SETTINGS = "settings?showConfig={showConfig}"

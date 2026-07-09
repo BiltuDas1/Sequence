@@ -40,11 +40,12 @@ import com.github.biltudas1.sequence.util.AppLogger
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    showConfigInitially: Boolean = false,
     onLoginSuccess: () -> Unit,
+    onEmailLoginClick: () -> Unit,
     isServerIncompatible: Boolean,
     networkStatus: NetworkStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showConfigInitially: Boolean = false
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager.getInstance(context) }
@@ -130,6 +131,7 @@ fun LoginScreen(
             // Google Sign-In Button
             Button(
                 onClick = {
+                    if (isLoading) return@Button
                     if (networkStatus == NetworkStatus.Unavailable) {
                         ToastUtils.show(context, noInternetText, Toast.LENGTH_SHORT)
                         return@Button
@@ -237,8 +239,8 @@ else {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(40.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                strokeWidth = 3.dp
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 4.dp
                             )
                         }
                     }
@@ -264,11 +266,20 @@ else {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Email Sign-In Button (Dummy)
+            // Email Sign-In Button
             OutlinedButton(
                 onClick = {
-                    ToastUtils.show(context, "Email login is not implemented yet", Toast.LENGTH_SHORT)
+                    if (serverConfig.isValid()) {
+                        onEmailLoginClick()
+                    } else {
+                        ToastUtils.show(
+                            context,
+                            "Please configure server settings first",
+                            Toast.LENGTH_SHORT
+                        )
+                    }
                 },
+                enabled = networkStatus != NetworkStatus.Unavailable,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(64.dp),

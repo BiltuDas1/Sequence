@@ -41,6 +41,9 @@ import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.*
+import com.github.biltudas1.sequence.ui.EmailLoginScreen
+import com.github.biltudas1.sequence.ui.EmailRegisterScreen
+import com.github.biltudas1.sequence.ui.RegistrationSuccessScreen
 import com.github.biltudas1.sequence.ui.components.NetworkStatusDisplay
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.util.ConnectivityObserver
@@ -455,9 +458,6 @@ class MainActivity : ComponentActivity() {
                                 ) { backStackEntry ->
                                     val showConfig = backStackEntry.arguments?.getBoolean("showConfig") ?: false
                                     LoginScreen(
-                                        showConfigInitially = showConfig,
-                                        isServerIncompatible = isServerIncompatible,
-                                        networkStatus = networkStatus,
                                         onLoginSuccess = {
                                             val destination = if (PermissionUtils.hasAnyPermissionMissing(context)) {
                                                 AppConstants.Routes.PERMISSIONS
@@ -467,6 +467,56 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate(destination) {
                                                 popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
                                                 launchSingleTop = true
+                                            }
+                                        },
+                                        onEmailLoginClick = {
+                                            navController.navigate(AppConstants.Routes.EMAIL_LOGIN)
+                                        },
+                                        isServerIncompatible = isServerIncompatible,
+                                        networkStatus = networkStatus,
+                                        showConfigInitially = showConfig
+                                    )
+                                }
+                                composable(AppConstants.Routes.EMAIL_LOGIN) {
+                                    EmailLoginScreen(
+                                        onLoginSuccess = {
+                                            val destination = if (PermissionUtils.hasAnyPermissionMissing(context)) {
+                                                AppConstants.Routes.PERMISSIONS
+                                            } else {
+                                                AppConstants.Routes.CONTACTS
+                                            }
+                                            navController.navigate(destination) {
+                                                popUpTo(AppConstants.Routes.LOGIN) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                        },
+                                        onRegisterClick = {
+                                            navController.navigate(AppConstants.Routes.EMAIL_REGISTER)
+                                        },
+                                        onBackClick = {
+                                            navController.popBackStack()
+                                        },
+                                        isServerIncompatible = isServerIncompatible,
+                                        networkStatus = networkStatus
+                                    )
+                                }
+                                composable(AppConstants.Routes.EMAIL_REGISTER) {
+                                    EmailRegisterScreen(
+                                        onRegistrationSuccess = {
+                                            navController.navigate(AppConstants.Routes.REGISTRATION_SUCCESS)
+                                        },
+                                        onBackClick = {
+                                            navController.popBackStack()
+                                        },
+                                        isServerIncompatible = isServerIncompatible,
+                                        networkStatus = networkStatus
+                                    )
+                                }
+                                composable(AppConstants.Routes.REGISTRATION_SUCCESS) {
+                                    RegistrationSuccessScreen(
+                                        onContinueClick = {
+                                            navController.navigate(AppConstants.Routes.EMAIL_LOGIN) {
+                                                popUpTo(AppConstants.Routes.EMAIL_REGISTER) { inclusive = true }
                                             }
                                         }
                                     )
@@ -606,7 +656,6 @@ class MainActivity : ComponentActivity() {
                                 ) { backStackEntry ->
                                     val showConfig = backStackEntry.arguments?.getBoolean("showConfig") ?: false
                                     SettingsScreen(
-                                        showConfigInitially = showConfig,
                                         isServerIncompatible = isServerIncompatible,
                                         networkStatus = networkStatus,
                                         onBackClick = {
@@ -635,7 +684,8 @@ class MainActivity : ComponentActivity() {
                                                 val googleAuthManager = GoogleAuthManager(context)
                                                 googleAuthManager.signOut()
                                             }
-                                        }
+                                        },
+                                        showConfigInitially = showConfig
                                     )
                                 }
                                 composable(AppConstants.Routes.CALL_SETTINGS) {

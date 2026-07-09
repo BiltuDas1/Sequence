@@ -53,8 +53,16 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
         return performPost(serverConfig, AppConstants.Api.USERS_REGISTER, null, RegistrationRequest(idToken))
     }
 
+    suspend fun registerUserEmail(serverConfig: ServerConfig, request: EmailRegistrationRequest): Result<ApiResponse<UserData>> {
+        return performPost(serverConfig, AppConstants.Api.USERS_REGISTER, null, request)
+    }
+
     suspend fun loginUser(serverConfig: ServerConfig, idToken: String): Result<ApiResponse<LoginData>> {
         return performPost(serverConfig, AppConstants.Api.USERS_LOGIN, null, LoginRequest(idToken))
+    }
+
+    suspend fun loginUserEmail(serverConfig: ServerConfig, request: EmailLoginRequest): Result<ApiResponse<LoginData>> {
+        return performPost(serverConfig, AppConstants.Api.USERS_LOGIN, null, request)
     }
 
     suspend fun logoutUser(serverConfig: ServerConfig, accessToken: String?, refreshToken: String?): Result<ApiResponse<Unit>> {
