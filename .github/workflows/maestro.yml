@@ -23,14 +23,14 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Decode and Place Google Services JSON
-        run: echo "${{ secrets.GOOGLE_SERVICES }}" | base64 --decode > app/google-services.json
-
-      - name: Grant Execute Permissions to Gradle
-        run: chmod +x gradlew
-
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+#      - name: Decode and Place Google Services JSON
+#        run: echo "${{ secrets.GOOGLE_SERVICES }}" | base64 --decode > app/google-services.json
+#
+#      - name: Grant Execute Permissions to Gradle
+#        run: chmod +x gradlew
+#
+#      - name: Build Debug APK
+#        run: ./gradlew assembleDebug --build-cache --parallel --no-daemon
 
       - name: Install Maestro
         run: |
@@ -46,16 +46,20 @@ jobs:
       - name: Run Maestro Tests
         uses: ReactiveCircus/android-emulator-runner@v2.38.0
         with:
-          api-level: 30
           target: google_atd
+          api-level: 35
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -dns-server 8.8.8.8 -netfast
           disable-animations: true
           script: |
-            # Give the lightweight system 5 seconds to fully settle
-            sleep 5
-            adb install app/build/outputs/apk/debug/app-debug.apk
+            bash .github/scripts/wait_for_emulator.sh
+            
+            echo "Installing APK..."
+            # adb install app/build/outputs/apk/debug/app-debug.apk
+            adb install prebuild/app-debug.apk
+            
+            echo "Starting Maestro Tests..."
             $HOME/.maestro/bin/maestro test .maestro/
         env:
           MAESTRO_SEQUENCE_SERVER_URI: "${{ secrets.SEQUENCE_SERVER_URI }}"

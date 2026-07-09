@@ -3,6 +3,9 @@ appId: com.github.biltudas1.sequence
 - launchApp:
     clearState: true
 - extendedWaitUntil:
+    notVisible: "No internet connection"
+    timeout: 60000
+- extendedWaitUntil:
     visible: "Sign in with Google"
     timeout: 30000
 - tapOn: "Sign in with Google"
