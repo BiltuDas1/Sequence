@@ -1,0 +1,4 @@
+flows:
+  - login/*
+executionOrder:
+  continueOnFailure: true

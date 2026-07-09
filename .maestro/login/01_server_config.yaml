@@ -1,0 +1,19 @@
+appId: com.github.biltudas1.sequence
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible: "No internet connection"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "Sign in with Google"
+    timeout: 30000
+- tapOn: "Sign in with Google"
+- assertVisible: "Please configure server settings first"
+- tapOn: "Server Configuration"
+- tapOn: "Server Endpoint"
+- inputText: "${MAESTRO_SEQUENCE_SERVER_URI}"
+- hideKeyboard
+- tapOn: "Test Connection"
+- assertVisible: (?i)server.+compatible?.+
+- tapOn: "Save"
