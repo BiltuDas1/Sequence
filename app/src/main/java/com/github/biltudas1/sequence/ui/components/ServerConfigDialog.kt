@@ -34,18 +34,19 @@ fun ServerConfigDialog(
     config: ServerConfig,
     authService: AuthService,
     onDismiss: () -> Unit,
-    onSave: (ServerConfig) -> Unit
+    onSave: (ServerConfig) -> Unit,
+    autoTest: Boolean = false
 ) {
     val context = LocalContext.current
-    var endpoint by remember { mutableStateOf(config.endpoint) }
-    var username by remember { mutableStateOf(config.username) }
-    var password by remember { mutableStateOf(config.password) }
-    var useHttps by remember { mutableStateOf(config.useHttps) }
-    var useWss by remember { mutableStateOf(config.useWss) }
+    var endpoint by remember(config) { mutableStateOf(config.endpoint) }
+    var username by remember(config) { mutableStateOf(config.username) }
+    var password by remember(config) { mutableStateOf(config.password) }
+    var useHttps by remember(config) { mutableStateOf(config.useHttps) }
+    var useWss by remember(config) { mutableStateOf(config.useWss) }
 
     var isTesting by remember { mutableStateOf(false) }
-    var isValidated by remember { mutableStateOf(config.isValid()) }
-    var isError by remember { mutableStateOf(false) }
+    var isValidated by remember(config) { mutableStateOf(config.isValid()) }
+    var isError by remember(config) { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
     var showDisplayQR by remember { mutableStateOf(false) }
 
@@ -101,6 +102,14 @@ fun ServerConfigDialog(
         }
     }
 
+    var hasAutoTested by remember { mutableStateOf(false) }
+    LaunchedEffect(endpoint, autoTest) {
+        if (autoTest && !hasAutoTested && endpoint.isNotBlank()) {
+            hasAutoTested = true
+            testConnection()
+        }
+    }
+
     var maskLast by remember { mutableStateOf(true) }
     var lastPasswordLength by remember { mutableIntStateOf(password.length) }
 
@@ -122,9 +131,21 @@ fun ServerConfigDialog(
                     if (result.startsWith("seq://")) {
                         val uri = result.toUri()
                         val rawEndpoint = result.substringBefore("?").removePrefix("seq://")
-                        endpoint = if (rawEndpoint.isNotBlank()) rawEndpoint else (uri.host ?: endpoint)
-                        uri.getQueryParameter("u")?.let { username = it }
-                        uri.getQueryParameter("p")?.let { password = it }
+                        endpoint = if (rawEndpoint.isNotBlank()) rawEndpoint else (uri.host ?: "")
+                        
+                        username = uri.getQueryParameter("u") ?: ""
+                        password = uri.getQueryParameter("p") ?: ""
+                        
+                        // Default to secure=1
+                        useHttps = true
+                        useWss = true
+                        
+                        uri.getQueryParameter("secure")?.let { value ->
+                            val isSecure = value == "1" || value.lowercase() == "true"
+                            useHttps = isSecure
+                            useWss = isSecure
+                        }
+
                         uri.getQueryParameter("https")?.let { value ->
                             useHttps = value == "1" || value.lowercase() == "true"
                         }
@@ -153,11 +174,17 @@ fun ServerConfigDialog(
             .removePrefix("ws://")
             .removeSuffix("/")
         
-        val qrContent = "seq://$cleanEndpoint" +
-                "?u=${java.net.URLEncoder.encode(username.trim(), "UTF-8")}" +
-                "&p=${java.net.URLEncoder.encode(password.trim(), "UTF-8")}" +
-                "&https=${if (useHttps) 1 else 0}" +
-                "&wss=${if (useWss) 1 else 0}"
+        val qrContent = StringBuilder("seq://$cleanEndpoint")
+            .append("?u=").append(java.net.URLEncoder.encode(username.trim(), "UTF-8"))
+            .append("&p=").append(java.net.URLEncoder.encode(password.trim(), "UTF-8"))
+            .apply {
+                if (useHttps == useWss) {
+                    append("&secure=").append(if (useHttps) 1 else 0)
+                } else {
+                    append("&https=").append(if (useHttps) 1 else 0)
+                    append("&wss=").append(if (useWss) 1 else 0)
+                }
+            }.toString()
         
         QRCodeDisplayDialog(
             content = qrContent,
@@ -179,11 +206,15 @@ fun ServerConfigDialog(
             ) {
                 OutlinedTextField(
                     value = endpoint,
-                    onValueChange = { 
-                        endpoint = it
-                        isValidated = false 
+                    onValueChange = {
+                        input -> endpoint = input.filter{ !it.isWhitespace() }
+                        isValidated = false
                     },
                     label = { Text("Server Endpoint") },
+                    keyboardOptions = KeyboardOptions(
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Uri
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .onFocusChanged { focusState ->

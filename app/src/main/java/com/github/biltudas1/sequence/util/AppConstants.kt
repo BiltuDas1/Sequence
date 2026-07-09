@@ -10,10 +10,10 @@ object AppConstants {
     const val COMPATIBLE_SERVER_MAJOR_VERSION = BuildConfig.COMPATIBLE_SERVER_MAJOR_VERSION
 
     object Routes {
-        const val LOGIN = "login"
+        const val LOGIN = "login?showConfig={showConfig}"
         const val PERMISSIONS = "permissions"
         const val CONTACTS = "contacts"
-        const val SETTINGS = "settings"
+        const val SETTINGS = "settings?showConfig={showConfig}"
         const val ABOUT = "about"
         const val CALL_SETTINGS = "call_settings"
         const val AUDIO_QUALITY = "audio_quality"

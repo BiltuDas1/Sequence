@@ -42,6 +42,7 @@ import okhttp3.OkHttpClient
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    showConfigInitially: Boolean = false,
     isServerIncompatible: Boolean,
     networkStatus: NetworkStatus,
     onBackClick: () -> Unit,
@@ -69,7 +70,7 @@ fun SettingsScreen(
     val hasUpdate = versionCache.tag?.removePrefix("v") != null && versionCache.tag?.removePrefix("v") != currentVersion.removePrefix("v")
     val updateColor = if (LocalIsDarkTheme.current) DarkOrange else Crimson
 
-    var showConfigDialog by remember { mutableStateOf(false) }
+    var showConfigDialog by remember { mutableStateOf(showConfigInitially) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showUpdateIntervalDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -228,7 +229,8 @@ fun SettingsScreen(
                     dataStoreManager.saveServerConfig(it)
                 }
                 showConfigDialog = false
-            }
+            },
+            autoTest = showConfigInitially
         )
     }
 
