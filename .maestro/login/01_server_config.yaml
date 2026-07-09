@@ -13,6 +13,7 @@ appId: com.github.biltudas1.sequence
 - tapOn: "Server Configuration"
 - tapOn: "Server Endpoint"
 - inputText: "${MAESTRO_SEQUENCE_SERVER_URI}"
+- hideKeyboard
 - tapOn: "Test Connection"
 - assertVisible: (?i)server.+compatible?.+
 - tapOn: "Save"
