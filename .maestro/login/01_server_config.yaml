@@ -2,6 +2,9 @@ appId: com.github.biltudas1.sequence
 ---
 - launchApp:
     clearState: true
+- extendedWaitUntil:
+    visible: "Sign in with Google"
+    timeout: 60000
 - tapOn: "Sign in with Google"
 - assertVisible: "Please configure server settings first"
 - tapOn: "Server Configuration"
