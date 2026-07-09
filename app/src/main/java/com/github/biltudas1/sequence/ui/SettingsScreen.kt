@@ -42,7 +42,6 @@ import okhttp3.OkHttpClient
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    showConfigInitially: Boolean = false,
     isServerIncompatible: Boolean,
     networkStatus: NetworkStatus,
     onBackClick: () -> Unit,
@@ -50,7 +49,8 @@ fun SettingsScreen(
     onCallSettingsClick: () -> Unit,
     onDataUsageClick: () -> Unit,
     onLogoutClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showConfigInitially: Boolean = false
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager.getInstance(context) }

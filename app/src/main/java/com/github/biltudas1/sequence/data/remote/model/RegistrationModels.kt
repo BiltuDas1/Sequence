@@ -16,6 +16,14 @@ data class RegistrationRequest(
 )
 
 @Serializable
+data class EmailRegistrationRequest(
+    val firstname: String,
+    val lastname: String? = null,
+    val email: String,
+    val password: String
+)
+
+@Serializable
 data class UserData(
     val id: String,
     val email: String,
@@ -28,6 +36,12 @@ data class UserData(
 @Serializable
 data class LoginRequest(
     val idToken: String
+)
+
+@Serializable
+data class EmailLoginRequest(
+    val email: String,
+    val password: String
 )
 
 @Serializable
