@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.github.biltudas1.sequence.R
@@ -260,19 +263,24 @@ fun ServerConfigDialog(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().semantics{
+                        testTagsAsResourceId = true
+                        testTag = "row_https"
+                    }
                 ) {
                     Text("HTTPS")
                     Switch(checked = useHttps, onCheckedChange = { 
                         useHttps = it 
                         isValidated = false
-                        testConnection()
                     })
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().semantics{
+                        testTagsAsResourceId = true
+                        testTag = "row_wss"
+                    }
                 ) {
                     Text("WSS")
                     Switch(checked = useWss, onCheckedChange = { 
