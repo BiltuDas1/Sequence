@@ -12,8 +12,16 @@ appId: com.github.biltudas1.sequence
 - assertVisible: "Please configure server settings first"
 - tapOn: "Server Configuration"
 - tapOn: "Server Endpoint"
-- inputText: "${MAESTRO_SEQUENCE_SERVER_URI}"
+- inputText: "http://127.0.0.1:8888"
 - hideKeyboard
+- tapOn:
+    childOf:
+      id: "row_https"
+    index: 1
+- tapOn:
+    childOf:
+      id: "row_wss"
+    index: 1
 - tapOn: "Test Connection"
 - assertVisible: (?i)server.+compatible?.+
 - tapOn: "Save"
