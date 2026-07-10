@@ -256,6 +256,30 @@ class MainActivity : ComponentActivity() {
                             val token = accessToken
                             val config = serverConfig
                             if (token != null && token != "UNDEFINED" && config != null && config.isValid()) {
+                                // Update App Version on server once an hour
+                                val lastUpdate = dataStoreManager.getLastAppVersionUpdate()
+                                val now = System.currentTimeMillis()
+                                if (now - lastUpdate > 3600000) { // 1 hour
+                                    try {
+                                        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                                        val vName = pInfo.versionName ?: "unknown"
+                                        val vCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                            pInfo.longVersionCode
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            pInfo.versionCode.toLong()
+                                        }
+
+                                        val result = authService.updateAppVersion(config, token, vCode, vName)
+                                        if (result.isSuccess) {
+                                            dataStoreManager.saveLastAppVersionUpdate(now)
+                                            Timber.i("App version updated successfully on server")
+                                        }
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Failed to update app version on server")
+                                    }
+                                }
+
                                 try {
                                     @Suppress("DEPRECATION")
                                     val fcmToken = FirebaseMessaging.getInstance().token.await()

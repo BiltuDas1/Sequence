@@ -85,6 +85,34 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
         return performPost(serverConfig, AppConstants.Api.USERS_FCM_TOKEN, accessToken, FcmTokenRequest(fcmToken))
     }
 
+    suspend fun updateAppVersion(
+        serverConfig: ServerConfig,
+        accessToken: String,
+        versionCode: Long,
+        versionName: String
+    ): Result<ApiResponse<Unit>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val baseUrl = serverConfig.cleanEndpoint
+                val protocol = if (serverConfig.useHttps) "https" else "http"
+                val url = "$protocol://$baseUrl/${AppConstants.Api.USERS_APP_VERSION}"
+
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("X-APP-VERSION-CODE", versionCode.toString())
+                    .addHeader("X-APP-VERSION-NAME", versionName)
+                    .post("{}".toRequestBody(mediaType))
+                    .build()
+
+                executeRequest<ApiResponse<Unit>>(request, serverConfig)
+            } catch (e: Exception) {
+                Timber.e(e, "App version update error")
+                Result.failure(e)
+            }
+        }
+    }
+
     suspend fun updatePrivacyMode(serverConfig: ServerConfig, accessToken: String, enabled: Boolean): Result<ApiResponse<PrivacyModeData>> {
         return performPost(serverConfig, AppConstants.Api.USERS_PRIVACY, accessToken, PrivacyModeRequest(enabled))
     }

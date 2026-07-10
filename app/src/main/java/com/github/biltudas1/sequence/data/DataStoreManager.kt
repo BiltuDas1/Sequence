@@ -33,6 +33,7 @@ class DataStoreManager private constructor(private val context: Context) {
 
     // Version Cache File in internal cache partition
     private val versionCacheFile = File(context.cacheDir, "version_cache.json")
+    private val appVersionUpdateFile = File(context.cacheDir, "app_version_update.txt")
     private val _versionCacheFlow = MutableStateFlow(loadVersionCache())
     val versionCacheFlow: Flow<VersionCache> = _versionCacheFlow.asStateFlow()
 
@@ -216,6 +217,26 @@ class DataStoreManager private constructor(private val context: Context) {
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save version cache to internal cache partition")
             }
+        }
+    }
+
+    fun getLastAppVersionUpdate(): Long {
+        return try {
+            if (appVersionUpdateFile.exists()) {
+                appVersionUpdateFile.readText().toLongOrNull() ?: 0L
+            } else {
+                0L
+            }
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    fun saveLastAppVersionUpdate(timestamp: Long) {
+        try {
+            appVersionUpdateFile.writeText(timestamp.toString())
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save app version update timestamp")
         }
     }
 
