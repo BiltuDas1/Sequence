@@ -10,6 +10,8 @@ appId: com.github.biltudas1.sequence
     timeout: 30000
 - tapOn: "Sign in with Google"
 - assertVisible: "Please configure server settings first"
+- tapOn: "Login using Email"
+- assertVisible: "Please configure server settings first"
 - tapOn: "Server Configuration"
 - tapOn: "Server Endpoint"
 - inputText: "http://127.0.0.1:8888"
