@@ -1,4 +1,7 @@
+appId: com.github.biltudas1.sequence
+
 flows:
-  - login/*
+  - login/login.yaml
+
 executionOrder:
   continueOnFailure: true

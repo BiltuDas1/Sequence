@@ -2,4 +2,3 @@ appId: com.github.biltudas1.sequence
 ---
 - tapOn: "Sign in with Google"
 - assertNotVisible: "Google Sign-in failed"
-- back

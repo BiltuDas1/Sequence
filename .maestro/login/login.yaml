@@ -1,0 +1,6 @@
+appId: com.github.biltudas1.sequence
+---
+- runFlow: 01_server_config.yaml
+- runFlow: 02_login_with_google.yaml
+- runFlow: 03_register_with_email.yaml
+- runFlow: 04_login_with_email.yaml
