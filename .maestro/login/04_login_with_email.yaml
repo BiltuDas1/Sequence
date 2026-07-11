@@ -1,0 +1,12 @@
+appId: com.github.biltudas1.sequence
+---
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Email"
+- inputText: "dummyuser@example.com"
+- hideKeyboard
+- tapOn: "Password"
+- inputText: "DummyUser@123"
+- hideKeyboard
+- tapOn: "Login"
+- assertVisible: "(?i).*(dialer|permission).*"

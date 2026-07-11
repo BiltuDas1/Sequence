@@ -1,0 +1,26 @@
+appId: com.github.biltudas1.sequence
+---
+- tapOn: "Login using Email"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Register Now"
+- tapOn: "First Name"
+- inputText: "Dummy"
+- hideKeyboard
+- tapOn: "Last Name.*"
+- inputText: "User"
+- hideKeyboard
+- tapOn: "Email"
+- inputText: "dummyuser@example.com"
+- hideKeyboard
+- tapOn: "Password"
+- inputText: "DummyUser@123"
+- hideKeyboard
+- tapOn: "Confirm Password"
+- inputText: "DummyUser@123"
+- hideKeyboard
+- tapOn: "Register"
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible: "(?i).*success.*"
+- tapOn: "(?i).*login.*"
