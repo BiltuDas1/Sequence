@@ -3,11 +3,11 @@ package com.github.biltudas1.sequence.util
 import com.github.biltudas1.sequence.BuildConfig
 
 object AppConstants {
-    const val GITHUB_REPO_URL = "https://github.com/BiltuDas1/Sequence"
-    const val LICENSE_URL = "https://github.com/BiltuDas1/Sequence/blob/main/LICENSE"
-    const val GITHUB_RELEASES_API_URL = "https://api.github.com/repos/BiltuDas1/Sequence/releases"
-    const val DEFAULT_STUN_SERVER = "stun:stun.l.google.com:19302"
-    const val COMPATIBLE_SERVER_MAJOR_VERSION = BuildConfig.COMPATIBLE_SERVER_MAJOR_VERSION
+    val GITHUB_REPO_URL = BuildConfig.GITHUB_REPO_URL
+    val LICENSE_URL = BuildConfig.LICENSE_URL
+    val GITHUB_RELEASES_API_URL = BuildConfig.GITHUB_RELEASES_API_URL
+    val DEFAULT_STUN_SERVER = BuildConfig.DEFAULT_STUN_SERVER
+    val COMPATIBLE_SERVER_MAJOR_VERSION = BuildConfig.COMPATIBLE_SERVER_MAJOR_VERSION
 
     object Routes {
         const val LOGIN = "login?showConfig={showConfig}"
