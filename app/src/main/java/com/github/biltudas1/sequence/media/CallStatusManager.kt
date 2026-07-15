@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui.utils
+package com.github.biltudas1.sequence.media
 
 import android.Manifest
 import android.content.Context
@@ -16,7 +16,6 @@ class CallStatusManager(private val context: Context) {
     private val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
 
     fun isUserOnAnotherCall(): Boolean {
-        // 1. Check Cellular Call State
         val hasPhoneStatePermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_PHONE_STATE
@@ -36,8 +35,7 @@ class CallStatusManager(private val context: Context) {
             return true
         }
 
-        // 2. Check Audio Mode (VoIP like WhatsApp, Telegram, or Sequence itself)
-        // MODE_IN_CALL (1) is for cellular, MODE_IN_COMMUNICATION (3) is for VoIP
+        // MODE_IN_CALL is for cellular, MODE_IN_COMMUNICATION is for VoIP
         val mode = audioManager.mode
         Timber.v("isUserOnAnotherCall: Audio mode: $mode")
         

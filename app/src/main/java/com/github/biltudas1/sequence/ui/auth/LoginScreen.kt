@@ -1,6 +1,5 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.auth
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
@@ -147,17 +146,16 @@ fun LoginScreen(
                             val credential = googleAuthManager.signIn()
                             if (credential != null) {
                                 Timber.i("Google Sign-In successful. Email: ${AppLogger.redact(credential.id)}")
-                                // 1. Try Login
+                                
                                 Timber.d("Attempting login to server: ${serverConfig.cleanEndpoint}")
                                 var loginResult = authService.loginUser(serverConfig, credential.idToken)
                                 
                                 if (loginResult.isFailure && loginResult.exceptionOrNull()?.message?.contains("User doesn't exist", ignoreCase = true) == true) {
                                     Timber.i("User doesn't exist. Attempting registration.")
-                                    // 2. User doesn't exist, try Register
+                                    
                                     val regResult = authService.registerUser(serverConfig, credential.idToken)
                                     if (regResult.isSuccess) {
                                         Timber.i("Registration successful. Retrying login.")
-                                        // 3. Register success, now Login to get JWT
                                         loginResult = authService.loginUser(serverConfig, credential.idToken)
                                     } else {
                                         val error = regResult.exceptionOrNull()?.message ?: "Registration failed"

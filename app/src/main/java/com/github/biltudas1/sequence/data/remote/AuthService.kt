@@ -203,8 +203,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                     }
                 } else if (resp.code == 401 || (bodyString.contains("expired", true) && bodyString.contains("token", true))) {
                     Timber.w("401 Unauthorized or expired token at ${request.url}")
-                    // Only attempt refresh if the request had a token. 
-                    // Prevents infinite loops if refresh/login themselves return 401.
+
                     if (request.header("Authorization") == null) {
                         try {
                             val errorResponse = json.decodeFromString<ApiResponse<Unit>>(bodyString)

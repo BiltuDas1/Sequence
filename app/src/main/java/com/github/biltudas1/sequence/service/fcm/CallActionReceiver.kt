@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.fcm
+package com.github.biltudas1.sequence.service.fcm
 
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -7,7 +7,7 @@ import android.content.Intent
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
-import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
+import com.github.biltudas1.sequence.media.CallRingtonePlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -24,17 +24,14 @@ class CallActionReceiver : BroadcastReceiver() {
         
         CallRingtonePlayer.stop(context)
 
-        // Dismiss notification using the consistent ID
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
 
         if (action == MyFirebaseMessagingService.ACTION_ACCEPT) {
             Timber.d("Call Accepted: $roomId")
             
-            // Mark room as accepted to stop background busy signals
             MyFirebaseMessagingService.markRoomAccepted(roomId)
             
-            // 1. Create intent to launch MainActivity
             val launchIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra("roomId", roomId)
@@ -44,8 +41,6 @@ class CallActionReceiver : BroadcastReceiver() {
                 putExtra("action", MyFirebaseMessagingService.ACTION_ACCEPT)
             }
             
-            // 2. Wrap it in a PendingIntent to let the system handle the transition better
-            // especially if the user is currently in another app (like the Phone app)
             try {
                 context.startActivity(launchIntent)
             } catch (e: Exception) {
@@ -56,7 +51,7 @@ class CallActionReceiver : BroadcastReceiver() {
             
             val dataStoreManager = DataStoreManager.getInstance(context)
             val authService = AuthService(OkHttpClient(), dataStoreManager)
-            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(context)
             val callerName = intent.getStringExtra("callerName")
             val callerEmail = intent.getStringExtra("callerEmail")
             

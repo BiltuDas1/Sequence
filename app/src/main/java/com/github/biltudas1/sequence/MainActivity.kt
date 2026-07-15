@@ -33,24 +33,25 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.lifecycle.lifecycleScope
-import com.github.biltudas1.sequence.data.ContactRepository
+import com.github.biltudas1.sequence.data.repository.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.auth.GoogleAuthManager
 import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
-import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
-import com.github.biltudas1.sequence.ui.*
-import com.github.biltudas1.sequence.ui.EmailLoginScreen
-import com.github.biltudas1.sequence.ui.EmailRegisterScreen
-import com.github.biltudas1.sequence.ui.RegistrationSuccessScreen
+import com.github.biltudas1.sequence.service.fcm.MyFirebaseMessagingService
+import com.github.biltudas1.sequence.ui.main.*
+import com.github.biltudas1.sequence.ui.auth.*
+import com.github.biltudas1.sequence.ui.call.*
+import com.github.biltudas1.sequence.ui.settings.*
+import com.github.biltudas1.sequence.ui.about.*
+import com.github.biltudas1.sequence.ui.setup.*
 import com.github.biltudas1.sequence.ui.components.NetworkStatusDisplay
-import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.util.ConnectivityObserver
 import com.github.biltudas1.sequence.util.NetworkStatus
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
-import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
-import com.github.biltudas1.sequence.ui.utils.CallStatusManager
+import com.github.biltudas1.sequence.media.CallRingtonePlayer
+import com.github.biltudas1.sequence.media.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
 import com.github.biltudas1.sequence.util.AppLogger
@@ -256,10 +257,9 @@ class MainActivity : ComponentActivity() {
                             val token = accessToken
                             val config = serverConfig
                             if (token != null && token != "UNDEFINED" && config != null && config.isValid()) {
-                                // Update App Version on server once an hour
                                 val lastUpdate = dataStoreManager.getLastAppVersionUpdate()
                                 val now = System.currentTimeMillis()
-                                if (now - lastUpdate > 3600000) { // 1 hour
+                                if (now - lastUpdate > 3600_000) {
                                     try {
                                         val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
                                         val vName = pInfo.versionName ?: "unknown"
@@ -585,7 +585,7 @@ class MainActivity : ComponentActivity() {
                                                             val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
                                                             val fullName = "${contact.first_name ?: ""} ${contact.last_name ?: ""}".trim().ifEmpty { contact.email }
                                                             
-                                                            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(context)
                                                             repository.insertCallLog(
                                                                 com.github.biltudas1.sequence.data.local.CallLogEntity(
                                                                     email = contact.email,
@@ -637,7 +637,7 @@ class MainActivity : ComponentActivity() {
                                                             val protocol = if (serverConfig!!.useWss) "wss" else "ws"
                                                             val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
                                                             
-                                                            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context)
+                                                            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(context)
                                                             repository.insertCallLog(
                                                                 com.github.biltudas1.sequence.data.local.CallLogEntity(
                                                                     email = email,

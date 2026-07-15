@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn

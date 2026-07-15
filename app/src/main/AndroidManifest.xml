@@ -55,7 +55,7 @@
         </activity>
 
         <activity
-            android:name=".ui.IncomingCallActivity"
+            android:name=".ui.call.IncomingCallActivity"
             android:exported="false"
             android:launchMode="singleInstance"
             android:showWhenLocked="true"
@@ -66,7 +66,7 @@
             android:theme="@style/Theme.Sequence" />
 
         <service
-            android:name=".fcm.MyFirebaseMessagingService"
+            android:name=".service.fcm.MyFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -74,7 +74,7 @@
         </service>
 
         <receiver
-            android:name=".fcm.CallActionReceiver"
+            android:name=".service.fcm.CallActionReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.github.biltudas1.sequence.ACCEPT_CALL" />

@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.about
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*

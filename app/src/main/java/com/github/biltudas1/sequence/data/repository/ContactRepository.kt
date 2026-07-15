@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.data
+package com.github.biltudas1.sequence.data.repository
 
 import android.content.Context
 import com.github.biltudas1.sequence.data.local.AppDatabase

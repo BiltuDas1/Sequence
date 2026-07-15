@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui.utils
+package com.github.biltudas1.sequence.media
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -13,13 +13,13 @@ object CallRingtonePlayer {
 
     @Synchronized
     fun start(context: Context) {
+        if (ringtone?.isPlaying == true) return
+        
         if (ringtone != null) {
-            if (ringtone?.isPlaying == false) {
-                try {
-                    ringtone?.play()
-                } catch (e: Exception) {
-                    Timber.e(e, "CallRingtonePlayer: Failed to resume play")
-                }
+            try {
+                ringtone?.play()
+            } catch (e: Exception) {
+                Timber.e(e, "CallRingtonePlayer: Failed to resume play")
             }
             return
         }
@@ -55,7 +55,7 @@ object CallRingtonePlayer {
     fun stop(context: Context) {
         try {
             val r = ringtone
-            ringtone = null // Clear reference first
+            ringtone = null
             r?.stop()
             
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -68,13 +68,12 @@ object CallRingtonePlayer {
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = false
             
-            Timber.d("CallRingtonePlayer: Stopped and speaker disabled")
+            Timber.d("CallRingtonePlayer: Stopped")
         } catch (e: Exception) {
             Timber.e(e, "CallRingtonePlayer: Error stopping")
         }
     }
 
-    
     fun ensureSpeaker(context: Context) {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
