@@ -1,7 +1,4 @@
 <resources>
-    <string name="app_name">Sequence</string>
-    <string name="google_web_client_id" translatable="false">219557175265-v5q0n5a92rsjbtikcmmceda6qpge9dps.apps.googleusercontent.com</string>
-
     <!-- UI Strings -->
     <string name="about">About</string>
     <string name="back">Back</string>

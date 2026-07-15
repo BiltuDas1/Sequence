@@ -23,12 +23,26 @@ android {
         applicationId = "com.github.biltudas1.sequence"
         minSdk = 24
         targetSdk = 37
-        versionCode = 50
-        versionName = "0.15.0b3"
+        versionCode = project.findProperty("sequence.versionCode")?.toString()?.toInt() ?: 1
+        versionName = project.findProperty("sequence.versionName")?.toString() ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("int", "COMPATIBLE_SERVER_MAJOR_VERSION", "2")
+        // Centralized configurations from gradle.properties
+        val serverMajorVersion = project.findProperty("sequence.compatibleServerMajorVersion") ?: "2"
+        val stunServer = project.findProperty("sequence.defaultStunServer") ?: "stun:stun.l.google.com:19302"
+        val repoUrl = project.findProperty("sequence.githubRepoUrl") ?: "https://github.com/BiltuDas1/Sequence"
+        val licenseUrl = project.findProperty("sequence.licenseUrl") ?: "https://github.com/BiltuDas1/Sequence/blob/main/LICENSE"
+        val releasesApiUrl = project.findProperty("sequence.githubReleasesApiUrl") ?: "https://api.github.com/repos/BiltuDas1/Sequence/releases"
+
+        buildConfigField("int", "COMPATIBLE_SERVER_MAJOR_VERSION", serverMajorVersion.toString())
+        buildConfigField("String", "DEFAULT_STUN_SERVER", "\"$stunServer\"")
+        buildConfigField("String", "GITHUB_REPO_URL", "\"$repoUrl\"")
+        buildConfigField("String", "LICENSE_URL", "\"$licenseUrl\"")
+        buildConfigField("String", "GITHUB_RELEASES_API_URL", "\"$releasesApiUrl\"")
+
+        resValue("string", "app_name", project.findProperty("sequence.appName")?.toString() ?: "Sequence")
+        resValue("string", "google_web_client_id", project.findProperty("sequence.googleWebClientId")?.toString() ?: "")
 
         ndk {
             if (project.hasProperty("targetAbis")) {
@@ -76,6 +90,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
 }
 
