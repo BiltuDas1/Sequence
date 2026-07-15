@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-GRADLE_FILE="app/build.gradle.kts"
+PROPERTIES_FILE="gradle.properties"
 
-# Extract versionName using grep and sed
-# This looks for lines matching: versionName = "..." or versionName = '...'
-VERSION=$(grep -E 'versionName\s*=\s*["'"'"']' "$GRADLE_FILE" | sed -E 's/.*versionName\s*=\s*["'"'"']([^"'"'"']+)["'"'"'].*/\1/')
+# Extract sequence.versionName from gradle.properties
+# This looks for sequence.versionName=... and removes anything before and including the =
+VERSION=$(grep -E '^sequence.versionName\s*=' "$PROPERTIES_FILE" | cut -d'=' -f2 | xargs)
 
 # Fallback check if VERSION is empty
 if [ -z "$VERSION" ]; then
-  echo "Error: Could not find versionName in $GRADLE_FILE"
+  echo "Error: Could not find sequence.versionName in $PROPERTIES_FILE"
   exit 1
 fi
 
