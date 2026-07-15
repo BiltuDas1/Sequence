@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.settings
 
 import android.widget.Toast
 import androidx.compose.foundation.background

@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,9 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.github.biltudas1.sequence.data.CallLogRepository
+import com.github.biltudas1.sequence.data.repository.CallLogRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.model.UserData
+import com.github.biltudas1.sequence.ui.call.DialerScreen
 import com.github.biltudas1.sequence.ui.contacts.ContactsScreen
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DarkOrange

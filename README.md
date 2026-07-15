@@ -22,7 +22,28 @@ To run your own secure, private signaling server, we provide a highly optimized 
 **For Developers:**
 If you want to compile the Android app, test features, or contribute to the codebase, please read the [Local Development Guide](docs/DEVELOPMENT.md).
 
-To understand the complex interaction between Firebase pushes, WebSockets, and WebRTC, please review the [Sequence Architecture & Call Flow](docs/ARCHITECTURE.md).
+For deeper insights, see:
+- [Sequence Architecture & Call Flow](docs/ARCHITECTURE.md)
+- [Signaling Protocol Specification](docs/SIGNALING_PROTOCOL.md)
+- [Android System Integration](docs/ANDROID_SYSTEM_INTEGRATION.md)
+- [Security & Privacy Standards](docs/SECURITY_PRIVACY.md)
+- [Troubleshooting & Debugging](docs/TROUBLESHOOTING.md)
+- [In-App Update Mechanism](docs/APP_UPDATES.md)
+- [UI Testing with Maestro](docs/UI_TESTING_MAESTRO.md)
+
+## Project Structure
+
+Sequence follows a feature-oriented and modular structure to keep the codebase maintainable:
+
+- **`ui/`**: Presentation layer grouped by feature.
+    - `auth/`: Login and registration flows.
+    - `call/`: Active call screens and incoming call handling.
+    - `main/`: Primary dashboard and call history.
+    - `settings/`: App preferences and WebRTC configuration.
+- **`data/`**: Data layer with repositories, Room database (`local`), and network services (`remote`).
+- **`media/`**: Centralized management for audio routing, ringtones, and call focus.
+- **`webrtc/`**: Core WebRTC implementation, signaling clients, and foreground services.
+- **`service/`**: Background infrastructure, including FCM push handling and app update workers.
 
 ## Help and Support
 

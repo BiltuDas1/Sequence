@@ -2,11 +2,10 @@ package com.github.biltudas1.sequence.webrtc
 
 import android.content.Context
 import com.github.biltudas1.sequence.data.DataStoreManager
-import com.github.biltudas1.sequence.data.model.AudioQualityLevel
 import com.github.biltudas1.sequence.data.remote.AuthService
-import com.github.biltudas1.sequence.ui.utils.CallAudioManager
-import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
-import com.github.biltudas1.sequence.ui.utils.CallStatusManager
+import com.github.biltudas1.sequence.media.CallAudioManager
+import com.github.biltudas1.sequence.media.CallRingtonePlayer
+import com.github.biltudas1.sequence.media.CallStatusManager
 import androidx.compose.runtime.mutableStateOf
 import com.github.biltudas1.sequence.util.AppLogger
 import kotlinx.coroutines.*
@@ -249,7 +248,7 @@ object CallManager {
         activeCreationTime = null
         
         CoroutineScope(Dispatchers.IO).launch {
-            val repository = com.github.biltudas1.sequence.data.CallLogRepository(context.applicationContext)
+            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(context.applicationContext)
             repository.updateDuration(roomId, duration, cTime)
         }
 

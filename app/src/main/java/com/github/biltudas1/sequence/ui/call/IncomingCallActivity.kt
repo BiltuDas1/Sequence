@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.call
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
@@ -48,9 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
-import com.github.biltudas1.sequence.fcm.MyFirebaseMessagingService
+import com.github.biltudas1.sequence.service.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
-import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
+import com.github.biltudas1.sequence.media.CallRingtonePlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -173,7 +173,7 @@ class IncomingCallActivity : ComponentActivity() {
                         nm.cancel(MyFirebaseMessagingService.CALL_NOTIFICATION_ID)
                         val dataStoreManager = DataStoreManager.getInstance(applicationContext)
                         val authService = AuthService(OkHttpClient(), dataStoreManager)
-                        val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
+                        val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(applicationContext)
                         CoroutineScope(Dispatchers.IO).launch {
                             repository.markAsMissed(roomId, creationTimeFinal, callerName, callerEmail)
                             val config = dataStoreManager.serverConfigFlow.firstOrNull()

@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.auth
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image

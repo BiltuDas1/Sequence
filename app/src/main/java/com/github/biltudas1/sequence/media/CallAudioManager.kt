@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui.utils
+package com.github.biltudas1.sequence.media
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -36,7 +36,7 @@ class CallAudioManager(private val context: Context) {
                 .build()
             
             val mp = MediaPlayer()
-            mediaPlayer = mp // Assign immediately so stopAny can find it
+            mediaPlayer = mp
             
             mp.apply {
                 setAudioAttributes(audioAttributes)
@@ -49,7 +49,7 @@ class CallAudioManager(private val context: Context) {
                     try {
                         it.start() 
                     } catch (e: Exception) {
-                        Timber.e(e, "Error starting MediaPlayer after prepare")
+                        Timber.e(e, "Error starting MediaPlayer")
                     }
                 }
             }
@@ -80,4 +80,3 @@ class CallAudioManager(private val context: Context) {
         mediaPlayer = null
     }
 }
-

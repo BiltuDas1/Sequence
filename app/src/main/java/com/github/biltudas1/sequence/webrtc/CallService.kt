@@ -82,10 +82,7 @@ class CallService : Service() {
             "UPDATE" -> {
                 updateNotification()
             }
-            else -> {
-                // Initial start - must call startForeground
-                initialForegroundStart()
-            }
+            else -> initialForegroundStart()
         }
         
         return START_NOT_STICKY
@@ -141,8 +138,6 @@ class CallService : Service() {
 
         val notification = createNotification(roomId, name, email, isExternal, serverUrl)
 
-        // Only call startForeground if we are not already in foreground or need to update service type
-        // In practice, for a call service, once started, we just update the notification.
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager?.notify(NOTIFICATION_ID, notification)
     }

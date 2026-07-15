@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.call
 
 import android.util.Log
 import androidx.activity.compose.BackHandler

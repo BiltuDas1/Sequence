@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.settings
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -127,13 +127,12 @@ fun CallSettingsScreen(
                                 }
                                 scope.launch {
                                     val originalValue = privacyMode
-                                    // 1. Update UI immediately (local)
+                                    
                                     dataStoreManager.savePrivacyMode(enabled)
-                                    // 2. Update server
+                                    
                                     if (accessToken != null && serverConfig.isValid()) {
                                         val result = authService.updatePrivacyMode(serverConfig, accessToken!!, enabled)
                                         if (result.isFailure) {
-                                            // Revert if failed
                                             dataStoreManager.savePrivacyMode(originalValue)
                                             ToastUtils.show(context, result.exceptionOrNull()?.message ?: "Failed to update privacy mode", Toast.LENGTH_SHORT)
                                         }

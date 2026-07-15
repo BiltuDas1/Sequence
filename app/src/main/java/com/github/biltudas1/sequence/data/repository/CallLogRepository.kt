@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.data
+package com.github.biltudas1.sequence.data.repository
 
 import android.content.Context
 import com.github.biltudas1.sequence.data.local.AppDatabase
@@ -15,23 +15,31 @@ class CallLogRepository(context: Context) {
     suspend fun insertCallLog(callLog: CallLogEntity) {
         Timber.d("insertCallLog: ${callLog.type} - ${AppLogger.redact(callLog.email)}, creationTime=${callLog.creationTime}")
         
-        // Normalize timestamp if creationTime is provided in seconds
-        val normalizedLog = if (callLog.creationTime != null) {
-            val msTimestamp = if (callLog.creationTime < 10000000000L) callLog.creationTime * 1000 else callLog.creationTime
-            callLog.copy(timestamp = msTimestamp)
-        } else {
-            callLog
-        }
+        val normalizedLog = normalizeTimestamp(callLog)
 
         if (normalizedLog.creationTime != null) {
             val existing = callLogDao.getCallLogByCreationTime(normalizedLog.creationTime)
             if (existing != null) {
-                Timber.d("insertCallLog: Found existing call log with creationTime=${normalizedLog.creationTime}, updating.")
+                Timber.d("insertCallLog: Found existing call log, updating.")
                 callLogDao.updateCallLog(normalizedLog.copy(id = existing.id))
                 return
             }
         }
         callLogDao.insertCallLog(normalizedLog)
+    }
+
+    private fun normalizeTimestamp(callLog: CallLogEntity): CallLogEntity {
+        return if (callLog.creationTime != null) {
+            // Converts seconds to milliseconds if needed
+            val msTimestamp = if (callLog.creationTime < 10_000_000_000L) {
+                callLog.creationTime * 1000
+            } else {
+                callLog.creationTime
+            }
+            callLog.copy(timestamp = msTimestamp)
+        } else {
+            callLog
+        }
     }
 
     suspend fun deleteCallLog(callLog: CallLogEntity) {
@@ -46,11 +54,7 @@ class CallLogRepository(context: Context) {
 
     suspend fun updateDuration(roomId: String, duration: Long, creationTime: Long? = null) {
         Timber.d("updateDuration: Room=$roomId, Duration=${duration}ms, creationTime=$creationTime")
-        val log = if (creationTime != null) {
-            callLogDao.getCallLogByCreationTime(creationTime)
-        } else {
-            callLogDao.getCallLogByRoomId(roomId)
-        }
+        val log = findCallLog(roomId, creationTime)
 
         if (log != null) {
             callLogDao.updateCallLog(log.copy(duration = duration))
@@ -61,22 +65,17 @@ class CallLogRepository(context: Context) {
 
     suspend fun markAsMissed(roomId: String, creationTime: Long? = null, callerName: String? = null, callerEmail: String? = null) {
         Timber.d("markAsMissed: Room=$roomId, creationTime=$creationTime")
-        val log = if (creationTime != null) {
-            callLogDao.getCallLogByCreationTime(creationTime)
-        } else {
-            callLogDao.getCallLogByRoomId(roomId)
-        }
+        val log = findCallLog(roomId, creationTime)
 
         if (log != null && log.type == "INCOMING") {
             Timber.i("markAsMissed: Updating log to MISSED")
             callLogDao.updateCallLog(log.copy(type = "MISSED"))
         } else if (log == null && callerEmail != null) {
             Timber.i("markAsMissed: Log not found, creating new MISSED log")
-            val finalTimestamp = if (creationTime != null) {
-                if (creationTime < 10000000000L) creationTime * 1000 else creationTime
-            } else {
-                System.currentTimeMillis()
-            }
+            val finalTimestamp = creationTime?.let {
+                if (it < 10_000_000_000L) it * 1000 else it
+            } ?: System.currentTimeMillis()
+            
             callLogDao.insertCallLog(
                 CallLogEntity(
                     email = callerEmail,
@@ -89,6 +88,14 @@ class CallLogRepository(context: Context) {
             )
         } else if (log == null) {
             Timber.w("markAsMissed: Log not found and no caller info to create one")
+        }
+    }
+
+    private suspend fun findCallLog(roomId: String, creationTime: Long?): CallLogEntity? {
+        return if (creationTime != null) {
+            callLogDao.getCallLogByCreationTime(creationTime)
+        } else {
+            callLogDao.getCallLogByRoomId(roomId)
         }
     }
 }

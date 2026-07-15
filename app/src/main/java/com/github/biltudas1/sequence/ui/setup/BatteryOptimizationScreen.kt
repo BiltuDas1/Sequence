@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.setup
 
 import android.content.Context
 import android.content.Intent

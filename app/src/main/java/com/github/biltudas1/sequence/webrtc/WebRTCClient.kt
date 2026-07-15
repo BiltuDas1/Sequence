@@ -6,7 +6,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
-import com.github.biltudas1.sequence.util.AppLogger
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
 import timber.log.Timber
@@ -108,9 +107,8 @@ class WebRTCClient(
         localAudioTrack = peerConnectionFactory.createAudioTrack("AUDIO_TRACK", audioSource)
         peerConnection?.addTrack(localAudioTrack, listOf("STREAM"))
         
-        // Ensure audio mode is set for VoIP call detection
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        setSpeakerphoneOn(false) // Default to earpiece immediately
+        setSpeakerphoneOn(false)
     }
 
     fun setSpeakerphoneOn(isEnabled: Boolean) {
@@ -266,7 +264,6 @@ class WebRTCClient(
             Timber.d("Final Stats - STUN: S=$stunSent R=$stunRecv, TURN: S=$turnSent R=$turnRecv")
             listener.onDataUsageCollected(stunSent, stunRecv, turnSent, turnRecv)
             
-            // Dispose WebRTC objects on Main thread to avoid threading issues
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 try {
                     pc.close()

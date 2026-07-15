@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.fcm
+package com.github.biltudas1.sequence.service.fcm
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -6,8 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import com.github.biltudas1.sequence.util.AppLogger
 import timber.log.Timber
@@ -16,9 +14,9 @@ import com.github.biltudas1.sequence.MainActivity
 import com.github.biltudas1.sequence.R
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.remote.AuthService
-import com.github.biltudas1.sequence.ui.IncomingCallActivity
-import com.github.biltudas1.sequence.ui.utils.CallRingtonePlayer
-import com.github.biltudas1.sequence.ui.utils.CallStatusManager
+import com.github.biltudas1.sequence.ui.call.IncomingCallActivity
+import com.github.biltudas1.sequence.media.CallRingtonePlayer
+import com.github.biltudas1.sequence.media.CallStatusManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.*
@@ -56,7 +54,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             
             val callChannel = NotificationChannel(CHANNEL_ID, "Voice Calls", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Incoming voice calls"
-                setSound(null, null) // Silent channel, we play manually for control
+                setSound(null, null)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 500, 500, 500, 500, 500, 500)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -77,8 +75,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val dataStoreManager = DataStoreManager.getInstance(applicationContext)
         val tokenFlow = dataStoreManager.accessTokenFlow
         
-        // Use runBlocking for a quick synchronous check in this background thread
-        // or launch a job if we can afford the delay, but we need to know IF we should show notification.
         val isLoggedIn = runBlocking { tokenFlow.firstOrNull() != null }
         
         if (!isLoggedIn) {
@@ -86,10 +82,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        // Acquire wake lock to ensure processing happens
         val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         val wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Sequence:CallWakeLock")
-        wakeLock.acquire(10000) // 10 seconds
+        wakeLock.acquire(10000)
 
         val redactedData = message.data.mapValues { (key, value) ->
             if (key.contains("token", true) || key.contains("email", true)) AppLogger.redact(value) else value
@@ -130,7 +125,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     } else {
                         // Log as INCOMING only if not on another call
                         serviceScope.launch {
-                            val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
+                            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(applicationContext)
                             repository.insertCallLog(
                                 com.github.biltudas1.sequence.data.local.CallLogEntity(
                                     email = callerEmail,
@@ -185,9 +180,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String, creationTime: Long?) {
-        val msTimestamp = if (creationTime != null && creationTime < 10000000000L) creationTime * 1000 else creationTime ?: System.currentTimeMillis()
+        val msTimestamp = if (creationTime != null && creationTime < 10_000_000_000L) {
+            creationTime * 1000
+        } else {
+            creationTime ?: System.currentTimeMillis()
+        }
         
-        // Full screen intent for the heads-up display
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("roomId", roomId)
             putExtra("callerName", callerName)
@@ -200,7 +198,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Accept action: Launch MainActivity DIRECTLY to avoid BAL blocks
         val acceptIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("roomId", roomId)
@@ -215,7 +212,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Reject action: Use receiver for background logic
         val rejectIntent = Intent(this, CallActionReceiver::class.java).apply {
             action = ACTION_REJECT
             putExtra("roomId", roomId)
@@ -228,9 +224,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Stop ringtone if notification is swiped away
         val deleteIntent = Intent(this, CallActionReceiver::class.java).apply {
-            action = ACTION_REJECT // Treat swipe as reject for logic purposes
+            action = ACTION_REJECT
             putExtra("roomId", roomId)
             putExtra("callerName", callerName)
             putExtra("callerEmail", callerEmail)
@@ -258,7 +253,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setDeleteIntent(deletePendingIntent)
             .setAutoCancel(true)
             .setOngoing(true)
-            .setSound(null) // Manual sound handling
+            .setSound(null)
             .setColor(0xFF2E7D32.toInt())
             .setColorized(true)
             .setWhen(msTimestamp)
@@ -266,7 +261,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
-        // Use CallStyle for Android 12+ (API 31+) for better UX and ringtone handling
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             notificationBuilder.setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(
@@ -276,7 +270,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 )
             )
         } else {
-            // Manual actions for older versions
             notificationBuilder.addAction(R.drawable.ic_notification, "Accept", acceptPendingIntent)
             notificationBuilder.addAction(R.drawable.ic_notification, "Reject", rejectPendingIntent)
         }
@@ -294,7 +287,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notificationManager.cancel(CALL_NOTIFICATION_ID)
 
         serviceScope.launch {
-            val repository = com.github.biltudas1.sequence.data.CallLogRepository(applicationContext)
+            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(applicationContext)
             Timber.i("Marking room $roomId as missed, creationTime: $creationTime")
             repository.markAsMissed(roomId, creationTime, callerName, callerEmail)
         }

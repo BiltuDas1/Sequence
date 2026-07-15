@@ -1,4 +1,4 @@
-package com.github.biltudas1.sequence.ui
+package com.github.biltudas1.sequence.ui.main
 
 import android.widget.Toast
 import androidx.compose.animation.*
@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.R
-import com.github.biltudas1.sequence.data.CallLogRepository
+import com.github.biltudas1.sequence.data.repository.CallLogRepository
 import com.github.biltudas1.sequence.data.local.CallLogEntity
 import com.github.biltudas1.sequence.ui.theme.TextSecondary
 import com.github.biltudas1.sequence.util.NetworkStatus

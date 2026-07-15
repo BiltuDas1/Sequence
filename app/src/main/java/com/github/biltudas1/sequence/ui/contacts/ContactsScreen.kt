@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.biltudas1.sequence.R
-import com.github.biltudas1.sequence.data.ContactRepository
+import com.github.biltudas1.sequence.data.repository.ContactRepository
 import com.github.biltudas1.sequence.data.DataStoreManager
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
