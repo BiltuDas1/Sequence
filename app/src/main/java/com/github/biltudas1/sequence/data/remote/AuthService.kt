@@ -26,6 +26,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
     internal val refreshMutex = Mutex()
 
     suspend fun getServerVersion(serverConfig: ServerConfig): Result<ApiResponse<ServerVersionData>> {
+        Timber.d("getServerVersion: Checking server ${serverConfig.cleanEndpoint}")
         return withContext(Dispatchers.IO) {
             try {
                 val baseUrl = serverConfig.cleanEndpoint
@@ -39,49 +40,59 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
 
                 executeRequest<ApiResponse<ServerVersionData>>(request, serverConfig)
             } catch (e: Exception) {
-                Timber.e(e, "Version check error")
+                Timber.e(e, "Version check error for ${serverConfig.cleanEndpoint}")
                 Result.failure(e)
             }
         }
     }
 
     suspend fun getContacts(serverConfig: ServerConfig, accessToken: String): Result<ApiResponse<List<UserData>>> {
+        Timber.d("getContacts: Fetching contacts from ${serverConfig.cleanEndpoint}")
         return performGet(serverConfig, AppConstants.Api.CONTACTS, accessToken)
     }
 
     suspend fun registerUser(serverConfig: ServerConfig, idToken: String): Result<ApiResponse<UserData>> {
+        Timber.i("registerUser: Attempting registration via Google")
         return performPost(serverConfig, AppConstants.Api.USERS_REGISTER, null, RegistrationRequest(idToken))
     }
 
     suspend fun registerUserEmail(serverConfig: ServerConfig, request: EmailRegistrationRequest): Result<ApiResponse<UserData>> {
+        Timber.i("registerUserEmail: Attempting email registration for ${AppLogger.redactEmail(request.email)}")
         return performPost(serverConfig, AppConstants.Api.USERS_REGISTER, null, request)
     }
 
     suspend fun loginUser(serverConfig: ServerConfig, idToken: String): Result<ApiResponse<LoginData>> {
+        Timber.i("loginUser: Attempting login via Google")
         return performPost(serverConfig, AppConstants.Api.USERS_LOGIN, null, LoginRequest(idToken))
     }
 
     suspend fun loginUserEmail(serverConfig: ServerConfig, request: EmailLoginRequest): Result<ApiResponse<LoginData>> {
+        Timber.i("loginUserEmail: Attempting email login for ${AppLogger.redactEmail(request.email)}")
         return performPost(serverConfig, AppConstants.Api.USERS_LOGIN, null, request)
     }
 
     suspend fun logoutUser(serverConfig: ServerConfig, accessToken: String?, refreshToken: String?): Result<ApiResponse<Unit>> {
+        Timber.i("logoutUser: Attempting logout from ${serverConfig.cleanEndpoint}")
         return performPost(serverConfig, AppConstants.Api.USERS_LOGOUT, accessToken, LogoutRequest(refreshToken))
     }
 
     suspend fun addContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<UserData>> {
+        Timber.i("addContact: Adding contact ${AppLogger.redactEmail(email)}")
         return performPost(serverConfig, AppConstants.Api.CONTACTS_ADD, accessToken, AddContactRequest(email))
     }
 
     suspend fun removeContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<Unit>> {
+        Timber.i("removeContact: Removing contact ${AppLogger.redactEmail(email)}")
         return performPost(serverConfig, AppConstants.Api.CONTACTS_REMOVE, accessToken, RemoveContactRequest(email))
     }
 
     suspend fun refreshToken(serverConfig: ServerConfig, refreshToken: String): Result<ApiResponse<JwtTokens>> {
+        Timber.d("refreshToken: Refreshing JWT token")
         return performPost(serverConfig, AppConstants.Api.TOKEN_REFRESH, null, RefreshRequest(refreshToken))
     }
 
     suspend fun updateFcmToken(serverConfig: ServerConfig, accessToken: String, fcmToken: String?): Result<ApiResponse<Unit>> {
+        Timber.d("updateFcmToken: Syncing FCM token to server")
         return performPost(serverConfig, AppConstants.Api.USERS_FCM_TOKEN, accessToken, FcmTokenRequest(fcmToken))
     }
 
@@ -91,6 +102,7 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
         versionCode: Long,
         versionName: String
     ): Result<ApiResponse<Unit>> {
+        Timber.d("updateAppVersion: Syncing app version $versionName ($versionCode) to server")
         return withContext(Dispatchers.IO) {
             try {
                 val baseUrl = serverConfig.cleanEndpoint
@@ -114,18 +126,22 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
     }
 
     suspend fun updatePrivacyMode(serverConfig: ServerConfig, accessToken: String, enabled: Boolean): Result<ApiResponse<PrivacyModeData>> {
+        Timber.i("updatePrivacyMode: Setting privacy mode to $enabled")
         return performPost(serverConfig, AppConstants.Api.USERS_PRIVACY, accessToken, PrivacyModeRequest(enabled))
     }
 
     suspend fun sendVoiceCall(serverConfig: ServerConfig, accessToken: String, email: String): Result<ApiResponse<VoiceCallResponse>> {
+        Timber.i("sendVoiceCall: Initiating call to ${AppLogger.redactEmail(email)}")
         return performPost(serverConfig, AppConstants.Api.VOICECALL_SEND, accessToken, VoiceCallRequest(email))
     }
 
     suspend fun endVoiceCall(serverConfig: ServerConfig, accessToken: String, roomId: String): Result<ApiResponse<Unit>> {
+        Timber.i("endVoiceCall: Notifying server about end of call in room $roomId")
         return performPost(serverConfig, AppConstants.Api.VOICECALL_END, accessToken, EndCallRequest(roomId))
     }
 
     suspend fun sendBusySignal(serverConfig: ServerConfig, accessToken: String, roomId: String): Result<ApiResponse<Unit>> {
+        Timber.i("sendBusySignal: Sending busy signal for room $roomId")
         return performPost(serverConfig, AppConstants.Api.VOICECALL_BUSY, accessToken, EndCallRequest(roomId))
     }
 
@@ -192,7 +208,12 @@ class AuthService(val client: OkHttpClient, internal val dataStoreManager: DataS
                 val bodyString = resp.body.string()
                 val redactedUrl = request.url.toString().replace(Regex("token=[^&]*"), "token=REDACTED")
                 Timber.d("Response [${resp.code}] from $redactedUrl")
-                Timber.v("Response body: $bodyString")
+                
+                if (bodyString.length < 1000) {
+                    Timber.v("Response body: $bodyString")
+                } else {
+                    Timber.v("Response body too long to log (${bodyString.length} chars)")
+                }
 
                 if (resp.isSuccessful) {
                     val parsed = json.decodeFromString<RES>(bodyString)

@@ -22,11 +22,34 @@ object AppLogger {
 
     fun getLogFile(): File? = logFile
 
-    fun redact(input: String?): String {
-        if (input == null) return "null"
-        if (input.isBlank()) return ""
-        return if (input.length > 8) {
-            "${input.take(3)}...${input.takeLast(3)}"
+    /**
+     * Redacts an email address, keeping the domain visible for debugging.
+     * Example: biltu@gmail.com -> b***u@gmail.com
+     */
+    fun redactEmail(email: String?): String {
+        if (email == null) return "null"
+        if (email.isBlank()) return ""
+        val parts = email.split("@")
+        if (parts.size != 2) return redactSecret(email) // Fallback if not a valid email
+        
+        val name = parts[0]
+        val domain = parts[1]
+        return if (name.length > 2) {
+            "${name.take(1)}***${name.takeLast(1)}@$domain"
+        } else {
+            "***@$domain"
+        }
+    }
+
+    /**
+     * Redacts sensitive secrets like passwords or tokens.
+     * Example: secret_token_12345 -> secr***2345
+     */
+    fun redactSecret(secret: String?): String {
+        if (secret == null) return "null"
+        if (secret.isBlank()) return ""
+        return if (secret.length > 12) {
+            "${secret.take(4)}***${secret.takeLast(4)}"
         } else {
             "***"
         }
@@ -37,7 +60,6 @@ object AppLogger {
         if (!logDir.exists()) logDir.mkdirs()
         logFile = File(logDir, "app_logs.txt")
 
-        // Load existing logs from file into memory
         synchronized(_logs) {
             try {
                 if (logFile?.exists() == true) {
@@ -61,10 +83,10 @@ object AppLogger {
             7 -> "A"
             else -> "?"
         }
+        
         val timestamp = dateFormat.format(Date())
         val logEntry = "$timestamp [$priorityStr] ${tag ?: "App"}: $message${t?.let { "\n${it.stackTraceToString()}" } ?: ""}"
         
-        // Add to in-memory list
         synchronized(_logs) {
             if (_logs.size >= MAX_LOGS) {
                 _logs.removeAt(0)
@@ -73,11 +95,9 @@ object AppLogger {
         }
         _newLogFlow.tryEmit(logEntry)
 
-        // Write to file
         synchronized(this) {
             try {
                 logFile?.let { file ->
-                    // Basic rotation: if file > 2MB, clear it or rotate.
                     if (file.exists() && file.length() > MAX_FILE_SIZE) {
                         file.writeText("[Log Rotated at ${dateFormat.format(Date())}]\n")
                     }

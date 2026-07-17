@@ -342,7 +342,7 @@ class DataStoreManager private constructor(private val context: Context) {
     }
 
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
-        Timber.i("Saving new JWT tokens. AccessToken: ${AppLogger.redact(accessToken)}")
+        Timber.i("Saving new JWT tokens. AccessToken: ${AppLogger.redactSecret(accessToken)}")
         context.dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN] = accessToken.encrypt()
             preferences[REFRESH_TOKEN] = refreshToken.encrypt()

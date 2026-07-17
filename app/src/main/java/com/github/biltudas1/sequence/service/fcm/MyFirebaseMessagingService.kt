@@ -87,7 +87,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         wakeLock.acquire(10000)
 
         val redactedData = message.data.mapValues { (key, value) ->
-            if (key.contains("token", true) || key.contains("email", true)) AppLogger.redact(value) else value
+            when {
+                key.contains("email", true) -> AppLogger.redactEmail(value)
+                key.contains("token", true) -> AppLogger.redactSecret(value)
+                else -> value
+            }
         }
         Timber.i("FCM Message received. Data: $redactedData")
         
@@ -98,12 +102,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val creationTime = message.data["callTime"]?.toLongOrNull()
         
         if (roomId != null) {
+            Timber.d("Processing FCM action: $action for Room: $roomId")
             when (action) {
                 "cancel" -> {
                     Timber.i("Call cancelled by sender: $roomId, creationTime: $creationTime")
                     handleCallCancelled(roomId, callerName, callerEmail, creationTime)
                 }
                 null, "start" -> {
+                    Timber.d("Incoming call start request received")
                     val callStatusManager = CallStatusManager(this)
                     val currentActive = com.github.biltudas1.sequence.webrtc.CallManager.activeRoomId
                     
@@ -121,6 +127,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     
                     Timber.i("Incoming call request. RoomId: $roomId, IsOnAnotherCall: $isOnAnotherCall")
                     if (isOnAnotherCall) {
+                        Timber.i("Device is busy. Reporting busy status to server.")
                         reportBusyStatus(roomId)
                     } else {
                         // Log as INCOMING only if not on another call
@@ -180,6 +187,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showIncomingCallNotification(roomId: String, callerName: String, callerEmail: String, creationTime: Long?) {
+        Timber.d("showIncomingCallNotification: Room=$roomId, Caller=$callerName")
         val msTimestamp = if (creationTime != null && creationTime < 10_000_000_000L) {
             creationTime * 1000
         } else {
@@ -329,7 +337,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     @Suppress("DEPRECATION")
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Timber.i("New FCM Token generated: ${AppLogger.redact(token)}")
+        Timber.i("New FCM Token generated: ${AppLogger.redactSecret(token)}")
         val dataStoreManager = DataStoreManager.getInstance(applicationContext)
         val authService = AuthService(OkHttpClient(), dataStoreManager)
         serviceScope.launch {

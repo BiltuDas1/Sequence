@@ -59,6 +59,7 @@ class UpdateDownloadService : Service() {
         val url = intent?.getStringExtra(EXTRA_URL)
         val filePath = intent?.getStringExtra(EXTRA_FILE_PATH)
         val versionTag = intent?.getStringExtra(EXTRA_VERSION_TAG)
+        Timber.i("onStartCommand: url=$url, filePath=$filePath, versionTag=$versionTag")
 
         if (url != null && filePath != null && versionTag != null) {
             startForeground(NOTIFICATION_ID, createNotification(0))
@@ -75,9 +76,11 @@ class UpdateDownloadService : Service() {
 
     private suspend fun downloadFile(url: String, filePath: String) {
         val file = File(filePath)
+        Timber.d("Starting download from $url to $filePath")
         try {
             dataStoreManager.saveDownloadStatus("DOWNLOADING")
             val downloadedBytes = if (file.exists()) file.length() else 0L
+            Timber.d("Existing file size: $downloadedBytes bytes")
 
             val request = Request.Builder()
                 .url(url)
@@ -107,6 +110,7 @@ class UpdateDownloadService : Service() {
 
             val body = response.body
             val totalBytes = body.contentLength() + downloadedBytes
+            Timber.i("Download response successful. Content length: ${body.contentLength()}, Total expected: $totalBytes")
             
             if (downloadedBytes >= totalBytes && totalBytes > 0) {
                 Timber.i("File already fully downloaded. downloadedBytes=$downloadedBytes, totalBytes=$totalBytes")
@@ -157,6 +161,7 @@ class UpdateDownloadService : Service() {
 
             outputStream.close()
             inputStream.close()
+            Timber.i("Download finished successfully. File path: $filePath")
 
             dataStoreManager.saveDownloadStatus("COMPLETED")
             showDownloadCompleteNotification(filePath)

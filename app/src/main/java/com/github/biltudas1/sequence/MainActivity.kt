@@ -89,10 +89,11 @@ class MainActivity : ComponentActivity() {
         val roomId = intent.getStringExtra("roomId")
         val target = intent.getStringExtra("targetPage")
         val action = intent.getStringExtra("action")
-        Timber.i("handleIntent: roomId=$roomId, target=$target, action=$action")
+        Timber.i("handleIntent: roomId=$roomId, target=$target, action=$action, data=${intent.data}")
 
         intent.data?.let { uri ->
             if (uri.scheme == "seq") {
+                Timber.d("Processing seq:// deep link: $uri")
                 lifecycleScope.launch {
                     val dataStoreManager = DataStoreManager.getInstance(this@MainActivity)
                     
@@ -126,6 +127,7 @@ class MainActivity : ComponentActivity() {
                     }
                     
                     val newConfig = ServerConfig(endpoint, username, password, useHttps, useWss)
+                    Timber.i("Deep link config applied: ${newConfig.cleanEndpoint}")
                     dataStoreManager.saveServerConfig(newConfig)
                     targetPage.value = "server_config"
                 }
@@ -169,6 +171,7 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(accessToken) {
                     if (accessToken != null && accessToken != "UNDEFINED") {
+                        Timber.d("AccessToken changed. Checking for completed downloads.")
                         val downloadInfo = dataStoreManager.downloadInfoFlow.first()
                         if (downloadInfo.status == "COMPLETED") {
                             val fileExists = downloadInfo.filePath?.let { File(it).exists() } ?: false
@@ -224,6 +227,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         LaunchedEffect(currentRoute) {
+                            Timber.d("Navigation Route changed: $currentRoute")
                             val isCallScreen = currentRoute?.contains("webrtc_call") == true
                             if (!isCallScreen) {
                                 lastHandledRoomId = null

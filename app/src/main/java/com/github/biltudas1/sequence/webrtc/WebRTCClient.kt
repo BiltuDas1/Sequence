@@ -6,6 +6,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import com.github.biltudas1.sequence.data.model.AudioQualityLevel
+import kotlinx.coroutines.*
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
 import timber.log.Timber
@@ -19,6 +20,9 @@ class WebRTCClient(
     private var localAudioTrack: AudioTrack? = null
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var qualityLevel: AudioQualityLevel = AudioQualityLevel.STANDARD
+    
+    private var statsJob: kotlinx.coroutines.Job? = null
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
 
     private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
@@ -27,6 +31,7 @@ class WebRTCClient(
         fun onSdpCreated(description: SessionDescription)
         fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long)
         fun onConnectionStateChange(state: PeerConnection.IceConnectionState)
+        fun onRelayUsageChanged(isRelay: Boolean)
     }
 
     init {
@@ -60,7 +65,7 @@ class WebRTCClient(
 
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
-                Timber.v("onIceCandidate: ${candidate.sdpMid}")
+                Timber.v("onIceCandidate: ${candidate.sdpMid} - ${candidate.sdp}")
                 listener.onIceCandidate(candidate)
             }
 
@@ -72,17 +77,25 @@ class WebRTCClient(
                 Timber.v("onIceCandidatesRemoved: ${p0?.size}")
             }
             override fun onSignalingChange(state: PeerConnection.SignalingState?) {
-                Timber.d("onSignalingChange: $state")
+                Timber.d("WebRTC Signaling State Change: $state")
             }
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
-                Timber.i("onIceConnectionChange: $state")
+                Timber.i("WebRTC ICE Connection State Change: $state")
                 state?.let { listener.onConnectionStateChange(it) }
+                
+                if (state == PeerConnection.IceConnectionState.CONNECTED) {
+                    startStatsPolling()
+                } else if (state == PeerConnection.IceConnectionState.DISCONNECTED || 
+                           state == PeerConnection.IceConnectionState.FAILED || 
+                           state == PeerConnection.IceConnectionState.CLOSED) {
+                    stopStatsPolling()
+                }
             }
             override fun onIceConnectionReceivingChange(p1: Boolean) {
                 Timber.v("onIceConnectionReceivingChange: $p1")
             }
             override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
-                Timber.d("onIceGatheringChange: $state")
+                Timber.d("WebRTC ICE Gathering State Change: $state")
             }
             override fun onRemoveStream(p0: MediaStream?) {
                 Timber.d("onRemoveStream")
@@ -105,6 +118,7 @@ class WebRTCClient(
 
         val audioSource = peerConnectionFactory.createAudioSource(audioConstraints)
         localAudioTrack = peerConnectionFactory.createAudioTrack("AUDIO_TRACK", audioSource)
+        Timber.i("Local Audio Track created and added to PeerConnection")
         peerConnection?.addTrack(localAudioTrack, listOf("STREAM"))
         
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -144,7 +158,35 @@ class WebRTCClient(
     }
 
     fun setMute(isMuted: Boolean) {
+        Timber.d("setMute: $isMuted")
         localAudioTrack?.setEnabled(!isMuted)
+    }
+
+    private fun startStatsPolling() {
+        if (statsJob != null) return
+        statsJob = scope.launch {
+            while (isActive) {
+                peerConnection?.getStats { report ->
+                    var foundRelay = false
+                    report.statsMap.values.forEach { stats ->
+                        if (stats.type == "candidate-pair" && stats.members["state"] == "succeeded") {
+                            val localId = stats.members["localCandidateId"] as? String
+                            val localCandidate = report.statsMap[localId]
+                            if (localCandidate?.members?.get("candidateType") == "relay") {
+                                foundRelay = true
+                            }
+                        }
+                    }
+                    listener.onRelayUsageChanged(foundRelay)
+                }
+                delay(5000)
+            }
+        }
+    }
+
+    private fun stopStatsPolling() {
+        statsJob?.cancel()
+        statsJob = null
     }
 
     private fun modifySdpForQuality(description: SessionDescription): SessionDescription {
@@ -221,10 +263,10 @@ class WebRTCClient(
 
     fun addIceCandidate(candidate: IceCandidate) {
         if (peerConnection?.remoteDescription != null) {
-            Timber.v("Adding ICE candidate immediately: ${candidate.sdpMid}")
+            Timber.v("Adding ICE candidate immediately: ${candidate.sdpMid} - ${candidate.sdp}")
             peerConnection?.addIceCandidate(candidate)
         } else {
-            Timber.v("Queueing ICE candidate: ${candidate.sdpMid}")
+            Timber.v("Queueing ICE candidate: ${candidate.sdpMid} - ${candidate.sdp}")
             synchronized(pendingIceCandidates) {
                 pendingIceCandidates.add(candidate)
             }
@@ -233,10 +275,10 @@ class WebRTCClient(
 
     fun close() {
         Timber.i("Closing WebRTCClient")
+        stopStatsPolling()
         val pc = peerConnection ?: return
         peerConnection = null
         
-        // Get stats before closing to log final usage
         pc.getStats { report ->
             var stunSent = 0L
             var stunRecv = 0L
