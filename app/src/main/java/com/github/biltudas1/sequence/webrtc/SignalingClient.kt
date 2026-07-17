@@ -61,13 +61,12 @@ class SignalingClient(
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 lastMessageTime = System.currentTimeMillis()
-                // Log.i("SignalingClient", "Received Message: $text")
+                // Only log the type of signal, not the raw JSON to avoid PII/SDP leakage
                 try {
                     val json = JSONObject(text)
                     val type = json.optString("type")
+                    Timber.v("WebSocket Message Received: $type")
                     
-                    // Once we receive any signal from/about a peer, we consider the call active 
-                    // and start enforcing heartbeat timeouts to detect disconnections.
                     if (type == "peer-joined" || type == "offer" || type == "answer" || type == "candidate") {
                         isPeerJoined = true
                     }
@@ -92,12 +91,15 @@ class SignalingClient(
                             listener.onUserBusy()
                         }
                         "offer" -> {
+                            Timber.i("Received WebRTC Offer")
                             listener.onOfferReceived(json.getString("sdp"))
                         }
                         "answer" -> {
+                            Timber.i("Received WebRTC Answer")
                             listener.onAnswerReceived(json.getString("sdp"))
                         }
                         "candidate" -> {
+                            Timber.v("Received ICE Candidate")
                             listener.onIceCandidateReceived(
                                 json.getString("sdpMid"),
                                 json.getInt("sdpMLineIndex"),

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
@@ -33,6 +34,7 @@ fun CallScreenContent(
     callerEmail: String,
     isMuted: Boolean,
     isSpeakerOn: Boolean,
+    isUsingRelay: Boolean = false,
     onMuteToggle: () -> Unit,
     onSpeakerToggle: () -> Unit,
     onCallStopped: () -> Unit,
@@ -62,18 +64,31 @@ fun CallScreenContent(
     Box(
         modifier = modifier.fillMaxSize()
     ) {
-        // Top Right Info Button
-        IconButton(
-            onClick = { showInfoDialog = true },
+        // Top Buttons (Info & Relay Indicator)
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = "Call Info",
-                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-            )
+            if (isUsingRelay) {
+                Icon(
+                    imageVector = Icons.Default.CloudQueue,
+                    contentDescription = "Relay Active",
+                    tint = if (LocalIsDarkTheme.current) Color.Yellow.copy(alpha = 0.6f) else Crimson.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(end = 8.dp).size(24.dp)
+                )
+            }
+
+            IconButton(
+                onClick = { showInfoDialog = true }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Call Info",
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                )
+            }
         }
 
         // Center Content -> Moved to Top Center
@@ -206,6 +221,14 @@ fun CallScreenContent(
                 text = {
                     Column {
                         Text("ID: $roomId")
+                        if (isUsingRelay) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Note: This call is being routed through a relay server (TURN) because a direct connection could not be established.",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 },
                 confirmButton = {

@@ -19,6 +19,7 @@ object CallManager {
     private var signalingClient: SignalingClient? = null
     private var scope: CoroutineScope? = null
     private var audioManager: CallAudioManager? = null
+    private var turnConsentDeferred: CompletableDeferred<Boolean>? = null
     
     var activeRoomId: String? = null
     var activeCallerName: String = ""
@@ -32,6 +33,8 @@ object CallManager {
     var hasPeerJoined = mutableStateOf(false)
     var isRemoteBusy = mutableStateOf(false)
     var isSignalingConnected = mutableStateOf(false)
+    var isTurnWarningVisible = mutableStateOf(false)
+    var isUsingRelay = mutableStateOf(false)
     
     var onCallEnded: (() -> Unit)? = null
     private var startTime: Long = 0
@@ -52,7 +55,7 @@ object CallManager {
             return
         }
         
-        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redact(email)}, External: $isExternal, creationTime: $creationTime, isOutgoing: $isOutgoing")
+        Timber.i("Initializing call - Room: $roomId, Name: $name, Email: ${AppLogger.redactEmail(email)}, External: $isExternal, creationTime: $creationTime, isOutgoing: $isOutgoing")
         activeRoomId = roomId
         activeCallerName = name
         activeCallerEmail = email
@@ -60,9 +63,8 @@ object CallManager {
         isExternalCall = isExternal
         activeCreationTime = creationTime
         
-        isSpeakerOn.value = false // Default to earpiece for new calls
+        isSpeakerOn.value = false
         
-        // Stop any incoming ringtone immediately when a call starts initializing
         CallRingtonePlayer.stop(context)
         
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -73,6 +75,7 @@ object CallManager {
         
         webRTCClient = WebRTCClient(context, object : WebRTCClient.WebRTCListener {
             override fun onIceCandidate(candidate: IceCandidate) {
+                Timber.v("onIceCandidate: ${candidate.sdpMid}")
                 signalingClient?.sendIceCandidate(candidate.sdpMid, candidate.sdpMLineIndex, candidate.sdp)
             }
 
@@ -95,11 +98,17 @@ object CallManager {
             override fun onConnectionStateChange(state: PeerConnection.IceConnectionState) {
                 Timber.i("ICE Connection State Change: $state")
                 if (state == PeerConnection.IceConnectionState.DISCONNECTED || state == PeerConnection.IceConnectionState.FAILED) {
-                    // Check if peer joined at all before terminating immediately
                     if (hasPeerJoined.value) {
                         Timber.w("Peer connection lost/failed. Terminating call.")
                         terminateCall(context)
                     }
+                }
+            }
+
+            override fun onRelayUsageChanged(isRelay: Boolean) {
+                if (isUsingRelay.value != isRelay) {
+                    Timber.i("Relay usage changed: $isRelay")
+                    isUsingRelay.value = isRelay
                 }
             }
         })
@@ -166,6 +175,21 @@ object CallManager {
             val webrtcConfig = dataStoreManager.webrtcConfigFlow.first()
             val audioQuality = dataStoreManager.audioQualityFlow.first()
 
+            if (webrtcConfig.turnServers.isNotEmpty()) {
+                isTurnWarningVisible.value = true
+                val deferred = CompletableDeferred<Boolean>()
+                turnConsentDeferred = deferred
+                
+                Timber.d("Waiting for TURN usage consent...")
+                val consent = deferred.await()
+                turnConsentDeferred = null
+                
+                if (!consent) {
+                    Timber.i("User denied TURN usage. Initialization aborted.")
+                    return@launch 
+                }
+            }
+
             val iceServers = webrtcConfig.stunServers.map { PeerConnection.IceServer.builder(it.url).createIceServer() } +
                              webrtcConfig.turnServers.map { 
                                  PeerConnection.IceServer.builder(it.url)
@@ -180,19 +204,14 @@ object CallManager {
 
             webRTCClient?.initPeerConnection(finalIceServers, audioQuality)
             
-            // Ensure we start with the current speaker state (default: earpiece)
-            // and request audio focus so the system routes audio correctly to earpiece.
-            // A small delay helps some devices transition the audio mode correctly.
             CallStatusManager(context).requestCallAudioFocus()
             delay(300)
             webRTCClient?.setSpeakerphoneOn(isSpeakerOn.value)
 
             signalingClient?.start()
             
-            // Start foreground service immediately for persistent notification
             CallService.start(context, roomId, name, email, isExternal, serverUrl)
 
-            // Start ringback/waiting logic
             if (isOutgoing) {
                 launch {
                     delay(2000)
@@ -208,6 +227,7 @@ object CallManager {
 
     fun toggleMute(context: Context? = null) {
         val newValue = !isMuted.value
+        Timber.i("toggleMute: Setting mute to $newValue")
         isMuted.value = newValue
         webRTCClient?.setMute(newValue)
         context?.let { 
@@ -219,14 +239,25 @@ object CallManager {
 
     fun toggleSpeaker(context: Context? = null) {
         val newValue = !isSpeakerOn.value
+        Timber.i("toggleSpeaker: Setting speaker to $newValue")
         isSpeakerOn.value = newValue
         
-        // Offload system calls to avoid UI lag
         scope?.launch(Dispatchers.Default) {
             webRTCClient?.setSpeakerphoneOn(newValue)
             context?.let { 
                 CallService.updateNotification(it)
             }
+        }
+    }
+
+    fun confirmTurnUsage(context: Context, consent: Boolean) {
+        Timber.i("confirmTurnUsage: User chose consent=$consent")
+        if (!consent) {
+            turnConsentDeferred?.complete(false)
+            terminateCall(context)
+        } else {
+            isTurnWarningVisible.value = false
+            turnConsentDeferred?.complete(true)
         }
     }
 
@@ -257,11 +288,16 @@ object CallManager {
         audioManager?.stopAny()
         CallService.stop(context)
         
+        turnConsentDeferred?.complete(false)
+        turnConsentDeferred = null
+        
         hasPeerJoined.value = false
         isRemoteBusy.value = false
         isSignalingConnected.value = false
         isMuted.value = false
         isSpeakerOn.value = false
+        isTurnWarningVisible.value = false
+        isUsingRelay.value = false
         
         // Notify listeners that call ended on the Main thread
         val listener = onCallEnded

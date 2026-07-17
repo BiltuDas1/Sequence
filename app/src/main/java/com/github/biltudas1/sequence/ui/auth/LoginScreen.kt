@@ -145,7 +145,7 @@ fun LoginScreen(
                         scope.launch {
                             val credential = googleAuthManager.signIn()
                             if (credential != null) {
-                                Timber.i("Google Sign-In successful. Email: ${AppLogger.redact(credential.id)}")
+                                Timber.i("Google Sign-In successful. Email: ${AppLogger.redactEmail(credential.id)}")
                                 
                                 Timber.d("Attempting login to server: ${serverConfig.cleanEndpoint}")
                                 var loginResult = authService.loginUser(serverConfig, credential.idToken)

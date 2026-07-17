@@ -13,7 +13,7 @@ class CallLogRepository(context: Context) {
     val allCallLogs: Flow<List<CallLogEntity>> = callLogDao.getAllCallLogs()
 
     suspend fun insertCallLog(callLog: CallLogEntity) {
-        Timber.d("insertCallLog: ${callLog.type} - ${AppLogger.redact(callLog.email)}, creationTime=${callLog.creationTime}")
+        Timber.d("insertCallLog: ${callLog.type} - ${AppLogger.redactEmail(callLog.email)}, creationTime=${callLog.creationTime}")
         
         val normalizedLog = normalizeTimestamp(callLog)
 

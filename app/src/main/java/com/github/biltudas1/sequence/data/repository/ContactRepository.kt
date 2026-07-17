@@ -36,32 +36,32 @@ class ContactRepository(context: Context, private val authService: AuthService) 
     }
 
     suspend fun addContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<Unit> {
-        Timber.d("addContact: ${AppLogger.redact(email)}")
+        Timber.d("addContact: ${AppLogger.redactEmail(email)}")
         val result = authService.addContact(serverConfig, accessToken, email)
         return if (result.isSuccess) {
             val newUser = result.getOrNull()?.data
             if (newUser != null) {
-                Timber.i("addContact: Success for ${AppLogger.redact(email)}")
+                Timber.i("addContact: Success for ${AppLogger.redactEmail(email)}")
                 contactDao.insertContact(newUser.toEntity())
             }
             Result.success(Unit)
         } else {
             val error = result.exceptionOrNull()
-            Timber.e(error, "addContact: Failed for ${AppLogger.redact(email)}")
+            Timber.e(error, "addContact: Failed for ${AppLogger.redactEmail(email)}")
             Result.failure(error ?: Exception("Unknown error"))
         }
     }
 
     suspend fun removeContact(serverConfig: ServerConfig, accessToken: String, email: String): Result<Unit> {
-        Timber.d("removeContact: ${AppLogger.redact(email)}")
+        Timber.d("removeContact: ${AppLogger.redactEmail(email)}")
         val result = authService.removeContact(serverConfig, accessToken, email)
         return if (result.isSuccess) {
-            Timber.i("removeContact: Success for ${AppLogger.redact(email)}")
+            Timber.i("removeContact: Success for ${AppLogger.redactEmail(email)}")
             contactDao.deleteContactByEmail(email)
             Result.success(Unit)
         } else {
             val error = result.exceptionOrNull()
-            Timber.e(error, "removeContact: Failed for ${AppLogger.redact(email)}")
+            Timber.e(error, "removeContact: Failed for ${AppLogger.redactEmail(email)}")
             Result.failure(error ?: Exception("Unknown error"))
         }
     }

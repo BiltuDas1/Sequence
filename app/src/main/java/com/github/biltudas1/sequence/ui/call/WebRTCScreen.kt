@@ -15,6 +15,7 @@ import com.github.biltudas1.sequence.ui.components.CallScreenContent
 import com.github.biltudas1.sequence.webrtc.CallManager
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
+import timber.log.Timber
 
 @Composable
 fun WebRTCScreen(
@@ -40,6 +41,8 @@ fun WebRTCScreen(
     val hasPeerJoined by CallManager.hasPeerJoined
     val isRemoteBusy by CallManager.isRemoteBusy
     val isSignalingConnected by CallManager.isSignalingConnected
+    val isTurnWarningVisible by CallManager.isTurnWarningVisible
+    val isUsingRelay by CallManager.isUsingRelay
 
     LaunchedEffect(roomId) {
         if (CallManager.activeRoomId == null) {
@@ -73,6 +76,7 @@ fun WebRTCScreen(
             callerEmail = callerEmail,
             isMuted = isMuted,
             isSpeakerOn = isSpeakerOn,
+            isUsingRelay = isUsingRelay,
             onMuteToggle = { CallManager.toggleMute(context) },
             onSpeakerToggle = { CallManager.toggleSpeaker(context) },
             onCallStopped = {
@@ -86,7 +90,7 @@ fun WebRTCScreen(
                             authService.endVoiceCall(serverConfig!!, accessToken, roomId)
                         }
                     } catch (e: Exception) {
-                        Log.e("WebRTCScreen", "Error notifying server about end call", e)
+                        Timber.e(e, "Error notifying server about end call")
                     }
                 }
             },
@@ -98,6 +102,24 @@ fun WebRTCScreen(
                 isRemoteBusy -> "On another call"
                 isSignalingConnected -> "Ringing..."
                 else -> "Connecting..."
+            }
+        )
+    }
+
+    if (isTurnWarningVisible) {
+        AlertDialog(
+            onDismissRequest = { /* Don't dismiss by tapping outside */ },
+            title = { Text("Relay Server (TURN) Usage") },
+            text = { Text("This call configuration includes a relay server (TURN) which may incur additional data or server costs. Do you want to proceed?") },
+            confirmButton = {
+                TextButton(onClick = { CallManager.confirmTurnUsage(context, true) }) {
+                    Text("Yes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { CallManager.confirmTurnUsage(context, false) }) {
+                    Text("No")
+                }
             }
         )
     }
