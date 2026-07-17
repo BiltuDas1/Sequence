@@ -7,6 +7,7 @@ import com.github.biltudas1.sequence.media.AudioOutput
 import com.github.biltudas1.sequence.media.CallAudioManager
 import com.github.biltudas1.sequence.media.CallRingtonePlayer
 import com.github.biltudas1.sequence.media.CallStatusManager
+import com.github.biltudas1.sequence.media.ProximityManager
 import com.github.biltudas1.sequence.util.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
@@ -24,6 +25,7 @@ object CallManager {
     private var signalingClient: SignalingClient? = null
     private var scope: CoroutineScope? = null
     private var audioManager: CallAudioManager? = null
+    private var proximityManager: ProximityManager? = null
     private var turnConsentDeferred: CompletableDeferred<Boolean>? = null
     
     var activeRoomId: String? = null
@@ -85,12 +87,19 @@ object CallManager {
         val appContext = context.applicationContext
         val am = CallAudioManager(appContext)
         audioManager = am
+        proximityManager = ProximityManager(appContext)
         
         am.setOnDeviceChangedListener { output, isConnected ->
             Timber.d("CallManager: Audio device changed (output=$output, isConnected=$isConnected)")
             audioOutput.value = output
             isHeadsetConnected.value = isConnected
             webRTCClient?.setAudioOutput(output)
+
+            if (output == AudioOutput.EARPIECE) {
+                proximityManager?.enable()
+            } else {
+                proximityManager?.disable()
+            }
         }
         
         val dataStoreManager = DataStoreManager.getInstance(appContext)
@@ -266,6 +275,12 @@ object CallManager {
         Timber.i("CallManager: Toggling audio output: $current -> $next")
         audioOutput.value = next
         
+        if (next == AudioOutput.EARPIECE) {
+            proximityManager?.enable()
+        } else {
+            proximityManager?.disable()
+        }
+        
         scope?.launch(Dispatchers.Default) {
             audioManager?.setAudioOutput(next)
             context?.let { 
@@ -311,6 +326,9 @@ object CallManager {
 
         audioManager?.cleanup()
         audioManager = null
+        
+        proximityManager?.cleanup()
+        proximityManager = null
         
         webRTCClient?.close()
         webRTCClient = null
