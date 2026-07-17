@@ -37,7 +37,7 @@ fun WebRTCScreen(
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
 
     val isMuted by CallManager.isMuted
-    val isSpeakerOn by CallManager.isSpeakerOn
+    val audioOutput by CallManager.audioOutput
     val hasPeerJoined by CallManager.hasPeerJoined
     val isRemoteBusy by CallManager.isRemoteBusy
     val isSignalingConnected by CallManager.isSignalingConnected
@@ -75,10 +75,10 @@ fun WebRTCScreen(
             callerName = callerName,
             callerEmail = callerEmail,
             isMuted = isMuted,
-            isSpeakerOn = isSpeakerOn,
+            audioOutput = audioOutput,
             isUsingRelay = isUsingRelay,
             onMuteToggle = { CallManager.toggleMute(context) },
-            onSpeakerToggle = { CallManager.toggleSpeaker(context) },
+            onSpeakerToggle = { CallManager.toggleAudioOutput(context) },
             onCallStopped = {
                 // Immediately terminate local state and navigate back
                 CallManager.terminateCall(context)
