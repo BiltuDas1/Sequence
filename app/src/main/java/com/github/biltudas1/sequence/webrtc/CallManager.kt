@@ -3,6 +3,7 @@ package com.github.biltudas1.sequence.webrtc
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import com.github.biltudas1.sequence.data.DataStoreManager
+import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.media.AudioOutput
 import com.github.biltudas1.sequence.media.CallAudioManager
 import com.github.biltudas1.sequence.media.CallRingtonePlayer
@@ -11,6 +12,8 @@ import com.github.biltudas1.sequence.media.ProximityManager
 import com.github.biltudas1.sequence.util.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import okhttp3.OkHttpClient
 import org.webrtc.*
 import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
@@ -46,6 +49,29 @@ object CallManager {
     
     var onCallEnded: (() -> Unit)? = null
     private var startTime: Long = 0
+
+    /**
+     * Checks if TURN servers are configured and requests user consent if necessary.
+     * Returns true if consent is granted or not needed, false otherwise.
+     */
+    suspend fun checkTurnConsent(context: Context): Boolean {
+        val dataStoreManager = DataStoreManager.getInstance(context.applicationContext)
+        val webrtcConfig = dataStoreManager.webrtcConfigFlow.first()
+
+        if (webrtcConfig.turnServers.isEmpty()) {
+            return true
+        }
+
+        isTurnWarningVisible.value = true
+        val deferred = CompletableDeferred<Boolean>()
+        turnConsentDeferred = deferred
+
+        Timber.d("CallManager: Waiting for TURN usage consent...")
+        val consent = deferred.await()
+        turnConsentDeferred = null
+        // Note: isTurnWarningVisible is set to false in confirmTurnUsage
+        return consent
+    }
 
     fun initCall(
         context: Context,
@@ -199,17 +225,13 @@ object CallManager {
             val webrtcConfig = dataStoreManager.webrtcConfigFlow.first()
             val audioQuality = dataStoreManager.audioQualityFlow.first()
 
-            if (webrtcConfig.turnServers.isNotEmpty()) {
-                isTurnWarningVisible.value = true
-                val deferred = CompletableDeferred<Boolean>()
-                turnConsentDeferred = deferred
-                
-                Timber.d("CallManager: Waiting for TURN usage consent...")
-                val consent = deferred.await()
-                turnConsentDeferred = null
-                
+            // For outgoing calls, consent was already handled in MainActivity before FCM.
+            // For incoming calls, we check here before starting WebRTC.
+            if (webrtcConfig.turnServers.isNotEmpty() && !isOutgoing) {
+                val consent = checkTurnConsent(appContext)
                 if (!consent) {
-                    Timber.i("CallManager: User denied TURN usage. Initialization aborted.")
+                    Timber.i("CallManager: User denied TURN usage for incoming call.")
+                    terminateCall(appContext)
                     return@launch 
                 }
             }
@@ -291,11 +313,11 @@ object CallManager {
 
     fun confirmTurnUsage(context: Context, consent: Boolean) {
         Timber.i("CallManager: TURN usage consent=$consent")
+        isTurnWarningVisible.value = false
         if (!consent) {
             turnConsentDeferred?.complete(false)
             terminateCall(context)
         } else {
-            isTurnWarningVisible.value = false
             turnConsentDeferred?.complete(true)
         }
     }
@@ -304,14 +326,33 @@ object CallManager {
      * Terminates the current call session and cleans up all related resources.
      */
     fun terminateCall(context: Context) {
+        isTurnWarningVisible.value = false
         val roomId = activeRoomId
         if (roomId == null) {
             Timber.d("CallManager: terminateCall called but no active call")
+            turnConsentDeferred?.complete(false)
+            turnConsentDeferred = null
             return
         }
         
-        Timber.i("CallManager: Terminating call session")
+        Timber.i("CallManager: Terminating call session for room: $roomId")
         activeRoomId = null 
+
+        // Inform the server about the end of the call so the other peer is notified immediately
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val dataStoreManager = DataStoreManager.getInstance(appContext)
+                val serverConfig = dataStoreManager.serverConfigFlow.firstOrNull()
+                val accessToken = dataStoreManager.accessTokenFlow.firstOrNull()
+                if (serverConfig != null && serverConfig.isValid() && accessToken != null) {
+                    val authService = AuthService(OkHttpClient(), dataStoreManager)
+                    authService.endVoiceCall(serverConfig, accessToken, roomId)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "CallManager: Error notifying server about end call")
+            }
+        }
 
         val duration = if (startTime > 0) System.currentTimeMillis() - startTime else 0
         startTime = 0

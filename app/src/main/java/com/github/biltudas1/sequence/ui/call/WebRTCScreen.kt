@@ -41,7 +41,6 @@ fun WebRTCScreen(
     val hasPeerJoined by CallManager.hasPeerJoined
     val isRemoteBusy by CallManager.isRemoteBusy
     val isSignalingConnected by CallManager.isSignalingConnected
-    val isTurnWarningVisible by CallManager.isTurnWarningVisible
     val isUsingRelay by CallManager.isUsingRelay
 
     LaunchedEffect(roomId) {
@@ -102,24 +101,6 @@ fun WebRTCScreen(
                 isRemoteBusy -> "On another call"
                 isSignalingConnected -> "Ringing..."
                 else -> "Connecting..."
-            }
-        )
-    }
-
-    if (isTurnWarningVisible) {
-        AlertDialog(
-            onDismissRequest = { /* Don't dismiss by tapping outside */ },
-            title = { Text("Relay Server (TURN) Usage") },
-            text = { Text("This call configuration includes a relay server (TURN) which may incur additional data or server costs. Do you want to proceed?") },
-            confirmButton = {
-                TextButton(onClick = { CallManager.confirmTurnUsage(context, true) }) {
-                    Text("Yes")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { CallManager.confirmTurnUsage(context, false) }) {
-                    Text("No")
-                }
             }
         )
     }
