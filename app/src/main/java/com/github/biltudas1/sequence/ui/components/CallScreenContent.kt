@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import com.github.biltudas1.sequence.media.AudioOutput
 import com.github.biltudas1.sequence.ui.theme.Crimson
 import com.github.biltudas1.sequence.ui.theme.DeepGreen
 import com.github.biltudas1.sequence.ui.theme.LocalIsDarkTheme
@@ -33,7 +35,7 @@ fun CallScreenContent(
     callerName: String,
     callerEmail: String,
     isMuted: Boolean,
-    isSpeakerOn: Boolean,
+    audioOutput: AudioOutput,
     isUsingRelay: Boolean = false,
     onMuteToggle: () -> Unit,
     onSpeakerToggle: () -> Unit,
@@ -201,14 +203,16 @@ fun CallScreenContent(
                 onClick = onSpeakerToggle,
                 modifier = Modifier.size(56.dp)
             ) {
+                val (icon, tint) = when (audioOutput) {
+                    AudioOutput.EARPIECE -> Icons.AutoMirrored.Filled.VolumeOff to MaterialTheme.colorScheme.onBackground
+                    AudioOutput.SPEAKER -> Icons.AutoMirrored.Filled.VolumeUp to if (LocalIsDarkTheme.current) Color.Green else DeepGreen
+                    AudioOutput.HEADSET -> Icons.Default.Headset to if (LocalIsDarkTheme.current) Color.Cyan else Color.Blue
+                }
+
                 Icon(
-                    imageVector = if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                    contentDescription = if (isSpeakerOn) "Speaker Off" else "Speaker On",
-                    tint = when {
-                        isSpeakerOn && LocalIsDarkTheme.current -> Color.Green
-                        isSpeakerOn && !LocalIsDarkTheme.current -> DeepGreen
-                        else -> MaterialTheme.colorScheme.onBackground
-                    },
+                    imageVector = icon,
+                    contentDescription = "Toggle Audio Output",
+                    tint = tint,
                     modifier = Modifier.size(32.dp)
                 )
             }

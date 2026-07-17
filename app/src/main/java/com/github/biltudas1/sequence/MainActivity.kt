@@ -40,6 +40,7 @@ import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.service.fcm.MyFirebaseMessagingService
+import com.github.biltudas1.sequence.worker.FcmTokenWorker
 import com.github.biltudas1.sequence.ui.main.*
 import com.github.biltudas1.sequence.ui.auth.*
 import com.github.biltudas1.sequence.ui.call.*
@@ -52,18 +53,16 @@ import com.github.biltudas1.sequence.util.NetworkStatus
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.media.CallRingtonePlayer
 import com.github.biltudas1.sequence.media.CallStatusManager
+import com.github.biltudas1.sequence.webrtc.CallManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
-import com.github.biltudas1.sequence.util.AppLogger
 import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
 import com.github.biltudas1.sequence.util.UpdateDownloadManager
-import com.google.firebase.messaging.FirebaseMessaging
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import java.io.File
 
@@ -214,6 +213,7 @@ class MainActivity : ComponentActivity() {
                         val currentRoute = navBackStackEntry?.destination?.route
                         val scope = rememberCoroutineScope()
                         var isCalling by remember { mutableStateOf(false) }
+                        val isTurnWarningVisible by CallManager.isTurnWarningVisible
 
                         val sessionExpiredText = stringResource(R.string.session_expired)
                         LaunchedEffect(Unit) {
@@ -284,19 +284,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                try {
-                                    @Suppress("DEPRECATION")
-                                    val fcmToken = FirebaseMessaging.getInstance().token.await()
-                                    val currentSavedToken = dataStoreManager.fcmTokenFlow.firstOrNull()
-                                    if (fcmToken != currentSavedToken) {
-                                        val result = authService.updateFcmToken(config, token, fcmToken)
-                                        if (result.isSuccess) {
-                                            dataStoreManager.saveFcmToken(fcmToken)
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Failed to check/refresh FCM token")
-                                }
+                                FcmTokenWorker.enqueue(context)
                             }
                         }
 
@@ -581,6 +569,13 @@ class MainActivity : ComponentActivity() {
                                             isCalling = true
                                             scope.launch {
                                                 if (accessToken != null && serverConfig != null) {
+                                                    // Request TURN consent BEFORE sending the voice call FCM
+                                                    val consent = CallManager.checkTurnConsent(context)
+                                                    if (!consent) {
+                                                        isCalling = false
+                                                        return@launch
+                                                    }
+
                                                     val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, contact.email)
                                                     if (result.isSuccess) {
                                                         result.getOrNull()?.data?.let { data ->
@@ -634,6 +629,13 @@ class MainActivity : ComponentActivity() {
                                             isCalling = true
                                             scope.launch {
                                                 if (accessToken != null && serverConfig != null) {
+                                                    // Request TURN consent BEFORE sending the voice call FCM
+                                                    val consent = CallManager.checkTurnConsent(context)
+                                                    if (!consent) {
+                                                        isCalling = false
+                                                        return@launch
+                                                    }
+
                                                     val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, email)
                                                     if (result.isSuccess) {
                                                         result.getOrNull()?.data?.let { data ->
@@ -769,7 +771,15 @@ class MainActivity : ComponentActivity() {
                                                 ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
                                             } else {
                                                 isCalling = true
-                                                navigateToCallWithPermission(rId, url, roomCallText, "", isOutgoing = true)
+                                                scope.launch {
+                                                    // Request TURN consent BEFORE navigating to call screen
+                                                    val consent = CallManager.checkTurnConsent(context)
+                                                    if (!consent) {
+                                                        isCalling = false
+                                                        return@launch
+                                                    }
+                                                    navigateToCallWithPermission(rId, url, roomCallText, "", isOutgoing = true)
+                                                }
                                             }
                                         }
                                     )
@@ -807,6 +817,24 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
+                        }
+
+                        if (isTurnWarningVisible) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { /* Don't dismiss by tapping outside */ },
+                                title = { androidx.compose.material3.Text("Relay Server (TURN) Usage") },
+                                text = { androidx.compose.material3.Text("This call configuration includes a relay server (TURN) which may incur additional data or server costs. Do you want to proceed?") },
+                                confirmButton = {
+                                    androidx.compose.material3.TextButton(onClick = { CallManager.confirmTurnUsage(context, true) }) {
+                                        androidx.compose.material3.Text("Yes")
+                                    }
+                                },
+                                dismissButton = {
+                                    androidx.compose.material3.TextButton(onClick = { CallManager.confirmTurnUsage(context, false) }) {
+                                        androidx.compose.material3.Text("No")
+                                    }
+                                }
+                            )
                         }
                     }
                 }

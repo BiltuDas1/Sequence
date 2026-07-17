@@ -37,11 +37,10 @@ fun WebRTCScreen(
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = null)
 
     val isMuted by CallManager.isMuted
-    val isSpeakerOn by CallManager.isSpeakerOn
+    val audioOutput by CallManager.audioOutput
     val hasPeerJoined by CallManager.hasPeerJoined
     val isRemoteBusy by CallManager.isRemoteBusy
     val isSignalingConnected by CallManager.isSignalingConnected
-    val isTurnWarningVisible by CallManager.isTurnWarningVisible
     val isUsingRelay by CallManager.isUsingRelay
 
     LaunchedEffect(roomId) {
@@ -75,10 +74,10 @@ fun WebRTCScreen(
             callerName = callerName,
             callerEmail = callerEmail,
             isMuted = isMuted,
-            isSpeakerOn = isSpeakerOn,
+            audioOutput = audioOutput,
             isUsingRelay = isUsingRelay,
             onMuteToggle = { CallManager.toggleMute(context) },
-            onSpeakerToggle = { CallManager.toggleSpeaker(context) },
+            onSpeakerToggle = { CallManager.toggleAudioOutput(context) },
             onCallStopped = {
                 // Immediately terminate local state and navigate back
                 CallManager.terminateCall(context)
@@ -102,24 +101,6 @@ fun WebRTCScreen(
                 isRemoteBusy -> "On another call"
                 isSignalingConnected -> "Ringing..."
                 else -> "Connecting..."
-            }
-        )
-    }
-
-    if (isTurnWarningVisible) {
-        AlertDialog(
-            onDismissRequest = { /* Don't dismiss by tapping outside */ },
-            title = { Text("Relay Server (TURN) Usage") },
-            text = { Text("This call configuration includes a relay server (TURN) which may incur additional data or server costs. Do you want to proceed?") },
-            confirmButton = {
-                TextButton(onClick = { CallManager.confirmTurnUsage(context, true) }) {
-                    Text("Yes")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { CallManager.confirmTurnUsage(context, false) }) {
-                    Text("No")
-                }
             }
         )
     }
