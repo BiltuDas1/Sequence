@@ -1,6 +1,5 @@
 package com.github.biltudas1.sequence.ui.auth
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,6 +33,7 @@ import com.github.biltudas1.sequence.data.remote.model.EmailLoginRequest
 import com.github.biltudas1.sequence.data.remote.model.EmailRegistrationRequest
 import com.github.biltudas1.sequence.util.NetworkStatus
 import com.github.biltudas1.sequence.util.ToastUtils
+import com.github.biltudas1.sequence.worker.FcmTokenWorker
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import timber.log.Timber
@@ -166,6 +166,10 @@ fun EmailLoginScreen(
                                 )
                                 dataStoreManager.saveUserEmail(loginData.email)
                                 dataStoreManager.savePrivacyMode(loginData.privacy_mode)
+                                
+                                // Ensure FCM token is synced immediately after login
+                                FcmTokenWorker.enqueue(context)
+
                                 onLoginSuccess()
                             }
                         } else {

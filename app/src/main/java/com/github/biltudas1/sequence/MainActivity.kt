@@ -40,6 +40,7 @@ import com.github.biltudas1.sequence.data.model.AppTheme
 import com.github.biltudas1.sequence.data.model.ServerConfig
 import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.service.fcm.MyFirebaseMessagingService
+import com.github.biltudas1.sequence.worker.FcmTokenWorker
 import com.github.biltudas1.sequence.ui.main.*
 import com.github.biltudas1.sequence.ui.auth.*
 import com.github.biltudas1.sequence.ui.call.*
@@ -54,16 +55,13 @@ import com.github.biltudas1.sequence.media.CallRingtonePlayer
 import com.github.biltudas1.sequence.media.CallStatusManager
 import com.github.biltudas1.sequence.ui.utils.PermissionUtils
 import com.github.biltudas1.sequence.util.AppConstants
-import com.github.biltudas1.sequence.util.AppLogger
 import com.github.biltudas1.sequence.util.ToastUtils
 import com.github.biltudas1.sequence.util.VersionUtils
 import com.github.biltudas1.sequence.util.UpdateDownloadManager
-import com.google.firebase.messaging.FirebaseMessaging
 import com.github.biltudas1.sequence.worker.UpdateWorker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import java.io.File
 
@@ -284,19 +282,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                try {
-                                    @Suppress("DEPRECATION")
-                                    val fcmToken = FirebaseMessaging.getInstance().token.await()
-                                    val currentSavedToken = dataStoreManager.fcmTokenFlow.firstOrNull()
-                                    if (fcmToken != currentSavedToken) {
-                                        val result = authService.updateFcmToken(config, token, fcmToken)
-                                        if (result.isSuccess) {
-                                            dataStoreManager.saveFcmToken(fcmToken)
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Failed to check/refresh FCM token")
-                                }
+                                FcmTokenWorker.enqueue(context)
                             }
                         }
 

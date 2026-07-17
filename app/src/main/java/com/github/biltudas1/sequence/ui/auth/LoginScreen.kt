@@ -29,9 +29,8 @@ import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.ui.components.ServerConfigDialog
 import com.github.biltudas1.sequence.util.NetworkStatus
 import com.github.biltudas1.sequence.util.ToastUtils
-import com.google.firebase.messaging.FirebaseMessaging
+import com.github.biltudas1.sequence.worker.FcmTokenWorker
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import com.github.biltudas1.sequence.util.AppLogger
@@ -177,6 +176,9 @@ fun LoginScreen(
                                         )
                                         dataStoreManager.saveUserEmail(loginData.email)
                                         dataStoreManager.savePrivacyMode(loginData.privacy_mode)
+
+                                        // Ensure FCM token is synced immediately after login
+                                        FcmTokenWorker.enqueue(context)
 
                                         ToastUtils.show(context, "Welcome back, ${loginData.firstname ?: credential.displayName}", Toast.LENGTH_SHORT)
                                         
