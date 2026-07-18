@@ -130,100 +130,109 @@ object CallManager {
         
         val dataStoreManager = DataStoreManager.getInstance(appContext)
         
-        webRTCClient = WebRTCClient(appContext, am, object : WebRTCClient.WebRTCListener {
-            override fun onIceCandidate(candidate: IceCandidate) {
-                signalingClient?.sendIceCandidate(candidate.sdpMid, candidate.sdpMLineIndex, candidate.sdp)
-            }
-
-            override fun onSdpCreated(description: SessionDescription) {
-                if (description.type == SessionDescription.Type.OFFER) {
-                    signalingClient?.sendOffer(description.description)
-                } else if (description.type == SessionDescription.Type.ANSWER) {
-                    signalingClient?.sendAnswer(description.description)
-                }
-            }
-
-            override fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long) {
-                scope?.launch(Dispatchers.IO) {
-                    dataStoreManager.addDataUsage(stunSent, stunRecv, turnSent, turnRecv)
-                }
-            }
-
-            override fun onConnectionStateChange(state: PeerConnection.IceConnectionState) {
-                if ((state == PeerConnection.IceConnectionState.DISCONNECTED) || (state == PeerConnection.IceConnectionState.FAILED)) {
-                    if (hasPeerJoined.value) {
-                        Timber.w("CallManager: Peer connection lost. Terminating call.")
-                        terminateCall(appContext)
-                    }
-                }
-            }
-
-            override fun onRelayUsageChanged(isRelay: Boolean) {
-                if (isUsingRelay.value != isRelay) {
-                    isUsingRelay.value = isRelay
-                }
-            }
-        })
-
-        signalingClient = SignalingClient(
-            serverUrl = serverUrl,
-            accessToken = accessToken,
-            listener = object : SignalingClient.SignalingListener {
-                override fun onConnected() {
-                    isSignalingConnected.value = true
-                }
-
-                override fun onPeerJoined() {
-                    Timber.i("CallManager: Peer joined")
-                    hasPeerJoined.value = true
-                    isRemoteBusy.value = false
-                    if (startTime == 0L) startTime = System.currentTimeMillis()
-                    webRTCClient?.createOffer()
-                    audioManager?.stopAny()
-                    CallStatusManager(appContext).requestCallAudioFocus()
-                    CallService.start(appContext, roomId, name, email, isExternal, serverUrl)
-                }
-
-                override fun onPeerLeft() {
-                    Timber.i("CallManager: Peer left")
-                    terminateCall(appContext)
-                }
-
-                override fun onUserBusy() {
-                    Timber.i("CallManager: Receiver is busy")
-                    isRemoteBusy.value = true
-                    if (!hasPeerJoined.value) {
-                        audioManager?.startBusy()
-                    }
-                }
-
-                override fun onOfferReceived(description: String) {
-                    Timber.i("CallManager: Offer received")
-                    hasPeerJoined.value = true
-                    isRemoteBusy.value = false
-                    if (startTime == 0L) startTime = System.currentTimeMillis()
-                    webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
-                    webRTCClient?.createAnswer()
-                    audioManager?.stopAny()
-                    CallStatusManager(appContext).requestCallAudioFocus()
-                    CallService.start(appContext, roomId, name, email, isExternal, serverUrl)
-                }
-
-                override fun onAnswerReceived(description: String) {
-                    Timber.i("CallManager: Answer received")
-                    webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, description))
-                    audioManager?.stopAny()
-                }
-
-                override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String) {
-                    webRTCClient?.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, sdp))
-                }
-            }
-        )
-
         scope?.launch {
+            val serverConfig = dataStoreManager.serverConfigFlow.first()
             val webrtcConfig = dataStoreManager.webrtcConfigFlow.first()
             val audioQuality = dataStoreManager.audioQualityFlow.first()
+
+            // 1. Proactively refresh token if expired before starting signaling.
+            // This is essential to prevent 401 handshake failures on the first call attempt.
+            val authService = AuthService(OkHttpClient(), dataStoreManager)
+            authService.tryRefresh(serverConfig)
+            val freshToken = dataStoreManager.accessTokenFlow.first() ?: accessToken
+
+            // 2. Initialize Clients inside the scope where we have fresh data
+            webRTCClient = WebRTCClient(appContext, am, object : WebRTCClient.WebRTCListener {
+                override fun onIceCandidate(candidate: IceCandidate) {
+                    signalingClient?.sendIceCandidate(candidate.sdpMid, candidate.sdpMLineIndex, candidate.sdp)
+                }
+
+                override fun onSdpCreated(description: SessionDescription) {
+                    if (description.type == SessionDescription.Type.OFFER) {
+                        signalingClient?.sendOffer(description.description)
+                    } else if (description.type == SessionDescription.Type.ANSWER) {
+                        signalingClient?.sendAnswer(description.description)
+                    }
+                }
+
+                override fun onDataUsageCollected(stunSent: Long, stunRecv: Long, turnSent: Long, turnRecv: Long) {
+                    // Use a separate scope to avoid cancelling stats collection if call ends mid-way
+                    CoroutineScope(Dispatchers.IO).launch {
+                        dataStoreManager.addDataUsage(stunSent, stunRecv, turnSent, turnRecv)
+                    }
+                }
+
+                override fun onConnectionStateChange(state: PeerConnection.IceConnectionState) {
+                    if ((state == PeerConnection.IceConnectionState.DISCONNECTED) || (state == PeerConnection.IceConnectionState.FAILED)) {
+                        if (hasPeerJoined.value) {
+                            Timber.w("CallManager: Peer connection lost. Terminating call.")
+                            terminateCall(appContext)
+                        }
+                    }
+                }
+
+                override fun onRelayUsageChanged(isRelay: Boolean) {
+                    if (isUsingRelay.value != isRelay) {
+                        isUsingRelay.value = isRelay
+                    }
+                }
+            })
+
+            signalingClient = SignalingClient(
+                serverUrl = serverUrl,
+                accessToken = freshToken,
+                listener = object : SignalingClient.SignalingListener {
+                    override fun onConnected() {
+                        isSignalingConnected.value = true
+                    }
+
+                    override fun onPeerJoined() {
+                        Timber.i("CallManager: Peer joined")
+                        hasPeerJoined.value = true
+                        isRemoteBusy.value = false
+                        if (startTime == 0L) startTime = System.currentTimeMillis()
+                        webRTCClient?.createOffer()
+                        audioManager?.stopAny()
+                        CallStatusManager(appContext).requestCallAudioFocus()
+                        CallService.start(appContext, roomId, name, email, isExternal, serverUrl)
+                    }
+
+                    override fun onPeerLeft() {
+                        Timber.i("CallManager: Peer left")
+                        terminateCall(appContext)
+                    }
+
+                    override fun onUserBusy() {
+                        Timber.i("CallManager: Receiver is busy")
+                        isRemoteBusy.value = true
+                        if (!hasPeerJoined.value) {
+                            audioManager?.startBusy()
+                        }
+                    }
+
+                    override fun onOfferReceived(description: String) {
+                        Timber.i("CallManager: Offer received")
+                        hasPeerJoined.value = true
+                        isRemoteBusy.value = false
+                        if (startTime == 0L) startTime = System.currentTimeMillis()
+                        webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, description))
+                        webRTCClient?.createAnswer()
+                        audioManager?.stopAny()
+                        CallStatusManager(appContext).requestCallAudioFocus()
+                        CallService.start(appContext, roomId, name, email, isExternal, serverUrl)
+                    }
+
+                    override fun onAnswerReceived(description: String) {
+                        Timber.i("CallManager: Answer received")
+                        webRTCClient?.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, description))
+                        audioManager?.stopAny()
+                    }
+
+                    override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, sdp: String) {
+                        webRTCClient?.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, sdp))
+                    }
+                }
+            )
 
             // For outgoing calls, consent was already handled in MainActivity before FCM.
             // For incoming calls, we check here before starting WebRTC.
