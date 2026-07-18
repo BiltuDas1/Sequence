@@ -35,6 +35,7 @@ fun MainScreen(
     networkStatus: NetworkStatus,
     onContactClick: (UserData) -> Unit,
     onDialerCallClick: (String) -> Unit,
+    onInfoClick: (String, String?, String?) -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -149,12 +150,18 @@ fun MainScreen(
                         networkStatus = networkStatus,
                         onCallClick = { email, name ->
                             onContactClick(UserData(id = "", email = email, first_name = name, last_name = "", created_at = ""))
+                        },
+                        onInfoClick = { email, name ->
+                            onInfoClick(email, name, null)
                         }
                     )
                     2 -> ContactsScreen(
                         isServerIncompatible = isServerIncompatible,
                         networkStatus = networkStatus,
                         onContactClick = onContactClick,
+                        onInfoClick = { contact ->
+                            onInfoClick(contact.email, contact.first_name, contact.last_name)
+                        },
                         onSettingsClick = onSettingsClick,
                         showAddDialogExternally = showAddContactDialog,
                         onAddDialogDismiss = { showAddContactDialog = false }

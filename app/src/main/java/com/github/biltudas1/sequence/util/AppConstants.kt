@@ -18,6 +18,7 @@ object AppConstants {
         const val CONTACTS = "contacts"
         const val SETTINGS = "settings?showConfig={showConfig}"
         const val ABOUT = "about"
+        const val CONTACT_DETAIL = "contact_detail/{email}?firstName={firstName}&lastName={lastName}"
         const val CALL_SETTINGS = "call_settings"
         const val AUDIO_QUALITY = "audio_quality"
         const val DATA_USAGE = "data_usage"

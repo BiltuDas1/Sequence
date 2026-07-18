@@ -1,11 +1,18 @@
 package com.github.biltudas1.sequence.ui.settings
 
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material3.*
@@ -35,16 +42,49 @@ fun CallSettingsScreen(
     onBackClick: () -> Unit,
     onWebRTCConfigClick: () -> Unit,
     onAudioQualityClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager.getInstance(context) }
     val authService = remember { AuthService(OkHttpClient(), dataStoreManager) }
     val privacyMode by dataStoreManager.privacyModeFlow.collectAsStateWithLifecycle(initialValue = false)
+    val callRingtoneUri by dataStoreManager.callRingtoneUriFlow.collectAsStateWithLifecycle(initialValue = null)
     val serverConfig by dataStoreManager.serverConfigFlow.collectAsStateWithLifecycle(initialValue = ServerConfig())
     val accessToken by dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     val noInternetText = stringResource(R.string.no_internet)
+    val defaultRingtoneText = stringResource(R.string.default_ringtone)
+    val unknownRingtoneText = stringResource(R.string.unknown_ringtone)
+    val selectRingtoneText = stringResource(R.string.select_ringtone)
+
+    val ringtoneTitle = remember(callRingtoneUri, defaultRingtoneText, unknownRingtoneText) {
+        if (callRingtoneUri.isNullOrEmpty()) {
+            defaultRingtoneText
+        } else {
+            try {
+                val ringtone = RingtoneManager.getRingtone(context, Uri.parse(callRingtoneUri))
+                ringtone?.getTitle(context) ?: unknownRingtoneText
+            } catch (_: Exception) {
+                defaultRingtoneText
+            }
+        }
+    }
+
+    val ringtonePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            }
+            scope.launch {
+                dataStoreManager.saveCallRingtoneUri(uri?.toString())
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -95,6 +135,23 @@ fun CallSettingsScreen(
                 )
             }
             item {
+                SettingsCategoryItem(
+                    title = stringResource(R.string.ringtone),
+                    description = ringtoneTitle,
+                    icon = Icons.Default.MusicNote,
+                    onClick = {
+                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, selectRingtoneText)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, if (callRingtoneUri != null) Uri.parse(callRingtoneUri) else null)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                        }
+                        ringtonePickerLauncher.launch(intent)
+                    }
+                )
+            }
+            item {
                 ListItem(
                     headlineContent = {
                         Text(
@@ -130,7 +187,7 @@ fun CallSettingsScreen(
                                     
                                     dataStoreManager.savePrivacyMode(enabled)
                                     
-                                    if (accessToken != null && serverConfig.isValid()) {
+                                    if ((accessToken != null) && serverConfig.isValid()) {
                                         val result = authService.updatePrivacyMode(serverConfig, accessToken!!, enabled)
                                         if (result.isFailure) {
                                             dataStoreManager.savePrivacyMode(originalValue)

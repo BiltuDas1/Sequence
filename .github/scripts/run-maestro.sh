@@ -6,6 +6,9 @@ bash .github/scripts/wait_for_emulator.sh
 echo "Suppressing system crash and ANR dialogs..."
 adb shell settings put global hide_error_dialogs 1
 
+echo "Disabling cellular data to prevent network drops..."
+adb shell svc data disable
+
 echo "Routing emulator port 8888 to Docker host network layer..."
 adb reverse tcp:8888 tcp:8888
 

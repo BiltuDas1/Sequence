@@ -6,6 +6,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import timber.log.Timber
 
@@ -16,7 +17,7 @@ object CallRingtonePlayer {
     private var ringtone: Ringtone? = null
 
     @Synchronized
-    fun start(context: Context) {
+    fun start(context: Context, ringtoneUri: String? = null) {
         if (ringtone?.isPlaying == true) return
         
         if (ringtone != null) {
@@ -33,7 +34,11 @@ object CallRingtonePlayer {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             val hasHeadset = devices.any { isHeadset(it) }
 
-            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val uri = if (!ringtoneUri.isNullOrEmpty()) {
+                Uri.parse(ringtoneUri)
+            } else {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            }
             val newRingtone = RingtoneManager.getRingtone(context.applicationContext, uri)
             
             // Setting USAGE_NOTIFICATION_RINGTONE is key for system-level dual routing
