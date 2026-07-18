@@ -146,7 +146,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         }
                         
                         showIncomingCallNotification(roomId, callerName, callerEmail, creationTime)
-                        CallRingtonePlayer.start(this)
+                        serviceScope.launch {
+                            val ringtoneUri = dataStoreManager.callRingtoneUriFlow.firstOrNull()
+                            CallRingtonePlayer.start(this@MyFirebaseMessagingService, ringtoneUri)
+                        }
                     }
                 }
                 else -> {

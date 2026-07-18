@@ -75,6 +75,7 @@ class DataStoreManager private constructor(private val context: Context) {
         private val USER_EMAIL = stringPreferencesKey("user_email")
         private val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
         private val FCM_TOKEN = stringPreferencesKey("fcm_token")
+        private val CALL_RINGTONE_URI = stringPreferencesKey("call_ringtone_uri")
 
         private val DOWNLOAD_STATUS = stringPreferencesKey("download_status")
         private val DOWNLOAD_PROGRESS = floatPreferencesKey("download_progress")
@@ -167,6 +168,7 @@ class DataStoreManager private constructor(private val context: Context) {
     val userEmailFlow: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL]?.decrypt() }
     val privacyModeFlow: Flow<Boolean> = context.dataStore.data.map { it[PRIVACY_MODE] ?: false }
     val fcmTokenFlow: Flow<String?> = context.dataStore.data.map { it[FCM_TOKEN]?.decrypt() }
+    val callRingtoneUriFlow: Flow<String?> = context.dataStore.data.map { it[CALL_RINGTONE_URI] }
 
     data class DownloadInfo(
         val status: String,
@@ -305,6 +307,16 @@ class DataStoreManager private constructor(private val context: Context) {
                 preferences.remove(FCM_TOKEN)
             } else {
                 preferences[FCM_TOKEN] = token.encrypt()
+            }
+        }
+    }
+
+    suspend fun saveCallRingtoneUri(uri: String?) {
+        context.dataStore.edit { preferences ->
+            if (uri == null) {
+                preferences.remove(CALL_RINGTONE_URI)
+            } else {
+                preferences[CALL_RINGTONE_URI] = uri
             }
         }
     }

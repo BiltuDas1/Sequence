@@ -6,10 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.AudioAttributes
-import android.media.AudioManager
-import android.media.Ringtone
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -51,6 +47,7 @@ import com.github.biltudas1.sequence.data.remote.AuthService
 import com.github.biltudas1.sequence.service.fcm.MyFirebaseMessagingService
 import com.github.biltudas1.sequence.ui.theme.SequenceTheme
 import com.github.biltudas1.sequence.media.CallRingtonePlayer
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -60,8 +57,6 @@ import timber.log.Timber
 import kotlin.math.sqrt
 
 class IncomingCallActivity : ComponentActivity() {
-    
-    private var ringtone: Ringtone? = null
     
     private val cancelReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -84,7 +79,6 @@ class IncomingCallActivity : ComponentActivity() {
     private fun stopRingtone() {
         try {
             CallRingtonePlayer.stop(this)
-            ringtone = null
         } catch (e: Exception) {
             Timber.e(e, "Error stopping ringtone")
         }
@@ -119,7 +113,11 @@ class IncomingCallActivity : ComponentActivity() {
         }
 
         // Ensure it's playing (covers cases where activity starts after service)
-        CallRingtonePlayer.start(this)
+        val dataStoreManager = DataStoreManager.getInstance(applicationContext)
+        lifecycleScope.launch {
+            val ringtoneUri = dataStoreManager.callRingtoneUriFlow.firstOrNull()
+            CallRingtonePlayer.start(this@IncomingCallActivity, ringtoneUri)
+        }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
