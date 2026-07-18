@@ -9,4 +9,6 @@ appId: com.github.biltudas1.sequence
 - inputText: "DummyUser@123"
 - hideKeyboard
 - tapOn: "Login"
+- waitForAnimationToEnd:
+    timeout: 10000
 - assertVisible: "(?i).*(dialer|permission).*"
