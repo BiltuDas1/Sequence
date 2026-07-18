@@ -224,7 +224,11 @@ fun CallScreenContent(
                 title = { Text("Call Details") },
                 text = {
                     Column {
-                        Text("ID: $roomId")
+                        InfoRow(label = "Room ID", value = roomId)
+                        InfoRow(label = "Audio Output", value = audioOutput.name.lowercase().replaceFirstChar { it.uppercase() })
+                        InfoRow(label = "Microphone", value = if (isMuted) "Muted" else "Active")
+                        InfoRow(label = "Connection Status", value = statusMessage ?: "Unknown")
+                        
                         if (isUsingRelay) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
@@ -242,5 +246,13 @@ fun CallScreenContent(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(text = label, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+        Text(text = value, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
     }
 }

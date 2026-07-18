@@ -45,6 +45,7 @@ fun ContactsScreen(
     isServerIncompatible: Boolean,
     networkStatus: NetworkStatus,
     onContactClick: (UserData) -> Unit,
+    onInfoClick: (UserData) -> Unit,
     onSettingsClick: () -> Unit,
     showAddDialogExternally: Boolean = false,
     onAddDialogDismiss: () -> Unit = {},
@@ -154,7 +155,7 @@ fun ContactsScreen(
                                     }
                                 },
                                 onDeleteClick = { contactToDelete = contact },
-                                onInfoClick = { /* TODO: Info screen */ }
+                                onInfoClick = { onInfoClick(contact) }
                             )
                         }
                     }

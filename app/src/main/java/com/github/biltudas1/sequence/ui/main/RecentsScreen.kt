@@ -38,6 +38,7 @@ import java.util.*
 fun RecentsScreen(
     networkStatus: NetworkStatus,
     onCallClick: (String, String) -> Unit,
+    onInfoClick: (String, String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -78,7 +79,7 @@ fun RecentsScreen(
                         }
                     },
                     onDeleteClick = { logToDelete = log },
-                    onInfoClick = { /* TODO: Info screen */ }
+                    onInfoClick = { onInfoClick(log.email, log.name) }
                 )
             }
         }

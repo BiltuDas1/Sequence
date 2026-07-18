@@ -25,4 +25,13 @@ interface CallLogDao {
     
     @Update
     suspend fun updateCallLog(callLog: CallLogEntity)
+
+    @Query("SELECT * FROM call_logs WHERE email = :email ORDER BY timestamp DESC")
+    fun getCallLogsByEmail(email: String): Flow<List<CallLogEntity>>
+
+    @Query("DELETE FROM call_logs WHERE id IN (:ids)")
+    suspend fun deleteCallLogsByIds(ids: List<Long>)
+
+    @Query("DELETE FROM call_logs WHERE email = :email")
+    suspend fun deleteCallLogsByEmail(email: String)
 }

@@ -44,6 +44,7 @@ import com.github.biltudas1.sequence.worker.FcmTokenWorker
 import com.github.biltudas1.sequence.ui.main.*
 import com.github.biltudas1.sequence.ui.auth.*
 import com.github.biltudas1.sequence.ui.call.*
+import com.github.biltudas1.sequence.ui.contacts.*
 import com.github.biltudas1.sequence.ui.settings.*
 import com.github.biltudas1.sequence.ui.about.*
 import com.github.biltudas1.sequence.ui.setup.*
@@ -670,9 +671,97 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         },
+                                        onInfoClick = { email, firstName, lastName ->
+                                            val fName = firstName ?: ""
+                                            val lName = lastName ?: ""
+                                            navController.navigate("contact_detail/$email?firstName=$fName&lastName=$lName")
+                                        },
                                         onSettingsClick = {
                                             navController.navigate(AppConstants.Routes.SETTINGS)
                                         }
+                                    )
+                                }
+                                composable(
+                                    route = AppConstants.Routes.CONTACT_DETAIL,
+                                    arguments = listOf(
+                                        navArgument("email") { type = NavType.StringType },
+                                        navArgument("firstName") { type = NavType.StringType; nullable = true; defaultValue = "" },
+                                        navArgument("lastName") { type = NavType.StringType; nullable = true; defaultValue = "" }
+                                    )
+                                ) { backStackEntry ->
+                                    val email = backStackEntry.arguments?.getString("email") ?: ""
+                                    val firstName = backStackEntry.arguments?.getString("firstName")?.ifBlank { null }
+                                    val lastName = backStackEntry.arguments?.getString("lastName")?.ifBlank { null }
+                                    
+                                    val cannotPlaceCallBusyText = stringResource(R.string.cannot_place_call_busy)
+                                    val serverIncompatibleText = stringResource(R.string.server_incompatible)
+                                    val privacyModeRestrictionText = stringResource(R.string.privacy_mode_restriction)
+
+                                    ContactDetailScreen(
+                                        email = email,
+                                        firstName = firstName,
+                                        lastName = lastName,
+                                        networkStatus = networkStatus,
+                                        onBackClick = { navController.popBackStack() },
+                                        onCallClick = { targetEmail, targetName ->
+                                            if (isCalling) return@ContactDetailScreen
+                                            if (isServerIncompatible) {
+                                                ToastUtils.show(context, serverIncompatibleText, Toast.LENGTH_SHORT)
+                                                return@ContactDetailScreen
+                                            }
+                                            if (targetEmail == ownEmail) {
+                                                ToastUtils.show(context, "You cannot call yourself", Toast.LENGTH_SHORT)
+                                                return@ContactDetailScreen
+                                            }
+                                            val callStatusManager = CallStatusManager(context)
+                                            if (callStatusManager.isUserOnAnotherCall()) {
+                                                ToastUtils.show(context, cannotPlaceCallBusyText, Toast.LENGTH_SHORT)
+                                                return@ContactDetailScreen
+                                            }
+                                            isCalling = true
+                                            scope.launch {
+                                                if (accessToken != null && serverConfig != null) {
+                                                    val consent = CallManager.checkTurnConsent(context)
+                                                    if (!consent) {
+                                                        isCalling = false
+                                                        return@launch
+                                                    }
+
+                                                    val result = authService.sendVoiceCall(serverConfig!!, accessToken!!, targetEmail)
+                                                    if (result.isSuccess) {
+                                                        result.getOrNull()?.data?.let { data ->
+                                                            val rId = data.roomId
+                                                            val protocol = if (serverConfig!!.useWss) "wss" else "ws"
+                                                            val fullUrl = "$protocol://${serverConfig!!.cleanEndpoint}/room/$rId"
+                                                            
+                                                            val repository = com.github.biltudas1.sequence.data.repository.CallLogRepository(context)
+                                                            repository.insertCallLog(
+                                                                com.github.biltudas1.sequence.data.local.CallLogEntity(
+                                                                    email = targetEmail,
+                                                                    name = targetName,
+                                                                    type = "OUTGOING",
+                                                                    timestamp = System.currentTimeMillis(),
+                                                                    roomId = rId
+                                                                )
+                                                            )
+                                                            
+                                                            navigateToCallWithPermission(rId, fullUrl, targetName, targetEmail, isExternal = false, isOutgoing = true)
+                                                        }
+                                                    } else {
+                                                        isCalling = false
+                                                        val exception = result.exceptionOrNull()
+                                                        if (exception is com.github.biltudas1.sequence.data.remote.ForbiddenException) {
+                                                            ToastUtils.show(context, privacyModeRestrictionText, Toast.LENGTH_LONG)
+                                                        } else {
+                                                            ToastUtils.show(context, exception?.message ?: "Call failed", Toast.LENGTH_SHORT)
+                                                        }
+                                                    }
+                                                } else {
+                                                    isCalling = false
+                                                }
+                                            }
+                                        },
+                                        onDeleted = { navController.popBackStack() }
                                     )
                                 }
                                 composable(

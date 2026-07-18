@@ -12,6 +12,10 @@ class CallLogRepository(context: Context) {
 
     val allCallLogs: Flow<List<CallLogEntity>> = callLogDao.getAllCallLogs()
 
+    fun getCallLogsByEmail(email: String): Flow<List<CallLogEntity>> {
+        return callLogDao.getCallLogsByEmail(email)
+    }
+
     suspend fun insertCallLog(callLog: CallLogEntity) {
         Timber.d("insertCallLog: ${callLog.type} - ${AppLogger.redactEmail(callLog.email)}, creationTime=${callLog.creationTime}")
         
@@ -45,6 +49,16 @@ class CallLogRepository(context: Context) {
     suspend fun deleteCallLog(callLog: CallLogEntity) {
         Timber.d("deleteCallLog: id=${callLog.id}")
         callLogDao.deleteCallLog(callLog)
+    }
+
+    suspend fun deleteCallLogsByIds(ids: List<Long>) {
+        Timber.d("deleteCallLogsByIds: ids=$ids")
+        callLogDao.deleteCallLogsByIds(ids)
+    }
+
+    suspend fun deleteCallLogsByEmail(email: String) {
+        Timber.d("deleteCallLogsByEmail: email=$email")
+        callLogDao.deleteCallLogsByEmail(email)
     }
 
     suspend fun clearAll() {
