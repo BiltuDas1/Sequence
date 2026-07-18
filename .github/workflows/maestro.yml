@@ -56,24 +56,14 @@ jobs:
       - name: Run Maestro Tests
         uses: ReactiveCircus/android-emulator-runner@v2.38.0
         with:
-          api-level: 35
-          profile: pixel_6
+          api-level: 31
+          target: google_apis
+          profile: Nexus 6P
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-window -gpu auto -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -cores 2 -memory 3072
           disable-animations: true
-          script: |
-            bash .github/scripts/wait_for_emulator.sh
-            
-            # Links emulator's localhost:8888 straight to the container running on the host runner
-            echo "Routing emulator port 8888 to Docker host network layer..."
-            adb reverse tcp:8888 tcp:8888
-            
-            echo "Installing APK..."
-            adb install app/build/outputs/apk/debug/app-debug.apk
-            
-            echo "Starting Maestro Tests..."
-            $HOME/.maestro/bin/maestro test .maestro/
+          script: bash .github/scripts/run-maestro.sh
         env:
           MAESTRO_CLI_NO_ANALYTICS: "1"
 
@@ -85,3 +75,4 @@ jobs:
           path: |
             ~/.maestro/tests/
             report.xml
+            app-internal-output.log
